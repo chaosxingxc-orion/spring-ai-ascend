@@ -4,305 +4,194 @@ module: agent-runtime
 feature_type: functional
 feature_id: FEAT-004
 status: active
+updated: 2026-07-20
 dependency:
   - README.md
+  - FEAT-001-standardized-agent-service-entrypoint.md
+  - FEAT-003-agent-task-state-cache.md
+  - FEAT-008-user-interaction-interrupt-response.md
+  - FEAT-019-agent-core-parallel-tool-tasks.md
+  - DFX-001-trajectory-observability.md
+  - ../architecture/L1-High-Level-Design/agent-runtime
   - ../architecture/L2-Low-Level-Design/agent-runtime/Feat-Func-004-remote-agent-orchestration.md
 ---
 
-# 远程 Agent 编排 — 黑盒行为说明
+# 任务驱动的远程智能体调用 - 当前版本事实要求
 
 ## 1. 特性定位
 
-agent-runtime 作为 A2A 客户端接入和调用其他 A2A Agent，实现跨 Agent 协作。远程 Agent 通过 YAML 配置静态接入，runtime 自动拉取 Agent Card、缓存维护本地目录、生成工具描述，并将其安装为本地 Agent 可调用的 Tool。
+FEAT-004 定义 `agent-runtime` 侧执行下游智能体调用委托的黑盒行为。运行时代理在父 Task 执行过程中接收来自智能体框架的远程智能体调用委托，将委托转换为标准 A2A 调用发送给下游 runtime，并在下游调用返回后把结果回填给父智能体，使父 Task 从此前的委托等待点恢复执行。
 
-本特性同时纳入两种远程调用方式：
+本特性覆盖两类调用形态：
 
-1. **单任务工具调用**：LLM 调用一个远程 Tool，runtime 通过中断—续接流水线执行一个远程 A2A Task，并将结果回灌本地 Agent。
-2. **任务驱动的并行子任务**：上游 Agent 或任务规划器一次提交多个彼此独立的远程 Agent 子任务，runtime 将每个子任务物化为可独立追踪的远程 A2A Task，在并发预算内 fan-out 并行执行，待结果 fan-in 后一次性回灌本地 Agent。
+1. **单个下游智能体调用**：父智能体产生一个下游智能体委托，runtime 代理一次远程 A2A 调用，收到结果后回填并恢复父任务。
+2. **同轮多个下游智能体调用**：`agent-core` 按 FEAT-019 在同一轮 agent-loop 中保留多个下游智能体 ToolCall，并以批量委托形式交给 runtime；runtime 可并行代理多个下游 A2A 调用，等待同批次全部到达结果性终态后一次性回填并恢复父任务。
 
-并行子任务在当前版本采用**同步父级等待**：父 Task 保持运行 / 等待状态，child Task 并行执行并实时投射轨迹，all-settled 后父 Agent 恢复。父 Task 创建子任务后立即返回、依赖异步回调聚合和断线重连的执行方式不属于本次 FEAT-004 更新范围。
+本特性解决的问题是：父智能体需要把部分工作委托给一个或多个专业下游智能体执行，但客户端不应直接理解下游 Agent 地址、A2A 调用细节、远端 Task 生命周期或结果汇聚过程。`agent-runtime` 必须以父 Task 为中心完成远程调用代理、状态关联、结果聚合和父任务恢复，使单调用和并行调用在客户端表面保持一致、可追踪、可取消、可诊断。
 
-- **解决的问题**：单个 Agent 能力有限；复杂任务需要拆成多个相互独立的专业子任务，并发委托给一个或多个下游 Agent，并行执行子智能体，提升任务执行效率，在保持 Task 可追踪、可取消、可恢复的同时缩短端到端时延。
-- **适用场景**：旅行助手并行查询天气、酒店和航班；研究 Agent 并行收集不同信息源；企业主 Agent 并行调用多个部门级 Agent。存在严格前后依赖的子任务仍应串行执行或交由工作流 / DAG 编排能力处理。
+本特性只处理下游智能体调用委托、远程 A2A 执行、结果回填和父任务恢复。交互式 `INPUT_REQUIRED` 的客户端等待、续接和定向输入语义归属 FEAT-008；FEAT-004 仅在远端调用返回该类状态时把事实交给对应特性处理，不在本文档中定义人机交互协议。
 
-## 2. 对外能力边界
+本特性不定义新的批量创建下游任务 API，也不要求向智能体暴露一个显式的批量委托工具。多个下游调用来自 FEAT-019 定义的同轮多个单调用 ToolCall；runtime 只消费这些委托并代理执行。
 
-### 2.1 能力清单
+## 2. 当前版本能力要求
 
-状态说明：`✅` 表示已有实现事实；`🟡` 表示已纳入当前版本范围、需要设计实现和验收对齐；`⬜` 表示当前版本不承诺。
+| 能力 | 要求级别 | 事实要求 |
+|---|---|---|
+| 远程 Agent 静态接入 | MUST | runtime 必须能基于配置接入下游 A2A Agent，获取其可调用能力，并将其作为父智能体可使用的下游智能体代理能力暴露。 |
+| 单个下游调用代理 | MUST | 父智能体产生单个下游智能体调用委托时，runtime 必须代理一次远程 A2A 调用，并在结果返回后恢复父任务。 |
+| FEAT-019 批量委托消费 | MUST | runtime 必须能接收同一父任务、同一轮 agent-loop 产生的多个下游智能体调用委托，并保持每个委托的独立身份。 |
+| 并行远程调用 | MUST | 对彼此独立的同批次委托，runtime 必须支持在受控并发预算内并行发起下游 A2A 调用。 |
+| all-settled 汇聚 | MUST | 同批次多个下游调用必须全部到达结果性终态后，runtime 才能向父智能体回填该批次结果并恢复父任务。 |
+| `toolCallId` 结果关联 | MUST | runtime 必须按 FEAT-019 提供的 `toolCallId` 关联每个委托、远程调用结果和父智能体回填项；不得按完成顺序、工具名或目标 Agent 猜测。 |
+| 任务中心化关联 | MUST | 父 Task 必须能观察到下游调用的关联状态。下游实际 Task 的主权归下游 runtime；本地 runtime 只维护与父 Task 相关的本地可观察关联或投影。 |
+| 远端 Task ID 关联 | MUST | 当下游 runtime 受理调用并返回远端 Task 标识时，本地 runtime 必须把该标识与父 Task、对应 `toolCallId` 关联，用于查询、取消、诊断和结果回填。 |
+| 结果与错误并存 | MUST | 同批次中部分下游调用失败、拒绝、取消或超时时，runtime 必须保留成功项和失败项，并把它们作为对应 `toolCallId` 的结构化结果回填。 |
+| 父任务单次恢复 | MUST | 同一批次 fan-in 完成后，runtime 只能触发一次父智能体恢复，避免每个下游调用完成后分别触发父 Agent 推理。 |
+| 取消传播 | MUST | 父 Task 被取消时，runtime 必须 best-effort 取消尚未进入结果性终态的下游远程调用，并保留可诊断轨迹。 |
+| 超时治理 | MUST | runtime 必须对远程调用执行超时治理；超时项作为对应下游调用的结果性失败参与 all-settled 汇聚。 |
+| 可观测性 | SHOULD | runtime 应记录父 Task、下游目标、远端 Task 标识、`toolCallId`、状态变化、耗时、结果类别和错误原因，并遵守 DFX-001 的脱敏要求。 |
+| 客户端交互续接 | OUT | `INPUT_REQUIRED` 的客户端呈现、续接、歧义处理和长时挂起语义由 FEAT-008 定义。 |
+| 本地普通工具并行 | OUT | 文件、Shell、本地函数、普通 REST/MCP、浏览器、设备或代码执行等非 Agent 工具的并行不属于 FEAT-004。 |
+| 显式批量委托 API | OUT | 当前版本不定义 `ParallelChildTaskSet` 或类似批量创建下游任务接口。 |
+| 任意依赖图 / DAG | OUT | 当前版本只处理同轮彼此独立的下游智能体调用，不解析依赖图、条件分支、循环或工作流 DAG。 |
 
-| 能力 | 状态 | 说明 |
-|------|------|------|
-| YAML 配置远程端点 | ✅ | `agent-runtime.remote-agents[N].url` |
-| Agent Card 自动拉取 | ✅ | 启动时拉取，自适应刷新 |
-| 本地目录维护 | ✅ | sticky remoteAgentId，故障降级 |
-| RemoteAgentToolSpec 生成 | ✅ | 从 Card skills 生成，开放 JSON schema；**无 skills 的 Agent Card 不会被注入为 Tool** |
-| OpenJiuwen Tool 安装 | ✅ | Placeholder Tool + Interrupt Rail |
-| 远程 A2A 调用 | ✅ | `SendStreamingMessage`，独立 streaming |
-| 单任务中断—续接 | ✅ | 远程 INPUT_REQUIRED → 父 Task 挂起 → 用户输入 → 续写 |
-| Metadata 转发 | ✅ | 入站 metadata → 出站远程调用 |
-| 单任务结果回灌 | ✅ | 远程 COMPLETED → InteractiveInput → 本地 Agent resume |
-| 父 Task 进度投射 | ✅ | 远程 progress → 父 Task artifact |
-| 取消级联传播 | ✅ | 父 Task cancel → 远程 CancelTask |
-| 超时检测 | ✅ | REMOTE_TIMEOUT + 孤儿 Task cancel |
-| 任务驱动的并行子任务 | 🟡 | 一次接收多个独立子任务，物化为多个 child Task，在并发预算内 fan-out / fan-in |
-| 子任务独立状态与关联 | 🟡 | 每个 child Task 有稳定标识、目标 Agent、序号、状态、deadline 和父子关联 |
-| 并行结果汇聚与回灌 | 🟡 | 默认 all-settled；按子任务稳定序号形成结构化结果集，一次性恢复父 Agent |
-| 并行取消、超时与部分失败 | 🟡 | 父取消向未终态子任务级联；失败和超时保留为可编程结果，不吞掉成功结果 |
-| 并行 INPUT_REQUIRED | 🟡 | 等待输入的 child Task 可挂起，其他独立 child Task 继续；输入必须定向到具体 child Task；语义与单任务中断-续接一致 |
-| 子任务信息分类与投射 | 🟡 | child Task 返回三类信息：①最终结果信息（结构化结果集回灌父 Agent）；②思维链信息（thinking_* 实时投射给调用端）；③中间内容与状态信息（流式内容、状态变化、progress 实时转发给调用端） |
-| 任意依赖图 / DAG 编排 | ⬜ | 当前只承诺单层独立子任务 fan-out / fan-in，不解析子任务依赖图 |
-| 嵌套远程调用 | ⬜ | 当前不承诺 child Task 内再次发起并行远程调用 |
+## 3. 引用接口与入口要求
 
-### 2.2 显式排除
+FEAT-004 不新增面向客户端的 A2A method，不定义 `ParallelChildTaskSet` 类外部接口，也不固定 runtime 内部协调器、表结构或 DTO 名称。下游技术详设可以选择具体实现，但不得改变以下黑盒契约。
 
-| 排除项 | 原因 | 替代 |
-|--------|------|------|
-| 动态服务发现 | 远程端点必须通过 YAML 配置声明，不自动扫描网络 | 使用当前配置目录；后续由注册发现特性扩展 |
-| 远程 Agent 负载均衡 | 不属于本特性的编排语义 | 在反向代理、路由或平台调度层实现 |
-| 远程调用的认证 | A2A 认证属于协议和接入层，不属于编排层 | 通过 A2A SDK 认证扩展 |
-| 有依赖子任务的自动排序 | 依赖图需要独立的验证、调度和恢复语义 | 由工作流 / DAG 编排能力处理 |
-| 下游 Agent 内部工具 / 工作流并行 | A2A child Task 与下游内部 Tool Call / workflow instance 的状态所有者不同 | 由下游 Agent 自己实现，不属于远程 Agent 编排 |
-| 无界并发 | 会导致下游过载、连接耗尽和成本失控 | runtime 按配置的并发预算排队和限流 |
+| 入口 / 对象 | 归属 | FEAT-004 使用语义 |
+|---|---|---|
+| 标准 A2A Task 入口 | FEAT-001 | 客户端仍通过标准 Task 创建、查询、订阅和取消入口观察父 Task；FEAT-004 不新增客户端调用入口。 |
+| 远程 Agent 配置与能力暴露 | agent-runtime | runtime 根据配置接入下游 Agent，并把下游能力作为父智能体可调用的代理能力暴露。 |
+| 下游智能体调用委托 | FEAT-019 / agent-core | 每个委托表达一次下游 Agent 调用意图，必须携带稳定 `toolCallId`、目标能力和调用输入。 |
+| 批量委托 | FEAT-019 / agent-core | 同一轮多个下游 Agent 委托作为一个恢复批次交给 runtime；runtime 不要求智能体调用显式批量工具。 |
+| 远程 A2A 调用 | agent-runtime -> 下游 runtime | runtime 为每个委托发起远程 A2A 调用；下游 runtime 受理后拥有远端 Task 主权。 |
+| 本地任务关联表面 | agent-runtime | 父 Task 可观察到下游调用正在执行、已完成、失败、取消或超时等关联状态；具体存储形态由技术详设决定。 |
+| 结果回填 | agent-runtime -> agent-core | runtime 在可回填条件满足后，按 `toolCallId` 把成功结果或结构化失败回填给父智能体。 |
 
-## 3. 外部行为与用户场景
+### 3.1 标识语义
 
-### 3.1 外部接口
+FEAT-004 只约束标识的黑盒职责，不规定内部字段名或存储模型。
 
-| API / 行为表面 | 说明 |
-|-----|------|
-| `agent-runtime.remote-agents` YAML | 配置远程端点和单次远程调用参数 |
-| RemoteAgentToolSpec | 被 LLM 看到的远程能力描述 |
-| 单个 RemoteInvocation | 表达一个远程 Agent 工具调用 |
-| ParallelChildTaskSet | 表达同一父 Task 下的一组独立下游子任务；稳定字段由 L2 详细设计固化 |
-| 父 Task artifact / status | 外部客户端通过 A2A stream 看到各 child Task 的状态投影（接受、进度、等待输入、终态） |
-| 子任务信息分类投射 | child Task 返回三类信息：①最终结果信息（结构化结果集回灌父 Agent）；②思维链信息（thinking_* 实时投射给调用端）；③中间内容与状态信息（流式内容、progress 实时转发给调用端） |
-| 结构化并行结果集 | fan-in 后按稳定子任务序号返回每个 child Task 的结果或错误，并回灌父 Agent |
+| 标识 | 主体责任 | 黑盒语义 |
+|---|---|---|
+| 父 `taskId` | 当前 runtime | 标识客户端正在观察和控制的父 Task。 |
+| `toolCallId` | agent-core 生成，runtime 消费 | 标识父智能体中的一次下游调用委托，是结果回填和父 Agent 恢复的稳定关联键。 |
+| 本地下游调用关联标识 | 当前 runtime | 标识父 Task 下某个下游调用的本地可观察关联或投影；不得伪装为远端 Task 主权。 |
+| 远端 `taskId` / `contextId` | 下游 runtime | 标识下游 runtime 受理并执行的实际远端 Task；当前 runtime 只能关联和代理。 |
+| trace / correlation id | 调用链各方 | 用于诊断、审计和跨 runtime 关联，不得替代 `toolCallId` 做结果归位。 |
 
-### 3.2 用户示例
+## 4. 场景与用户旅程
 
-#### 3.2.1 配置远程 Agent
+| 场景 | 前置条件 | 用户 / 系统动作 | 期望行为 |
+|---|---|---|---|
+| 配置并暴露下游 Agent | 下游 A2A Agent 已可访问并声明能力 | runtime 启动并加载远程 Agent 配置 | 父智能体可看到对应下游智能体代理能力；客户端无需直接感知下游地址。 |
+| 单个远程智能体调用 | 父智能体选择调用一个下游 Agent | runtime 代理远程 A2A 调用 | 父 Task 等待远端结果；远端完成后 runtime 把结果回填给父智能体并恢复父任务。 |
+| 三个下游调用并行执行 | FEAT-019 交给 runtime 三个同轮下游委托 | runtime 在并发预算内调用 weather、hotel、flight 等下游 Agent | 三个远程调用可并行推进；父智能体在三者全部结果性终态后只恢复一次。 |
+| 部分下游调用失败 | 同批次中一个下游 Agent 超时或失败 | 其他下游 Agent 正常完成 | runtime 保留成功结果和失败原因，all-settled 后按 `toolCallId` 一次性回填；父 Task 不因单个下游普通失败自动失败。 |
+| 父任务取消 | 父 Task 正在等待一个或多个远程调用 | 客户端取消父 Task | runtime 停止继续派发未启动调用，并 best-effort 取消已派发远端调用；父 Task 进入取消表面。 |
+| 远端调用需要客户端交互 | 下游 runtime 返回需要客户端参与的等待事实 | runtime 观察到远端等待 | FEAT-004 只保留远端调用关联事实；客户端等待、续接和路由语义交由 FEAT-008 处理。 |
 
-```yaml
-# 主 Agent (8080) 配置三个远程 Agent
-agent-runtime:
-  remote-agents:
-    - url: http://weather-agent:18081
-    - url: http://hotel-agent:18082
-    - url: http://flight-agent:18083
-```
-
-前置条件：远程 Agent 已启动在对应端口，Agent Card 可访问且至少声明一个 skill。预期结果：主 Agent 的 LLM 工具列表中出现天气、酒店和航班三个远程能力。
-
-#### 3.2.2 单个远程 Agent 调用
+### 4.1 典型并行流程
 
 ```text
-用户：查北京天气
-主 Agent：调用 query_weather(city="北京")
-runtime：创建一个远程 A2A Task，投射进度，完成后回灌结果
-主 Agent：继续推理并给出最终回答
+用户：规划周末行程，同时查天气、酒店和航班
+  |
+  v
+父智能体同轮生成三个下游智能体调用委托
+  |-- toolCallId=call-weather -> weather-agent
+  |-- toolCallId=call-hotel   -> hotel-agent
+  |-- toolCallId=call-flight  -> flight-agent
+  |
+  v
+agent-core 按 FEAT-019 批量中断并交给 runtime
+  |
+  v
+runtime 代理三个远程 A2A 调用，并关联父 Task、toolCallId、远端 Task
+  |
+  v
+runtime 等待三个调用全部到达结果性终态
+  |
+  v
+runtime 按 toolCallId 回填成功结果和结构化失败
+  |
+  v
+父智能体恢复一次，并基于完整结果继续推理
 ```
 
-#### 3.2.3 多个下游子任务并行执行
+## 5. 行为语义与边界
 
-```text
-用户：帮我规划周末去上海的行程，同时查天气、酒店和往返航班
+### 5.1 父任务等待与恢复语义
 
-主 Agent / 任务规划器一次生成三个独立远程 Agent 子任务：
-  1. 查询上海周末天气       → weather-agent
-  2. 查询预算内酒店         → hotel-agent
-  3. 查询往返航班           → flight-agent
+- 父智能体产生下游智能体调用委托后，父 Task 进入等待远程调用结果的执行阶段。
+- 单个下游调用完成后，runtime 可以回填该调用结果并恢复父任务。
+- 同批次多个下游调用必须全部到达结果性终态后，runtime 才能回填批次结果并恢复父任务。
+- 一个并行批次只触发一次父智能体恢复；不得按子调用完成顺序多次局部恢复父 Agent。
+- 父智能体恢复后如何继续推理、是否再次生成下游调用，归属 agent-core 和具体 Agent 行为。
 
-runtime：
-  - 为三个请求分别创建 child Task
-  - 在并发预算内并行派发
-  - 持续把 child Task 进度投射到父 Task
-  - 等待三个 child Task 全部进入结果性终态
-  - 按 1、2、3 的稳定顺序汇聚结果并一次性回灌
+### 5.2 并行批次语义
 
-主 Agent：基于完整结果集生成统一行程建议
-```
+- 同一轮来自 FEAT-019 的多个下游智能体调用委托属于同一恢复批次。
+- runtime 可以在受控并发预算内并行发起同批次的远程 A2A 调用。
+- 并行执行不保证完成顺序；结果身份必须由 `toolCallId` 决定。
+- 并发预算不足时，runtime 可以排队部分调用，但不得丢弃委托或静默改写结果。
+- 当前版本不解析依赖关系；存在严格前后依赖的任务应由父智能体分轮生成，或交给工作流 / DAG 编排能力处理。
 
-并行执行不保证完成顺序；对父 Agent 可见的汇聚结果必须保持生成时的稳定序号，不能因网络返回先后而改变语义。
+### 5.3 任务主权语义
 
-### 3.3 单任务 E2E 流程
+- 当前 runtime 拥有父 Task 的生命周期和客户端可见状态。
+- 下游 runtime 拥有实际远端 Task 的生命周期、执行状态和结果主权。
+- 当前 runtime 对下游调用只建立本地可观察关联或投影，用于父 Task 关联、状态展示、取消传播、诊断和结果回填。
+- 本地关联不得被描述为当前 runtime 拥有远端 Task；远端 `taskId` 只能作为关联事实保存。
+- 本地关联的存储方式、是否形成单独记录、是否使用专门协调器等属于技术详设，不在 FEAT-004 黑盒文档中规定。
 
-```text
-用户："查北京天气"
-  │
-  ▼ 主 Agent
-  ├─ LLM 看到 tool: query_weather
-  └─ LLM 调用: query_weather(city="北京")
-  │
-  ▼ Interrupt Rail → RemoteInvocation
-  ├─ SendStreamingMessage → weather-agent
-  ├─ 远程 progress → 父 Task artifact
-  └─ 远程 COMPLETED → toolResult
-  │
-  ▼ 回灌主 Agent
-  ├─ InteractiveInput.update(toolCallId, toolResult)
-  ├─ LLM resume
-  └─ parent Task COMPLETED
-```
+### 5.4 失败、取消与超时语义
 
-### 3.4 并行子任务 E2E 流程
+- 下游调用成功、失败、拒绝、取消或超时，都可以成为该调用的结果性终态。
+- 同批次采用 all-settled 语义：单个下游调用失败不得导致父智能体提前恢复，也不得吞掉其他成功结果。
+- 部分失败应作为对应 `toolCallId` 的结构化失败结果回填给父智能体，由父智能体决定后续推理。
+- 只有 runtime 无法完成委托执行、无法保持必要关联、无法恢复父任务，或父智能体在恢复后判定整体失败时，父 Task 才进入失败表面。
+- 父 Task 被取消时，runtime 必须停止继续派发未启动调用，并 best-effort 取消已派发但未终态的远端调用。
+- 远端不可达、协议错误、限流、超时和业务失败应尽量形成可区分的错误类别，便于父智能体和运维诊断。
 
-```text
-父 Agent 生成 ParallelChildTaskSet
-  │
-  ├─ child-1 → weather-agent → remote-task-w ─┐
-  │              │思维链/中间内容实时投射          │
-  │              ▼                              │
-  │        父 Task artifact（主调用端可见）        │
-  ├─ child-2 → hotel-agent   → remote-task-h ─┼─ all-settled join
-  │              │思维链/中间内容实时投射          │
-  │              ▼                              │
-  │        父 Task artifact（主调用端可见）        │
-  └─ child-3 → flight-agent  → remote-task-f ─┘
-                 │思维链/中间内容实时投射
-                 ▼
-           父 Task artifact（主调用端可见）
-                                               │
-                    StructuredChildTaskResults│（仅最终结果回灌父 Agent）
-                                               ▼
-                                      父 Agent 单次 resume
-                                               │
-                                               ▼
-                                      parent Task COMPLETED
-```
+### 5.5 状态可见性语义
 
-## 4. 任务驱动并行行为语义
+- 父 Task 在等待远程调用期间应保持可查询、可订阅、可取消。
+- 客户端应能观察到父 Task 正在等待下游智能体调用，以及每个下游调用的目标、关联标识、当前阶段和结果类别。
+- FEAT-004 不新增 A2A Task 状态。父 Task 只使用 FEAT-001 / L1 架构定义的标准状态，如 `WORKING`、`COMPLETED`、`FAILED`、`CANCELED`、`INPUT_REQUIRED`、`REJECTED`。
+- 部分失败不得引入 `completed_with_partial_failures` 这类新父 Task 状态；应通过结果内容、artifact 或 metadata 表达。
+- 若远端调用进入需要客户端交互的等待状态，客户端可见的 `INPUT_REQUIRED`、续接入口和歧义处理由 FEAT-008 定义。
 
-### 4.1 子任务生成与接受
+### 5.6 信息投影语义
 
-- 并行批次必须属于一个确定的父 Task，每个子任务必须具有稳定的批次内序号或幂等键。
-- 子任务必须明确目标远程能力和输入；缺少目标、输入不合法或目标不可用的子任务必须形成该子任务自己的拒绝 / 失败结果，不得让整个批次无记录消失。
-- runtime 只并行调度被声明为彼此独立的子任务；当前版本不从自然语言中推断依赖关系，也不自动把有依赖任务改写为 DAG。
-- 接受并行批次不等于所有子任务已经启动。超过并发预算的子任务保持可观察的 pending / queued 状态，并在容量释放后派发。
+- 下游调用的最终结果或结构化失败用于回填父智能体。
+- 下游调用的状态变化、进度、远端 Task 标识、耗时和错误类别可投影到父 Task 的可观测表面。
+- 中间事件或调试信息不得自动注入父智能体推理上下文，除非它们被明确作为最终结果的一部分回填。
+- 轨迹与可观测信息不得要求暴露原始 Chain-of-Thought；相关脱敏、摘要和审计要求遵守 DFX-001。
 
-### 4.2 父子 Task 与关联
+## 6. 对下游设计与实现的约束
 
-- 每个下游调用都必须拥有独立的 child Task 记录和独立的远程 `taskId` / `contextId`（在远端接受后）。
-- 父 Task 必须能够关联批次、child Task、目标 Agent、远程 Task、tool call、trace 和租户上下文。
-- child Task 的状态变化应投射为父 Task 的进度或 artifact，但 child Task 不能直接覆盖父 Task 的最终状态。
-- 重试同一批次时，runtime 必须基于父 Task 与子任务稳定键避免重复创建可见下游任务。
+- L2 详细设计必须把 FEAT-004 作为远程智能体调用代理、并行 fan-out / fan-in、结果回填和父任务恢复的事实来源。
+- L2 不得在 FEAT-004 名义下新增 `ParallelChildTaskSet` 或类似客户端 / 上游公开接口。
+- L2 不得要求智能体调用显式批量工具才能触发多个下游调用；同轮多个单调用委托由 FEAT-019 承接。
+- L2 必须保留 `toolCallId` 在委托、远程调用关联、结果回填和父 Agent 恢复之间的稳定身份。
+- L2 必须区分父 Task 主权、下游远端 Task 主权和本地可观察关联，不得把本地投影写成远端 Task 所有权。
+- L2 必须验证同批次多个远程调用不会只保留最后一个、不会结果串线、不会按完成顺序错配。
+- L2 必须验证 all-settled 后单次恢复父智能体，部分失败作为结构化结果回填。
+- L2 必须把客户端交互等待、续接、多个等待点歧义和长时挂起语义交由 FEAT-008 定义。
+- L2 必须把本地普通工具并行、工具安全分级、文件冲突键和普通 provider 并发治理排除在 FEAT-004 主线之外。
+- 测试应覆盖单个下游调用、多个下游调用并行、完成顺序乱序、部分失败、远端拒绝、超时、父任务取消、远端 Task ID 关联、结果按 `toolCallId` 回填和父任务单次恢复。
 
-### 4.3 并发与背压
+## 7. 关联文档
 
-- runtime 必须实施有界并发；并发上限由部署或平台策略确定，不能由 LLM 任意放大。
-- 并行批次中的子任务可以指向不同下游 Agent，也可以在目标容量允许时指向同一下游 Agent。
-- 当并发预算不足时，runtime 应排队剩余子任务，不得退化为不可观察的同步阻塞，也不得直接丢弃。
-- 并发限制、排队时长、实际并行度和被限流结果必须可观测。
-- runtime 的瞬时并发预算只约束已接受 child Task 的启动节奏；上游入口的一次提交批次上限约束本次接受多少项。两者不得混为一个“并发上限”。
-
-### 4.4 结果汇聚与父 Agent 恢复
-
-- 当前版本默认采用 **all-settled**：所有 child Task 都进入 completed、failed、canceled、rejected 或 timed-out 等结果性终态后，才完成 fan-in。
-- 结果集必须逐项包含 child Task 标识、稳定序号、目标 Agent、结果状态、结果 / artifact 引用或结构化错误。
-- 结果集按子任务生成时的稳定序号排列，而不是按完成时间排列。
-- 某个 child Task 失败不得吞掉其他 child Task 的成功结果；父 Agent 必须同时看到成功结果和失败原因。
-- fan-in 完成后只对父 Agent执行一次批次级 resume，避免每完成一个子任务就触发一次父 LLM 推理而产生竞态、重复推理和上下文污染。
-
-### 4.5 INPUT_REQUIRED
-
-- 任一 child Task 进入 `INPUT_REQUIRED` 时，父 Task 必须投射等待输入状态，并明确需要输入的 child Task 标识、目标 Agent 和问题描述。
-- 其他与该 child Task 独立的在途子任务可以继续执行并保留结果，不因一个分支等待输入而被取消。
-- 用户补充输入必须定向到具体 child Task；当多个 child Task 同时等待输入而请求未指定目标时，runtime 必须返回明确的歧义错误，不得猜测路由。
-- 等待输入的 child Task 完成后重新进入原批次 join；已完成兄弟任务不得重复执行。
-
-### 4.6 取消、超时与失败
-
-- 取消父 Task 必须 best-effort 取消所有未进入结果性终态的本地 child Task 和远程 Task，并保留取消轨迹。
-- 单个 child Task 被取消、失败或超时，默认不取消兄弟任务；其结果作为结构化错误参与 all-settled 汇聚。
-- 每个 child Task 必须受单次远程调用 deadline / timeout 约束；并行批次还应受父 Task deadline 和批次 join deadline 约束。
-- 父 deadline 到期后，runtime 必须停止继续派发未启动子任务，取消仍在运行的远程 Task，并以部分结果 + 明确超时项完成汇聚或终止父 Task。
-- 远程不可达、协议错误、限流、超时和业务失败必须可区分，并携带是否可重试语义。
-
-### 4.7 父子状态投射
-
-- child Task 使用 `pending`、`running`、`input_required`、`completed`、`failed`、`canceled`、`timeout`、`rejected` 等状态表达独立下游执行。
-- 父 Task 在 fan-out / fan-in 期间保持 `running`；需要定向补充输入时可投射 `input_required`。
-- 所有 child Task 成功且父 Agent 综合成功时，父 Task 进入 `completed`。
-- 至少一个 child Task 成功、至少一个失败 / 取消 / 拒绝 / 超时，且父 Agent仍形成有效综合结果时，父 Task 进入 `completed_with_partial_failures`。
-- 批次结构、父子关联、权限一致性或父 Agent 综合发生不可恢复失败时，父 Task 进入 `failed`；不得把任一 child Task 普通失败自动扩大为父级失败。
-- `canceled` 与 `timeout` 作为父级结果时，必须保留已完成 child Task 的结果和未完成项明细。
-
-### 4.8 子任务信息分类与投射
-
-子智能体返回给主智能体的信息分为三类，分别服务于不同的消费方和目的：
-
-#### 4.8.1 最终结果信息（给父 Agent resume 使用）
-
-这是子任务完成后回灌给父 Agent 的核心数据，用于父 Agent 的后续推理。
-
-- **结构化结果集**：每个 child Task 的最终结果，包含 child Task 标识、稳定序号、目标 Agent、结果状态、结果内容 / artifact 引用或结构化错误
-- **tool_result**：远程 Tool 调用的返回值
-- **适用范围**：仅在 all-settled 汇聚完成后，一次性回灌父 Agent；父 Agent 基于完整结果集进行综合推理
-
-#### 4.8.2 思维链信息（给外部调用端实时呈现）
-
-子智能体的推理过程，用于外部调用端的监控和调试。
-
-- **思维链事件**：`thinking_start`、`thinking_chunk`、`thinking_end`
-- **reasoning**：推理内容
-- **投射方式**：实时投射到父 Task 的 artifact 中，携带 child Task 稳定序号和目标 Agent 标识
-- **消费方**：主调用端（用户或客户端），用于观察子智能体的思考过程
-- **注意**：思维链信息不直接注入父 Agent 的推理上下文
-
-#### 4.8.3 中间内容与状态信息（给外部调用端实时呈现）
-
-子智能体执行过程中的中间输出和状态变化。
-
-- **流式内容片段**：`final_answer_chunk`、`interrupt_start`、`interrupt_end`、`tool_start`、`tool_end`、`todo_start`、`todo_end`、`todolist_start/item/end`
-- **状态变化**：child Task 的状态变更（`pending` → `running` → `completed`/`failed`/`canceled`/`timeout`/`rejected`/`input_required`）
-- **进度信息**：远程 progress 更新
-- **artifact 更新**：子任务产生的 artifact
-- **投射方式**：实时转发到父 Task 的输出流，携带 child Task 稳定序号和目标 Agent 标识
-- **消费方**：主调用端，用于实时监控各子智能体的执行进度
-
-#### 4.8.4 信息分类汇总表
-
-| 信息类别 | 内容 | 消费方 | 投射时机 | 是否注入父 Agent 上下文 |
-|----------|------|--------|----------|------------------------|
-| 最终结果信息 | 结构化结果集、tool_result | 父 Agent | all-settled 后一次性回灌 | 是（用于 resume 推理） |
-| 思维链信息 | thinking_*、reasoning | 主调用端 | 实时投射 | 否（仅用于监控） |
-| 中间内容信息 | final_answer_chunk、interrupt_*、tool_*、todo_*、todolist_* | 主调用端 | 实时转发 | 否（仅用于监控） |
-| 状态进度信息 | 状态变化、progress、artifact | 主调用端 | 实时更新 | 否（仅用于监控） |
-
-#### 4.8.5 关键约束
-
-- 中间内容的投射不影响 all-settled 汇聚逻辑，仍需等待所有 child Task 进入结果性终态后才触发父 Agent resume。
-- 所有实时投射的信息必须携带 child Task 的稳定序号和目标 Agent 标识，避免主调用端混淆不同子任务的输出。
-- 父 Agent 在 resume 时只接收最终结构化结果集，中间内容和思维链不直接注入父 Agent 的推理上下文。
-
-## 5. 行为不变量与验收要点
-
-### 5.1 行为不变量
-
-- **一个下游调用，一个 child Task**：不得用共享状态槽覆盖多个并行调用。
-- **父 Task 是编排所有者**：child Task 进度可投射，父 Task 终态只能由父级 join / 恢复流程决定。
-- **有界并发**：LLM 生成 N 个子任务不等于创建 N 个线程或无条件同时发送 N 个请求。
-- **稳定汇聚**：结果顺序与子任务生成顺序一致，与完成顺序无关。
-- **单次恢复**：一个并行批次默认只触发一次父 Agent resume。
-- **部分失败可见**：成功、失败、取消、拒绝和超时逐项保留。
-- **取消可传播**：父取消后不得继续派发尚未启动的子任务。
-- **租户与权限不扩张**：child Task 继承父 Task 的租户和调用授权上界，不能因委托获得更高权限。
-
-### 5.2 最小验收场景
-
-| 场景 | 验收结果 |
-|---|---|
-| 三个独立子任务均成功 | 三个下游 Task 在并发预算内重叠执行；父 Agent 收到稳定有序的三个成功结果并只恢复一次 |
-| 一个快、一个慢、一个失败 | 快任务结果被保留；父级等待慢任务终态；失败项携带结构化错误；最终结果顺序不受完成先后影响 |
-| 已接受子任务数超过瞬时并发预算 | 只启动预算允许的数量，其余处于可观察排队状态；容量释放后继续派发 |
-| 上游提交超过远程 Agent 批次规模策略 | runtime 明确拒绝整个批次或只接受策略允许的项目并返回剩余项；不得静默丢弃或无界创建远程 Task |
-| 一个 child Task 请求输入 | 父 Task 标识具体等待输入分支；其他分支继续；定向输入后只恢复该分支并最终 join |
-| 两个 child Task 同时请求输入 | 未指定 child Task 的输入被拒绝为歧义；指定后分别续接，不串线 |
-| 父 Task 取消 | 所有 queued 子任务停止派发，running 远程 Task 收到 best-effort cancel，父子状态和轨迹一致 |
-| 父 deadline 到期 | 未启动项标记未执行 / 超时，运行项被取消，已完成项保留，父级得到可解释的部分结果 |
-| 同一批次重复提交 | 不重复创建下游可见 Task，返回或恢复原有 child Task 集合 |
-| 子任务思维链实时投射 | child Task 的 thinking_* 事件实时出现在父 Task artifact，携带子任务序号和目标 Agent 标识 |
-| 子任务中间内容实时投射 | child Task 的 final_answer_chunk、tool_*、todo_* 等事件实时转发到父 Task 输出流 |
-| 父 Agent resume 只接收最终结果 | 父 Agent resume 时只收到结构化结果集，思维链和中间内容不注入推理上下文 |
-
----
+- `version-scope/README.md`
+- `version-scope/FEAT-001-standardized-agent-service-entrypoint.md`
+- `version-scope/FEAT-003-agent-task-state-cache.md`
+- `version-scope/FEAT-008-user-interaction-interrupt-response.md`
+- `version-scope/FEAT-019-agent-core-parallel-tool-tasks.md`
+- `version-scope/DFX-001-trajectory-observability.md`
+- `architecture/L1-High-Level-Design/agent-runtime/README.md`
+- `architecture/L1-High-Level-Design/agent-runtime/logical.md`
+- `architecture/L1-High-Level-Design/agent-runtime/process.md`
+- `architecture/L2-Low-Level-Design/agent-runtime/Feat-Func-004-remote-agent-orchestration.md`
+- `architecture/L2-Low-Level-Design/agent-runtime/Feat-Func-026-parallel-tool-execution.md`

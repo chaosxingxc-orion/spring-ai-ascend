@@ -4,15 +4,15 @@ view: version-scope
 module: platform
 status: active
 updated: 2026-07-13
-authority: "current version facts across agent-runtime and agent-bus"
-covers: [标准化Agent服务入口, 异构Agent框架兼容, 智能体任务状态缓存, 远程Agent编排, 标准化智能体客户端调用, 客户端调用路由转发, 客户端调用总线转发, 客户端调用事件转发, A2A调用事件转发, Agent Card注册与发现, 运行时实例路由查询, 订阅消费总线事件消息, 轨迹可观测性]
+authority: "current version facts across agent-runtime, agent-core and agent-bus"
+covers: [标准化Agent服务入口, 异构Agent框架兼容, 智能体任务状态缓存, 远程Agent编排, 智能体生成多个运行时代理调用的下游智能体任务, 标准化智能体客户端调用, 客户端调用路由转发, 客户端调用总线转发, 客户端调用事件转发, A2A调用事件转发, Agent Card注册与发现, 运行时实例路由查询, 订阅消费总线事件消息, 轨迹可观测性]
 ---
 
 # version-scope
 
 `version-scope` 是当前版本的事实范围描述目录，用于说明本版本已经纳入范围、需要被设计、实现、测试和指南对齐的需求事实。它不是长期路线图，也不是模块详细设计本身；它回答的是：当前版本对外承诺哪些能力、这些能力的外部行为边界是什么、哪些文档是后续详细设计与实现校验的事实来源。
 
-本目录当前同时承载 `agent-runtime` 与 `agent-bus` 相关特性文档。文档从需求侧出发，描述外部可观察行为、能力边界、接口入口、用户旅程和不承诺项；`architecture/L2-Low-Level-Design/` 中的详细设计应引用并满足这些事实要求。如果实现或设计先行产生了新能力，也必须先回到 `version-scope` 明确其是否纳入当前版本事实范围。
+本目录当前同时承载 `agent-runtime`、`agent-core` 与 `agent-bus` 相关特性文档。文档从需求侧出发，描述外部可观察行为、能力边界、接口入口、用户旅程和不承诺项；`architecture/L2-Low-Level-Design/` 中的详细设计应引用并满足这些事实要求。如果实现或设计先行产生了新能力，也必须先回到 `version-scope` 明确其是否纳入当前版本事实范围。
 
 ## 1. 文档目的
 
@@ -56,6 +56,7 @@ covers: [标准化Agent服务入口, 异构Agent框架兼容, 智能体任务状
 | FEAT-015 / Feat-Func-015 | agent-bus/r-and-d-center | draft | Agent Card 注册与发现 | registry-discovery-center 承载 Agent Card 注册、发现、可见性、版本和能力目录事实，为 gateway、runtime 和平台集成提供发现基础。 | [FEAT-015-agent-card-registration-and-discovery.md](./FEAT-015-agent-card-registration-and-discovery.md) | `architecture/L2-Low-Level-Design/agent-bus/registry-discovery-runtime-design.cn.md` |
 | FEAT-016 | agent-bus | draft | 运行时实例路由查询 | registry-discovery-center 支持已知目标的运行时实例路由查询，向 gateway 或 runtime 提供不暴露物理 endpoint 的路由引用和可用性投影。 | [FEAT-016-runtime-instance-route-query.md](./FEAT-016-runtime-instance-route-query.md) | 待补充 |
 | FEAT-017 | agent-runtime | draft | 订阅消费总线事件消息 | runtime 内嵌订阅并消费客户端调用事件和服务间 A2A 请求事件，复用标准 A2A Task 控制面并发布接受、响应、等待输入、流准备和终态投影。 | [FEAT-017-bus-event-subscription-consumption.md](./FEAT-017-bus-event-subscription-consumption.md) | 待补充 |
+| FEAT-019 | agent-core | draft | 智能体生成多个运行时代理调用的下游智能体任务 | DeepAgent / ReActAgent 同一轮生成多个 runtime-proxy downstream-agent ToolCall，core 保留完整批量中断并按 toolCallId 消费 runtime 回灌结果；远程 A2A child Task 编排由 FEAT-004 承接。 | [FEAT-019-agent-core-parallel-tool-tasks.md](./FEAT-019-agent-core-parallel-tool-tasks.md) | `architecture/L2-Low-Level-Design/agent-runtime/Feat-Func-026-parallel-tool-execution.md`（历史编号，内容需按 FEAT-019/FEAT-004 边界对齐） |
 
 ## 4. 阅读顺序
 
@@ -64,7 +65,8 @@ covers: [标准化Agent服务入口, 异构Agent框架兼容, 智能体任务状
 3. 如果关注业务应用侧客户端调用入口，先读 `FEAT-006`，再读 `FEAT-007`、`FEAT-011`、`FEAT-012` 和 `FEAT-013`。
 4. 如果关注 agent-bus 调用转发链路，按 `FEAT-011`、`FEAT-012`、`FEAT-013`、`FEAT-014`、`FEAT-017` 的顺序阅读。
 5. 如果关注注册发现和路由，阅读 `FEAT-015` 与 `FEAT-016`，再回到调用转发特性确认 route handle、Agent Card 和 Task owner 边界。
-6. 进入 `architecture/L1-High-Level-Design/` 和 `architecture/L2-Low-Level-Design/` 阅读对应架构和详细设计，确认内部设计如何满足这些事实要求。
+6. 如果关注 DeepAgent 多下游 Agent 委托，先读 `FEAT-019` 确认 core 批量中断契约，再读 `FEAT-004` 确认 runtime 远程 A2A 编排边界。
+7. 进入 `architecture/L1-High-Level-Design/` 和 `architecture/L2-Low-Level-Design/` 阅读对应架构和详细设计，确认内部设计如何满足这些事实要求。
 2. 如果关注 runtime 对外服务入口，先读 `FEAT-001`，再读 `FEAT-002`、`FEAT-003`、`FEAT-004`、`FEAT-005`、`FEAT-006`、`FEAT-017` 和 `DFX-001`。
 3. 如果关注 agent-bus 调用转发链路，按 `FEAT-011`、`FEAT-012`、`FEAT-013`、`FEAT-014`、`FEAT-017` 的顺序阅读。
 4. 如果关注注册发现和路由，阅读 `FEAT-015` 与 `FEAT-016`，再回到调用转发特性确认 route handle、Agent Card 和 Task owner 边界。
