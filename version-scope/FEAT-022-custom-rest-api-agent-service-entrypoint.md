@@ -1,13 +1,13 @@
 ---
-version: 0719
+scope: v0730
 module: agent-runtime
 feature_type: functional
 feature_id: FEAT-022
-status: proposed
-updated: 2026-07-19
+status: active
+updated: 2026-07-21
 ---
 
-# 自定义 REST API 服务入口 - 当前版本事实要求
+# 自定义 REST API 智能体服务服务入口
 
 ## 1. 特性定位
 

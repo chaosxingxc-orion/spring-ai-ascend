@@ -1,14 +1,13 @@
 ---
-version: 0715
+scope: v0730
 module: agent-runtime
 feature_type: functional
 feature_id: FEAT-002
 status: active
-merged_from:
-  - agent-runtime-core-interface
+updated: 2026-07-21
 ---
 
-# 异构智能体框架兼容特性文档
+# 异构智能体框架兼容
 
 ## 1. 特性定位
 

@@ -1,12 +1,13 @@
 ---
-version: 0715
+scope: v0730
 module: agent-client
 feature_type: functional
 feature_id: FEAT-006
 status: active
+updated: 2026-07-21
 ---
 
-# 客户端发起标准化智能体调用特性文档
+# 客户端发起标准化智能体调用
 
 ## 1. 特性定位
 
@@ -166,7 +167,7 @@ FEAT-006 定义 `agent-client` 当前版本作为业务应用侧标准 Agent 调
 | Turn 语义 | 当前版本不引入独立 turn 概念；多轮通过 conversation 下的多个 invocation 表达，等待输入继续通过新 invocation 关联旧 invocation 状态表达。 |
 | 本地工具治理 | SDK 标准调用只承接客户端能力结果作为继续等待输入的一种内容；本地工具注册、执行、审批、审计和结果提交闭环由 FEAT-007 定义。 |
 | 业务应用持久化策略 | SDK 必须回显恢复所需句柄和状态，但不规定业务应用是否持久化、如何持久化或如何展示这些信息。 |
-| RESTful runtime facade | 历史 `FEAT-006-restful-client-facade.md` 已废弃，不再作为 FEAT-006 的事实来源；REST-like 交付形态不得改变本文定义的 client invocation 语义。 |
+| RESTful runtime facade | 历史 `FEAT-022-custom-rest-api-to-a2a-jsonrpc-adaptation-spi.md` 已废弃，不再作为 FEAT-006 的事实来源；REST-like 交付形态不得改变本文定义的 client invocation 语义。 |
 
 ## 6. 对下游设计与实现的约束
 
@@ -184,6 +185,6 @@ FEAT-006 定义 `agent-client` 当前版本作为业务应用侧标准 Agent 调
 - `architecture/L1-High-Level-Design/agent-client/logical.md`
 - `architecture/L1-High-Level-Design/agent-client/scenarios.md`
 - `version-scope/FEAT-001-standardized-agent-service-entrypoint.md`
-- `version-scope/FEAT-007-local-tool-registration-remote-driven-invocation.md`
+- `version-scope/FEAT-007-local-tool-registration-and-execution.md`
 - `version-scope/FEAT-011-client-invocation-route-forwarding.md`
 - `version-scope/FEAT-012-client-invocation-bus-forwarding.md`

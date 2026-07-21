@@ -1,23 +1,13 @@
 ---
-scope: version-draft
+scope: v0730
 module: agent-runtime
 feature_type: functional
-feature_id: Feat-Func-008
-status: draft
-updated: 2026-07-17
-authority:
-  - ../architecture/L0-Top-Level-Design
-  - ../architecture/L1-High-Level-Design/agent-runtime
-  - ./FEAT-001-standardized-agent-service-entrypoint.md
-  - ./FEAT-002-heterogeneous-agent-framework-compatibility.md
-  - ./FEAT-005-remote-agent-orchestration.md
-  - ./DFX-001-trajectory-observability.md
-drives:
-  - ../architecture/L1-High-Level-Design/agent-runtime/logical.md
-  - ../architecture/L2-Low-Level-Design/agent-runtime/Feat-Func-008-user-interaction-interrupt-response.md
+feature_id: FEAT-008
+status: active
+updated: 2026-07-21
 ---
 
-# 用户交互中断响应
+# 运行时用户交互式任务中断与请求响应
 
 ## 1. 特性定位
 
@@ -183,5 +173,5 @@ runtime 不应基于业务内容不匹配返回上述运行时失败；该类判
 - `architecture/L1-High-Level-Design/agent-runtime/spi-appendix.md`
 - `version-scope/FEAT-001-standardized-agent-service-entrypoint.md`
 - `version-scope/FEAT-002-heterogeneous-agent-framework-compatibility.md`
-- `version-scope/FEAT-005-remote-agent-orchestration.md`
+- `version-scope/FEAT-004-remote-agent-orchestration.md`
 - `version-scope/DFX-001-trajectory-observability.md`

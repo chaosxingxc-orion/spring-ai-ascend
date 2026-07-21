@@ -1,20 +1,13 @@
 ---
-version: 0715
+scope: v0730
 module: agent-runtime
 feature_type: functional
 feature_id: FEAT-005
 status: active
-related_docs:
-  - ./README.md
-  - ./FEAT-002-heterogeneous-agent-framework-compatibility.md
-  - ../architecture/L0-Top-Level-Design/boundaries.md
-  - ../architecture/L0-Top-Level-Design/glossary.md
-  - ../architecture/L1-High-Level-Design/agent-runtime/README.md
-  - ../architecture/L1-High-Level-Design/agent-runtime/development.md
-  - ../architecture/L1-High-Level-Design/agent-runtime/spi-appendix.md
+updated: 2026-07-21
 ---
 
-# 智能体中间件请求代理
+# 启动态智能体中间件请求代理
 
 ## 1. 特性定位
 

@@ -1,23 +1,13 @@
 ---
-version: 0730
+scope: v0730
 module: agent-runtime
 feature_type: functional
 feature_id: FEAT-003
 status: active
-related_docs:
-  - ./FEAT-001-standardized-agent-service-entrypoint.md
-  - ./FEAT-004-remote-agent-orchestration.md
-  - ../architecture/L0-Top-Level-Design/boundaries.md
-  - ../architecture/L0-Top-Level-Design/glossary.md
-  - ../architecture/L1-High-Level-Design/agent-runtime/README.md
-  - ../architecture/L1-High-Level-Design/agent-runtime/development.md
-  - ../architecture/L1-High-Level-Design/agent-runtime/spi-appendix.md
-  - ../architecture/L2-Low-Level-Design/agent-runtime/Feat-Func-001-standardized-agent-service-entrypoint.md
-  - ../architecture/L2-Low-Level-Design/agent-runtime/Feat-Func-003-agent-task-state-cache.md
-  - ../architecture/L2-Low-Level-Design/agent-runtime/Feat-Func-004-remote-agent-orchestration.md
+updated: 2026-07-21
 ---
 
-# 智能体任务状态缓存特性文档
+# 智能体任务状态缓存
 
 ## 1. 特性定位
 
