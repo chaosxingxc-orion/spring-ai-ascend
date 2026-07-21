@@ -25,7 +25,7 @@ related_docs:
 
 > 命名说明：本文架构语义（所有权、参与者、状态归属）使用 L0 逻辑名 `agent-runtime` / `agent-core`。当前真实 `agent-runtime` 实现为外仓 `agent-runtime-java`（仓内 `agent-runtime/` 目录为废弃代码，不作为事实源）；本 L2 涉及 agent-runtime 处均指外仓真实实现。
 >
-> **代码仓迁移（2026-07-17，事实源切换）**：`agent-bus` 代码已从 `spring-ai-ascend/agent-bus` 迁移至 **agent-solution 仓 `common/agent-bus/`**（事实源；spring-ai-ascend 仓内 `agent-bus/` 目录已废弃，不作为事实源）。迁移要点：① 包名 `com.huawei.ascend.bus` → `com.openjiuwen.bus`；② 拆为 4 个 Maven 模块——`agent-bus-spi`（纯 Java 契约：`forwarding.spi`/`forwarding.spi.broker`/`forwarding.runtime` 状态机 + `forwarding.runtime.transport` 端点解析器 + `forwarding.runtime.transport.broker` broker 消息类型）/ `agent-bus-sdk`（adapter + JDBC + wiring + Flyway：`forwarding.common`/`forwarding.runtime.*`/`transport.broker.rocketmq`/`persistence.jdbc`）/ `agent-bus-relay`（独立 event-bus 进程：`forwarding.runtime.relay` + `EventBusRelayApplication`）/ `agent-bus-testkit`（InMemory 替身 + `TestAgentRuntime`）；③ 单一入口 `AgentBusApplication`（两 profile）→ `EventBusRelayApplication`（`@SpringBootApplication(scanBasePackages="com.openjiuwen.bus")`，`eventbus` profile 经 CLI `--spring.profiles.active=eventbus` 激活，仅 relay、无 gateway/registry 组件扫描）；④ gateway 运行时（`GatewayRuntimeService`/`GatewayRuntimeController`/`GatewayRuntimeConfiguration`）+ ingress SPI（`IngressEnvelope`/`IngressGateway`/`IngressResponse`）**临时**置于 `agent-bus-relay` **测试源码**（由 `TempClientMain` 在 `gateway` profile 内启动 Spring context，仅为独立 E2E 联调而设、**非正式 gateway**）；正式 gateway 为后续单独实现的 sibling 模块、未迁入本仓。**本 L2 凡 gateway 相关"已落地"实现说明均指该临时测试实现，最终以正式 gateway 生成代码实现为准。**⑤ registry-discovery-center 平面（`V2__create_agent_registry_mvp.sql`/`MvpRegistryController`/`PgMvpDiscoveryServiceImpl`/`RouteHandleCodec`/`AgentDiscoveryService`）**未迁移**，route handle 由 `MapEndpointResolver`（配置映射）+ `IngressEnvelope.requestAttributes` 解析，topic 由 `BrokerTopicResolver`（`ascend_bus_<routeHandle.value()>_<suffix>`）派生、不经配置项声明；⑥ Flyway 仅 `V1`+`V3`（无 `V2`/registry 表）。本文既有 `5193972e` as-built 注记（de-gateway-ification：`gw-`/`eb-` messageId 前缀、`originalCaller`、gateway 2 SPI-only bean、共享 outbox 等）在迁移后仍然成立——迁移为叠加层。下文包路径/类路径均按迁移后 `com.openjiuwen.bus` 表达。
+> **代码仓迁移（2026-07-17，事实源切换）**：`agent-bus` 代码已从 `spring-ai-ascend/agent-bus` 迁移至 **agent-solution 仓 `common/agent-bus/`**（事实源；spring-ai-ascend 仓内 `agent-bus/` 目录已废弃，不作为事实源）。迁移要点：① 包名 `com.huawei.ascend.bus` → `com.openjiuwen.bus`；② 拆为 4 个 Maven 模块——`agent-bus-spi`（纯 Java 契约：`forwarding.spi`/`forwarding.spi.broker`/`forwarding.runtime` 状态机 + `forwarding.runtime.transport` 端点解析器 + `forwarding.runtime.transport.broker` broker 消息类型）/ `agent-bus-sdk`（adapter + JDBC + wiring + Flyway：`forwarding.common`/`forwarding.runtime.*`/`transport.broker.rocketmq`/`persistence.jdbc`）/ `agent-bus-relay`（独立 event-bus 进程：`forwarding.runtime.relay` + `EventBusRelayApplication`）/ `agent-bus-testkit`（InMemory 替身 + `TestAgentRuntime`）；③ 单一入口 `AgentBusApplication`（两 profile）→ `EventBusRelayApplication`（`@SpringBootApplication(scanBasePackages="com.openjiuwen.bus")`，`eventbus` profile 经 CLI `--spring.profiles.active=eventbus` 激活，仅 relay、无 gateway/registry 组件扫描）；④ gateway 运行时（`GatewayRuntimeService`/`GatewayRuntimeController`/`GatewayRuntimeConfiguration`）+ ingress SPI（`IngressEnvelope`/`IngressGateway`/`IngressResponse`）**临时**置于 `agent-bus-relay` **测试源码**（由 `TempClientMain` 在 `gateway` profile 内启动 Spring context，仅为独立 E2E 联调而设、**非正式 gateway**）；正式 gateway 为后续单独实现的 sibling 模块、未迁入本仓。**本 L2 凡 gateway 相关"已落地"实现说明均指该临时测试实现，最终以正式 gateway 生成代码实现为准。**⑤ registry-discovery-center 平面（`V2__create_agent_registry_mvp.sql`/`MvpRegistryController`/`PgMvpDiscoveryServiceImpl`/`RouteHandleCodec`/`AgentDiscoveryService`）**未迁入 agent-bus 生产代码**——`agent-bus` main（spi/sdk/relay）对 registry-discovery-center **零依赖**；`GatewayRuntimeService`（`agent-bus-relay` **test** 范围，下一批 gateway 生产实现的参考实现）经 test-scope 依赖注入 `AgentDiscoveryService`，按 `searchByServiceId`/`searchInstancesByAgentId`/`searchByCapability` 选候选、选中的 opaque `routeHandle`+`serviceId` 写入 envelope（`IngressEnvelope.requestAttributes` 携带 `routeFamily`+发现键，不再传 `routeHandle`/`targetServiceId`）；topic 由 `DefaultBrokerTopicResolver`（`BrokerTopicResolver` SPI，按 `AgentBusEventType` 派生 `ascend_bus_<family>_<suffix>`）派生、不经配置项声明；`MapEndpointResolver` 退为 T1 PoC fixture（`@Deprecated`）；⑥ Flyway 仅 `V1`+`V3`（无 `V2`/registry 表）。本文既有 `5193972e` as-built 注记（de-gateway-ification：`gw-`/`eb-` messageId 前缀、`originalCaller`、gateway 2 SPI-only bean、共享 outbox 等）在迁移后仍然成立——迁移为叠加层。下文包路径/类路径均按迁移后 `com.openjiuwen.bus` 表达。
 
 ## 1. 概述
 
@@ -33,7 +33,7 @@ related_docs:
 
 FEAT-013 把 `version-scope/FEAT-013` 在外部行为层定义的"客户端调用事件转发"投影为可落地的 L2 技术设计。它约束 `agent-bus` 逻辑域中 **gateway 单元** 与 **event-bus 单元** 之间的客户端调用与响应事件转发语义，并落地本期已确定的 4 条运行态决策：
 
-1. 三单元（gateway / event-bus / registry-discovery-center）独立可替换部署——FEAT-013 §2 设计意图不变。as-built（agent-solution 仓 `common/agent-bus/`，见命名说明）：event-bus relay（`agent-bus-relay`，`@Profile("eventbus")`）为唯一生产 fat-jar 进程；gateway 运行时降级为 `agent-bus-relay` 测试源码（`TempClientMain` 驱动 `gateway` profile，生产 gateway 为 sibling 模块未迁入本仓）；registry-discovery-center 平面未迁移（route handle 由 `MapEndpointResolver` + `IngressEnvelope.requestAttributes` 解析）。三单元逻辑边界与可替换性仍是本 L2 约束对象。
+1. 三单元（gateway / event-bus / registry-discovery-center）独立可替换部署——FEAT-013 §2 设计意图不变。as-built（agent-solution 仓 `common/agent-bus/`，见命名说明）：event-bus relay（`agent-bus-relay`，`@Profile("eventbus")`）为唯一生产 fat-jar 进程；gateway 运行时降级为 `agent-bus-relay` 测试源码（`TempClientMain` 驱动 `gateway` profile，生产 gateway 为 sibling 模块未迁入本仓）；registry-discovery-center 平面未迁入 agent-bus 生产代码（main 零依赖），其 `AgentDiscoveryService` 接口仅由 `GatewayRuntimeService`（test 范围）注入演示发现路径。三单元逻辑边界与可替换性仍是本 L2 约束对象。
 2. gateway→event-bus 与 event-bus→agent-runtime **两跳均经 broker pub/sub**。
 3. broker 选型 = **RocketMQ**。
 4. event-bus→agent-runtime **不走 a2a push**（现有 `A2aForwardingDeliveryPort` 的 T1 HTTP 同步 push 路径在本特性范围内被 broker pub/sub 取代，T1 PoC 保留共存/灰度切换，见 §8）。
@@ -86,8 +86,8 @@ FEAT-013 把 `version-scope/FEAT-013` 在外部行为层定义的"客户端调�
 | 标准 Task 查询/订阅 | MUST | ⬜ | GetTask/SubscribeToTask 基于服务端 `taskId`。依赖 FEAT-001 缺口（CancelTask/SubscribeToTask/ListTasks 路由，见 §8）。 |
 | 大载荷引用 | MUST | ✅ | `payloadRef` data reference path；token 流/大正文不进 broker（复用 §6.2②）。 |
 | 租户隔离 | MUST | ✅ | 复用三层（app WHERE / RLS / GUC `set_config`）+ broker 端 SQL92 `DeliveryFilter`（`tenantId`/`targetServiceId`，`supportsBrokerSidePropertyFilter()=true`）+ envelope routeHandle.tenantScope。 |
-| 物理投递机制透明 | MUST | ✅ | 客户端/服务端不依赖具体 broker/topic/endpoint；routeHandle opaque 经 `ForwardingEndpointResolver` 解析。 |
-| registry 支撑但不接管 | MUST | ⬜ | 设计上复用 registry-discovery-center 解析 route handle，不接管调用/响应事件或 Task。as-built（agent-solution）：registry 平面未迁移，route handle 由 `MapEndpointResolver`（配置映射）+ `IngressEnvelope.requestAttributes`（`routeHandle`/`targetServiceId`/`capability`）解析，topic 由 `BrokerTopicResolver` 派生（见命名说明/§3.1）。 |
+| 物理投递机制透明 | MUST | ✅ | 客户端/服务端不依赖具体 broker/topic/endpoint；opaque `routeHandle` 在 T4 pub/sub 路径上只穿透不解封，topic 由 `DefaultBrokerTopicResolver` 按 `AgentBusEventType` 派生（与 routeHandle 解耦）；`ForwardingEndpointResolver` 退为 T1 endpoint 解析端口（gateway 桥接用，不在 agent-bus T4 路径调用）。 |
+| registry 支撑但不接管 | MUST | ✅ | 设计上复用 registry-discovery-center 解析 route handle，不接管调用/响应事件或 Task。as-built（agent-solution）：agent-bus 生产代码（main）对 registry-discovery-center 零依赖；`GatewayRuntimeService`（test 范围，下一批 gateway 生产实现的参考实现）注入 `AgentDiscoveryService`，按 `searchByServiceId`/`searchInstancesByAgentId`/`searchByCapability` 选候选，选中的 opaque `routeHandle`+`serviceId` 写入 envelope（`IngressEnvelope.requestAttributes` 携带 `routeFamily`+发现键）；topic 由 `DefaultBrokerTopicResolver`（eventType 驱动）派生；T1 SSE 桥接仍 ⬜（gateway 下一批）。`MapEndpointResolver` 仅作 T1 PoC fixture（`@Deprecated`）。 |
 
 ### 2.2 显式排除
 
@@ -118,7 +118,7 @@ public record ForwardingEnvelope(
         String             traceId,           // 复用：W3C 32-char hex
         String             correlationId,     // 复用：跨跳关联
         String             idempotencyKey,    // 复用：客户端重试幂等键（服务端创建幂等依据）
-        ForwardingRouteHandle routeHandle,    // 复用：opaque，经 ForwardingEndpointResolver 解析为 broker topic
+        ForwardingRouteHandle routeHandle,    // 复用：opaque registry handle，T4 路径只穿透不解封；topic 由 DefaultBrokerTopicResolver 按 eventType 派生（不经 ForwardingEndpointResolver）
         String             capability,        // 复用
         String             sourceServiceId,   // NEW（提升自 ForwardingOutboxRecord / BrokerMessageHeaders）
         String             targetServiceId,   // NEW（同上）
@@ -193,7 +193,7 @@ common/agent-bus/                       # agent-solution 仓事实源（4 Maven 
 │       │                               #   BrokerControlDescriptor（payloadRef routing-descriptor codec，含 originalCaller；pure Java）
 │       └── forwarding.runtime.
 │           ├── (ForwardingStateMachine)
-│           └── transport.              #   ForwardingEndpointResolver（端点解析端口）+ transport.broker：
+│           └── transport.              #   ForwardingEndpointResolver（T1 endpoint 解析端口）+ BrokerTopicResolver（broker topic 派生端口，eventType 驱动）+ transport.broker：
 │               └── broker.             #     BrokerClientProperties / BrokerOutboundMessage / BrokerMessageHeaders（broker 消息类型）
 ├── agent-bus-sdk/                      # adapter + JDBC + wiring 模块（生产依赖：spring-jdbc/flyway/postgresql/rocketmq-client/a2a-sdk）
 │   └── com.openjiuwen.bus.
@@ -204,7 +204,7 @@ common/agent-bus/                       # agent-solution 仓事实源（4 Maven 
 │       │                               #   brokerClientProperties / forwardingOutbox(JdbcForwardingOutbox) / forwardingInbox(JdbcForwardingInbox))
 │       └── forwarding.runtime.         #   ForwardingDispatcherWorker / ForwardingDispatchLoop / ForwardingRetryPolicy /
 │           ├── transport.              #   RouteCircuitBreaker / ForwardingCircuitBreaker / EpochClock
-│           │   ├── BrokerTopicResolver（ascend_bus_<routeHandle.value()>_<suffix>）+ MapEndpointResolver（配置映射 route 解析，registry 未迁时的兜底）
+│           │   ├── DefaultBrokerTopicResolver（实现 BrokerTopicResolver SPI，按 AgentBusEventType 派生 ascend_bus_<family>_<suffix>）+ MapEndpointResolver（@Deprecated，T1 PoC fixture，实现 ForwardingEndpointResolver）
 │           │   ├── broker.rocketmq.     #   RocketMqBrokerForwardingConsumer / RocketMqBrokerForwardingRelay +
 │           │   │                        #   RocketMqBrokerClientConfiguration（@Configuration，无 @Profile，role-agnostic 客户端 bean：
 │           │   │                        #   defaultProducer / requestRelay("req") / responseConsumer("resp_out")——gateway 与任一 caller runtime 复用）
@@ -264,7 +264,8 @@ IngressGateway               GatewayRuntimeController          BrokerForwardingR
 | `ForwardingOutboxClaimPort`（`forwarding.spi`） | `claimDue(tenantId, now, limit, leaseOwner, leaseUntil) → List<ForwardingOutboxRecord>` | 领取到期记录（PENDING / RETRY_SCHEDULED 到期 / DISPATCHING 租约过期），`SKIP LOCKED` 原子抢占 |
 | | `markAcked` / `scheduleRetry` / `moveToDlq` / `markExpired` / `renewLease` / `releaseLease` / `statusOf` | 投递生命周期推进（ack / 重试 / DLQ / 过期 / 续约 / 释放） |
 | `BrokerForwardingRelayPort`（`forwarding.spi.broker`） | `produce(ForwardingOutboxRecord, nowMillisEpoch) → BrokerProduceOutcome` | broker 投递；`Outcome` = `ACCEPTED` / `UNAVAILABLE`(retryable) / `ROUTE_NOT_FOUND`(non-retryable) |
-| `ForwardingEndpointResolver`（`forwarding.runtime.transport`） | `resolve(ForwardingRouteHandle) → Optional<String>` | route handle → broker topic（`BrokerTopicResolver`：`ascend_bus_<routeHandle.value()>_<suffix>`） |
+| `ForwardingEndpointResolver`（`forwarding.runtime.transport`） | `resolve(ForwardingRouteHandle) → Optional<String>` | **T1 endpoint 解析端口**：opaque routeHandle → 物理 endpoint URL（gateway T1 SSE 桥接用）；agent-bus T4 pub/sub 路径**不调用**（impl `MapEndpointResolver` @Deprecated T1 PoC） |
+| `BrokerTopicResolver`（`forwarding.runtime.transport` SPI）/ `DefaultBrokerTopicResolver`（sdk 实现） | `resolveTopic(AgentBusEventType, String suffix) → String` | **broker topic 派生**：按 eventType 族（`CLIENT_*`/`INVOCATION_*`→`invocation`，`A2A_*`→`a2a`）+ hop suffix 派生 `ascend_bus_<family>_<suffix>`；与 opaque routeHandle 解耦（Option B） |
 
 > 生产方典型调用：build `ForwardingEnvelope` → `outbox.enqueue`（持久化）→ worker `claimDue` → `relay.produce` → `markAcked`（成功）/ `scheduleRetry`·`moveToDlq`（失败）。gateway / caller runtime 复用 sdk 的 `requestRelay`（`req` 后缀）role-agnostic bean，无需自声明 producer。
 
@@ -272,7 +273,7 @@ IngressGateway               GatewayRuntimeController          BrokerForwardingR
 
 | 接口（spi 模块） | 关键方法 | 说明 |
 |---|---|---|
-| `BrokerForwardingConsumerPort`（`forwarding.spi.broker`） | `subscribe(consumerServiceId, ForwardingRouteHandle, DeliveryFilter)` + `poll(nowMillisEpoch) → Optional<BrokerInboundMessage>` | 订阅固定 group/route/filter，`poll` 取一条；filter 经 broker 端 SQL92 过滤（`supportsBrokerSidePropertyFilter()=true`） |
+| `BrokerForwardingConsumerPort`（`forwarding.spi.broker`） | `subscribe(consumerServiceId, AgentBusEventType, DeliveryFilter)` + `poll(nowMillisEpoch) → Optional<BrokerInboundMessage>` | 订阅固定 group/eventType/filter，`poll` 取一条；eventType 经 `BrokerTopicResolver` 派生 topic，filter 经 broker 端 SQL92 过滤（`supportsBrokerSidePropertyFilter()=true`） |
 | | `commit(BrokerInboundMessage)` / `reject(msg, ForwardingFailureCode)` / `close()` | 模型 B ack-after-consume：`commit`=ack（不重投）；`reject`=不 ack（broker 重投，至少一次） |
 | `ForwardingInboxPort`（`forwarding.spi`） | `receive(ForwardingEnvelope, consumerServiceId, nowMillisEpoch) → ForwardingStatus.Inbox` | 接收去重（`ON CONFLICT (tenantId, messageId, consumerServiceId) DO NOTHING`）；`ARRIVE_NEW` / `ARRIVE_DUPLICATE` |
 | | `markConsumed` / `markRejected` / `statusOf` | 消费生命周期（`CONSUMED` / `REJECTED`） |
@@ -300,8 +301,8 @@ IngressGateway               GatewayRuntimeController          BrokerForwardingR
 | | `forwardingOutbox`（`JdbcForwardingOutbox`） | outbox + claim 端口实现（Postgres JDBC + RLS + `withTenant`） |
 | | `forwardingInbox`（`JdbcForwardingInbox`） | inbox 端口实现 |
 | `RocketMqBrokerClientConfiguration`（`agent-bus-sdk` `transport.broker.rocketmq`，无 `@Profile`，role-agnostic） | `defaultProducer`（`DefaultMQProducer`） | 共享 RocketMQ producer |
-| | `requestRelay`（`BrokerForwardingRelayPort`，`BrokerTopicResolver("req")`） | hop1 请求 produce（gateway / 任一 caller 复用） |
-| | `responseConsumer`（`BrokerForwardingConsumerPort`，`BrokerTopicResolver("resp_out")`） | 响应 consume（gateway / 任一 caller 复用） |
+| | `requestRelay`（`BrokerForwardingRelayPort`，`DefaultBrokerTopicResolver()` + suffix `"req"`） | hop1 请求 produce（gateway / 任一 caller 复用） |
+| | `responseConsumer`（`BrokerForwardingConsumerPort`，`DefaultBrokerTopicResolver()` + suffix `"resp_out"`） | 响应 consume（gateway / 任一 caller 复用） |
 
 > relay 进程（`EventBusRelayConfiguration`，`@Profile("eventbus")`）自声明 `relayProducer` + forward/response × {consumer/producer/worker/tick} + `relaySubscriptions`，复用上述共享 infra bean。**生产方/消费方只需依赖 `agent-bus-sdk`（+ `agent-bus-spi`）、按类型注入所需端口即可**，broker client 由 sdk 装配、不经调用方构造（de-gateway-ification 的设计意图）。
 
@@ -351,7 +352,7 @@ sequenceDiagram
 | 组件 | 职责 | 复用/net-new |
 |---|---|---|
 | `GatewayRuntimeController` | A2A 兼容 HTTP 入口（`@RestController @RequestMapping("/a2a") @Profile("gateway")`，单一 `@PostMapping` 返回 `IngressResponse`：202 `ACCEPTED` / 503 `DEFERRED`(=UNKNOWN) / 422 `REJECTED`）；`@RequestBody` 解析 `IngressEnvelope`（`requestId`/`tenantId`/`idempotencyKey`/`requestType`/`traceId`） | ✅ 已落地（测试源码，消费既有 `IngressGateway` SPI；`SendStreamingMessage` SSE 桥接 ⬜ deferred S4） |
-| Envelope 封装 | `IngressEnvelope` → `ForwardingEnvelope`(eventType=按 `requestType`×`routeHandle.value()` 映射 `CLIENT_INVOCATION_REQUESTED`/`_CANCEL_`/`_QUERY_`/`CLIENT_STREAM_SUBSCRIBE_REQUESTED`，`a2a` 路由切 `A2A_CALL_*`/`A2A_STREAM_*` 族)；生成 `messageId`(`gw-`+UUID)；`correlationId`=`requestId.toString()`；`sourceServiceId`=gateway（同时作 `originalCaller` 经 `BrokerControlDescriptor.encode` stamp 进 `payloadRef`）；`routeHandle`/`targetServiceId`/`capability` 取自 `IngressEnvelope.requestAttributes`（registry 未迁，不经 registry 解析）；`payloadRef`=descriptor，`PayloadPolicy.DATA_BEARING` | ✅ 已落地 |
+| Envelope 封装 | `IngressEnvelope` → `ForwardingEnvelope`(eventType=按 `requestType`×`routeFamily` 映射 `CLIENT_INVOCATION_REQUESTED`/`_CANCEL_`/`_QUERY_`/`CLIENT_STREAM_SUBSCRIBE_REQUESTED`，`routeFamily=a2a` 切 `A2A_CALL_*`/`A2A_STREAM_*` 族)；生成 `messageId`(`gw-`+UUID)；`correlationId`=`requestId.toString()`；`sourceServiceId`=gateway（同时作 `originalCaller` 经 `BrokerControlDescriptor.encode` stamp 进 `payloadRef`）；**发现路径**：`resolveTarget` 注入 `AgentDiscoveryService`（test 范围），按 `requestAttributes` 的 `serviceId`/`agentId`/`capability` 之一调 `searchByXxx` 选候选，选中的 opaque `routeHandle`+`serviceId`→`targetServiceId` 写入 envelope；`requestAttributes` 携带 `routeFamily`+发现键（不再传 `routeHandle`/`targetServiceId`，二者现由 discovery 产出）；`capability` 取自 `requestAttributes`（默认 `a2a`）；`payloadRef`=descriptor，`PayloadPolicy.DATA_BEARING` | ✅ 已落地 |
 | 客户端幂等 | 客户端重试同一调用时复用同一 `idempotencyKey`（`IngressEnvelope.idempotencyKey` 透传；服务端创建去重属 agent-runtime，⬜） | ✅ 透传落地 / ⬜ 服务端去重 |
 | broker produce | `ForwardingOutboxPort.enqueue` → worker `claimDue` → `BrokerForwardingRelayPort.produce` → RocketMQ | ✅ 已落地（`forwardingOutbox` + `requestRelay`；adapter `RocketMqBrokerForwardingRelay`，bean 由 `RocketMqBrokerClientConfiguration` 提供、gateway 经 SPI 注入，非 gateway 构造） |
 | 接受等待窗口 | 窗口内消费 `INVOCATION_ACCEPTED`/`_REJECTED`/`_FAILED`/`_RESPONSE`；超时且无 accepted → `UNKNOWN`；已 accepted 后超时 → `ACCEPTED_WITH_TASK` | ✅ 已落地（`acceptWindow`；窗口超时判断移至 poll 前，因 poll 可能阻塞 `pollWaitMillis`） |
@@ -398,7 +399,7 @@ sequenceDiagram
 | 应用层 | 所有 SQL `WHERE tenant_id = :tenantId`（R-C.c），跨 tenant 返回空/显式失败 | ✅ |
 | DB 层 (RLS) | outbox/inbox 表 `ENABLE ROW LEVEL SECURITY` + policy `tenant_id = current_setting('app.tenant_id', true)`，fail-closed | ✅ |
 | GUC 接线 | `JdbcForwardingOutbox.withTenant` / `JdbcForwardingInbox.withTenant` 事务内 `set_config('app.tenant_id', :tenantId, true)` ≡ SET LOCAL | ✅ |
-| broker 层 | `BrokerForwardingConsumerPort.subscribe(consumerServiceId, route, DeliveryFilter)` 固定过滤条件 + `poll(nowMillisEpoch)`；RocketMQ adapter 用 broker 端 SQL92 表达式过滤 `DeliveryFilter.requiredProperties`（`tenantId`/`targetServiceId`），`supportsBrokerSidePropertyFilter()=true`，不投递不匹配消息 | ✅（SPI + RocketMQ adapter 已落） |
+| broker 层 | `BrokerForwardingConsumerPort.subscribe(consumerServiceId, AgentBusEventType, DeliveryFilter)` 固定过滤条件 + `poll(nowMillisEpoch)`；RocketMQ adapter 用 broker 端 SQL92 表达式过滤 `DeliveryFilter.requiredProperties`（`tenantId`/`targetServiceId`），`supportsBrokerSidePropertyFilter()=true`，不投递不匹配消息 | ✅（SPI + RocketMQ adapter 已落） |
 | envelope 层 | `ForwardingEnvelope` compact constructor 强制 `tenantId == routeHandle.tenantScope()` else `tenant_mismatch` | ✅ |
 
 ### 4.6 A2A SSE 流桥接
@@ -424,7 +425,7 @@ sequenceDiagram
                                                                                                        └────────────────────┘
 ```
 
-- **EventBus Relay 进程**：`agent-bus-relay`（`eventbus` profile，`EventBusRelayApplication`）——**唯一生产 fat-jar**。转发底座（inbox 收 hop1 + outbox 发 hop2 + worker/relay + `RelayScheduler`）。**不含 registry 平面**（未迁移，route handle 由 `MapEndpointResolver` + `IngressEnvelope.requestAttributes` 解析）；不占 8080、不建 `agent_registry_mvp` 表。
+- **EventBus Relay 进程**：`agent-bus-relay`（`eventbus` profile，`EventBusRelayApplication`）——**唯一生产 fat-jar**。转发底座（inbox 收 hop1 + outbox 发 hop2 + worker/relay + `RelayScheduler`）。**不含 registry 平面**（main 零依赖；topic 由 `DefaultBrokerTopicResolver` 按 eventType 派生，opaque routeHandle 只穿透不解封）；不占 8080、不建 `agent_registry_mvp` 表。
 - **Gateway（测试源码）**：`agent-bus-relay` 测试源码——`TempClientMain` 在 `gateway` profile 内启动 Spring context（含 producer/outbox/response-consumer/accept-window），即"方式 A：TempClientMain 就是 gateway"。生产 gateway 为 sibling 模块、未迁入本仓。
 - **AgentRuntime 进程**：外仓 `agent-runtime-java`；net-new broker consumer（`BrokerForwardingConsumerPort` 契约）+ producer + inbox（E2E 以 `TempRuntimeMain` 双替身）。
 - **RocketMQ**：独立 broker 基础设施，不在任一应用进程内。
@@ -464,9 +465,9 @@ agent-bus:                           # @ConfigurationProperties(prefix="agent-bu
   lease-duration-ms: 60000          # outbox claimDue 租约
   relay-tick-limit: 100             # 单 tick 最多 relay 多少条
   relay-fixed-delay-ms: 1000         # RelayScheduler scheduleWithFixedDelay 周期
-# topic 不经配置项声明——由 BrokerTopicResolver 派生：ascend_bus_<routeHandle.value()>_<suffix>
-#   invocation 路由 + req/deliver/resp_in/resp_out → ascend_bus_invocation_{req,deliver,resp_in,resp_out}
-#   a2a 路由 + 同 suffix → ascend_bus_a2a_{req,deliver,resp_in,resp_out}
+# topic 不经配置项声明——由 DefaultBrokerTopicResolver 按 AgentBusEventType 派生：ascend_bus_<family>_<suffix>
+#   invocation 族（CLIENT_*/INVOCATION_*）+ req/deliver/resp_in/resp_out → ascend_bus_invocation_{req,deliver,resp_in,resp_out}
+#   a2a 族（A2A_*）+ 同 suffix → ascend_bus_a2a_{req,deliver,resp_in,resp_out}
 # retry 策略为代码默认 ForwardingRetryPolicy.DEFAULT（ExponentialBackoff base=100ms / cap=60000ms / maxAttempts=5），非配置项
 ```
 
@@ -487,7 +488,7 @@ agent-bus:                           # @ConfigurationProperties(prefix="agent-bu
 | `agent-bus.relay-tick-limit` | int | 100 | 否 | 单 tick relay 上限 |
 | `agent-bus.relay-fixed-delay-ms` | long | 1000 | 否 | `RelayScheduler` `scheduleWithFixedDelay` 周期 |
 
-> topic 不经配置项声明——由 `BrokerTopicResolver`（`ForwardingEndpointResolver` 实现）按 `ascend_bus_<routeHandle.value()>_<suffix>` 派生（HD4 opaque，gateway/agent-runtime 不读 topic value）；`invocation`/`a2a` 路由 × `req`/`deliver`/`resp_in`/`resp_out` 后缀得 8 个 topic。`AgentBusBrokerProperties` 为 flat record（无 `topics`/`gateway.`/`broker.rocketmq.` 嵌套）。
+> topic 不经配置项声明——由 `DefaultBrokerTopicResolver`（实现 `BrokerTopicResolver` SPI）按 `AgentBusEventType` 族派生 `ascend_bus_<family>_<suffix>`（HD4 opaque，gateway/agent-runtime 不读 topic value，opaque routeHandle 只穿透不解封）；`invocation`（`CLIENT_*`/`INVOCATION_*`）/`a2a`（`A2A_*`）族 × `req`/`deliver`/`resp_in`/`resp_out` 后缀得 8 个 topic。`AgentBusBrokerProperties` 为 flat record（无 `topics`/`gateway.`/`broker.rocketmq.` 嵌套）。
 
 > **as-built（配置/bean 归属）**：`AgentBusBrokerProperties`（`agent-bus-sdk` `forwarding.common`，`@ConfigurationProperties(prefix="agent-bus")`，flat 12 字段：`nameserver`/`namespace`/`producerGroup`/`pollWaitMillis`/`gatewayServiceId`/`eventBusServiceId`/`acceptTimeoutMs`/`responseTimeoutMs`/`leaseDurationMs`/`tenant`/`relayTickLimit`/`relayFixedDelayMs`），由 `AgentBusInfrastructureConfiguration` `@EnableConfigurationProperties`。共享 bean（`brokerClientProperties`/`forwardingOutbox`/`forwardingInbox`）在 `AgentBusInfrastructureConfiguration`（`@Configuration`+`@EnableConfigurationProperties`，无 `@Profile`，两进程共用）；client-side broker bean（`defaultProducer`/`requestRelay`("req")/`responseConsumer`("resp_out")）在 `RocketMqBrokerClientConfiguration`（`@Configuration`，无 `@Profile`，role-agnostic，任一 caller 复用、按类型注入无 `@Qualifier`）；`GatewayRuntimeConfiguration`（`@Profile("gateway")`，**测试源码**）仅 2 个 SPI-only bean（`gatewayRuntimeService`+`gatewayResponseSubscription`），经 `@Qualifier("requestRelay")`/`@Qualifier("responseConsumer")` 注入；`EventBusRelayConfiguration`（`@Profile("eventbus")`）声明 `relayProducer`（group `producerGroup()+"-relay"`，共享）+ forward/response × {consumer/producer/worker/tick} + `relaySubscriptions`（SmartLifecycle subscribe-before-poll）。`agent-bus-relay/src/main/resources/application.yml` 显式声明 `spring.datasource.*` + `spring.flyway.*`（`baseline-on-migrate: true`、`baseline-version: 0`），确保 Spring Boot 4 启动触发 Flyway 执行 `V1`+`V3` 建表（此前仅靠环境变量传 datasource 时 Flyway autoconfig 不触发，event-bus 启动报 "relation agent_bus_forwarding_outbox does not exist"）。
 
@@ -581,7 +582,7 @@ sequenceDiagram
 |---|---|---|---|
 | 调用事件信封非法 | envelope 构造违反（tenant 空白/payloadRef 缺等） | gateway 拒绝发布 / event-bus 拒绝消费 | 客户端 400 可编程错误；不建 Task |
 | tenant 不匹配 | `envelope.tenantId != routeHandle.tenantScope` 或 broker 端 SQL92 `DeliveryFilter` 过滤 | 拒绝（不入队 / inbox `REJECTED` / broker 不投递）→ `ForwardingFailureCode.TENANT_MISMATCH` | 400 + 审计；禁止跨 tenant fallback |
-| route handle 不可解析 | `ForwardingEndpointResolver` 返回空 | `BrokerProduceOutcome.ROUTE_NOT_FOUND` → 非 retryable → DLQ | `route_not_found`；不暴露物理 endpoint 作恢复 |
+| topic 不可派生 | outbox record `eventType` 为 null（JDBC back-compat 行无 V3 `event_type` 列）→ `BrokerTopicResolver` 无法按 eventType 派生 topic | `BrokerProduceOutcome.ROUTE_NOT_FOUND` → 非 retryable → DLQ | `route_not_found`；opaque routeHandle 在 T4 路径只穿透、不解封，不暴露物理 endpoint 作恢复 |
 | broker 不可达 | RocketMQ 瞬时不可达 | `BrokerProduceOutcome.UNAVAILABLE` → retryable → `ForwardingFailureCode.RECEIVER_UNAVAILABLE` / `DELIVERY_TIMEOUT` | retry policy 退避重投；窗口内未恢复→UNKNOWN |
 | 服务端拒绝 | 鉴权/租户/能力/输入/策略 | `INVOCATION_REJECTED` | 可编程拒绝；不伪造 taskId |
 | 服务端建 Task 后阻塞超时 | 已 `INVOCATION_ACCEPTED` 但最终响应超时 | 返回 `ACCEPTED_WITH_TASK`（不误报 UNKNOWN） | Task 引用 + 后续 GetTask/Subscribe |
@@ -604,6 +605,7 @@ sequenceDiagram
 | `ForwardingEnvelope` 扩展（eventType/source/target） | `forwarding.spi/ForwardingEnvelope.java` | ✅ 已落地（additive + compact constructor 校验；SqlCodec/record 镜像 + V3 `correlation_id`/`event_type` 列） |
 | `BrokerControlDescriptor`（payloadRef routing-descriptor codec） | `forwarding.spi.broker`（gateway-assembly-purify 从 `runtime.transport.broker` 迁入） | ✅ 已落地（含 `originalCaller` 字段） |
 | RocketMQ 具体 adapter | `forwarding.runtime.transport.broker.rocketmq`（`RocketMqBrokerForwardingConsumer`/`Relay` + `RocketMqBrokerClientConfiguration`） | ✅ 已落地（ArchUnit rocketmq 圈 `transport.broker..`；role-agnostic client bean） |
+| registry-discovery-center 集成（Option B） | `BrokerTopicResolver` SPI（spi）+ `DefaultBrokerTopicResolver`（sdk，eventType→topic）+ `GatewayRuntimeService` 注入 `AgentDiscoveryService`（relay **test**）+ `FakeAgentDiscoveryService`（relay test fixture）+ `agent-bus-relay` pom test-scope registry 依赖 | ✅ 已落地（agent-bus **main** 对 registry **零依赖**；topic 由 `AgentBusEventType` 派生、opaque routeHandle T4 穿透不解封；`subscribe` 改为 `(consumerServiceId, AgentBusEventType, DeliveryFilter)`；gateway discovery 为 test 范围参考实现）；⬜ gateway 生产模块（`RegistryEndpointResolver`/`GatewayDiscoveryService`/`SseBridgeService` + T1 SSE 桥接）留待后续波次 |
 | event-bus 治理中继 + scheduler | `forwarding.runtime.relay`（`EventBusRelayConfiguration`/`Worker`/`RelayScheduler`/`RelayDispatchLoop`/`RelayTick`） | ✅ 已落地（`@Profile("eventbus")`；`RelayScheduler` SmartLifecycle subscribe-before-poll） |
 | agent-runtime 侧 broker consumer/producer | 外仓 `agent-runtime-java/service/agent-service-app`（`controller.broker` + `BrokerAutoConfiguration`） | ⬜ 外仓 in-flight（详见 feat-014 §3/§4） |
 | 服务端创建幂等 `tenantId+idempotencyKey` | agent-runtime（`RedisTaskStore` 需加 tenant 前缀 + 幂等索引） | ⬜ 外仓 in-flight（`X-Tenant-Id` 仅 header 透传） |
@@ -613,7 +615,7 @@ sequenceDiagram
 
 - 转发底座 outbox/inbox/worker/状态机/JDBC/RLS（`forwarding.spi`/`forwarding.runtime`/`persistence.jdbc`/`forwarding.common`/`forwarding.spi.broker`，443 green / 14 skip——含底座 + FEAT-013/014 接线 + E2E IT）。
 - broker-agnostic SPI（`BrokerForwardingRelayPort`/`ConsumerPort`/`BrokerOutboundMessage`/`BrokerInboundMessage`/`BrokerMessageHeaders`/`BrokerProduceOutcome`/`BrokerClientProperties` + `InMemoryBroker` 契约测试）。
-- registry-discovery 平面（`MvpRegistryController`/`PgMvpDiscoveryServiceImpl`/`RouteHandleCodec`/`AgentDiscoveryService`）——**未迁移至 agent-solution**；route handle 由 `MapEndpointResolver`（配置映射）+ `IngressEnvelope.requestAttributes` 解析、topic 由 `BrokerTopicResolver` 派生，registry 集成留待后续波次。
+- registry-discovery 平面（`MvpRegistryController`/`PgMvpDiscoveryServiceImpl`/`RouteHandleCodec`/`AgentDiscoveryService`）——**未迁入 agent-bus 生产代码（main 零依赖）**；`AgentDiscoveryService` 接口由 `GatewayRuntimeService`（`agent-bus-relay` test 范围）经 test-scope 依赖注入演示发现路径（`FakeAgentDiscoveryService` fixture），opaque routeHandle+serviceId 写入 envelope；topic 由 `DefaultBrokerTopicResolver`（eventType 驱动）派生；registry 生产集成（gateway sibling 模块 + `RegistryEndpointResolver`/`GatewayDiscoveryService`/`SseBridgeService`）留待后续波次。
 - `ForwardingFailureCode`（8 码，含 `REMOTE_TASK_FAILED`）/ `ForwardingStatus` / `ForwardingRetryPolicy` / `RouteCircuitBreaker`。
 - tenant 隔离三层（app/RLS/GUC）。
 
