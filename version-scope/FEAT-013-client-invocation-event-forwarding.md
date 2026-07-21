@@ -1,21 +1,13 @@
 ---
-version: 0715
+scope: v0730
 module: agent-bus
 feature_type: functional
 feature_id: FEAT-013
-status: draft
-related_docs:
-  - ../architecture/L0-Top-Level-Design/boundaries.md
-  - ../architecture/L0-Top-Level-Design/glossary.md
-  - ../architecture/L1-High-Level-Design/agent-bus/README.md
-  - ../architecture/L1-High-Level-Design/agent-bus/logical.md
-  - ../architecture/L1-High-Level-Design/agent-bus/process.md
-  - ../architecture/L1-High-Level-Design/agent-bus/scenarios.md
-  - ../architecture/L1-High-Level-Design/agent-bus/features/README.md
-  - ./FEAT-001-standardized-agent-service-entrypoint.md
+status: active
+updated: 2026-07-21
 ---
 
-# 客户端调用事件转发特性文档
+# 总线支持客户端调用事件转发
 
 ## 1. 特性定位
 

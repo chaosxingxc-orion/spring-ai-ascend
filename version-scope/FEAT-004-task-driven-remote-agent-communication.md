@@ -1,22 +1,13 @@
 ---
-scope: version
+scope: v0730
 module: agent-runtime
 feature_type: functional
 feature_id: FEAT-004
 status: active
-updated: 2026-07-20
-dependency:
-  - README.md
-  - FEAT-001-standardized-agent-service-entrypoint.md
-  - FEAT-003-agent-task-state-cache.md
-  - FEAT-008-user-interaction-interrupt-response.md
-  - FEAT-019-agent-core-parallel-tool-tasks.md
-  - DFX-001-trajectory-observability.md
-  - ../architecture/L1-High-Level-Design/agent-runtime
-  - ../architecture/L2-Low-Level-Design/agent-runtime/Feat-Func-004-remote-agent-orchestration.md
+updated: 2026-07-21
 ---
 
-# 任务驱动的远程智能体调用 - 当前版本事实要求
+# 任务驱动的远程智能体通信
 
 ## 1. 特性定位
 

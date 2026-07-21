@@ -1,18 +1,13 @@
 ---
-scope: version
+scope: v0730
 module: agent-core
 feature_type: functional
 feature_id: FEAT-019
-status: draft
-updated: 2026-07-20
-dependency:
-  - README.md
-  - FEAT-002-heterogeneous-agent-framework-compatibility.md
-  - FEAT-004-remote-agent-orchestration.md
-  - DFX-001-trajectory-observability.md
+status: active
+updated: 2026-07-21
 ---
 
-# 智能体生成并行的下游智能体调用委托 - 当前版本事实要求
+# 智能体生成并行的下游智能体调用委托
 
 ## 1. 特性定位
 

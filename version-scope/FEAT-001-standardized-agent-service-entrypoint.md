@@ -1,12 +1,13 @@
 ---
-version: 0715
+scope: v0730
 module: agent-runtime
 feature_type: functional
 feature_id: FEAT-001
 status: active
+updated: 2026-07-21
 ---
 
-# 标准化智能体服务入口特性文档
+# 标准化智能体服务入口
 
 ## 1. 特性定位
 

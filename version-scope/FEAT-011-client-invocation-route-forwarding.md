@@ -1,12 +1,13 @@
 ---
-version: 0715
+scope: v0730
 module: agent-bus
 feature_type: functional
 feature_id: FEAT-011
 status: active
+updated: 2026-07-21
 ---
 
-# agent-gateway 组件客户端调用路由转发特性文档
+# 网关组件客户端调用路由转发
 
 ## 1. 特性定位
 
@@ -134,5 +135,5 @@ FEAT-011 定义 `agent-gateway` 当前版本作为客户端统一 A2A 调用路�
 
 - `agent-sdk/Docs/agent-gateway组件客户端调用路由转发特性设计.md`
 - `version-scope/FEAT-006-standard-agent-client-invocation.md`
-- `JAVA local working/version-scope/FEAT-013-client-invocation-event-forwarding.md`
-- `Docs/FEAT_Design/FEAT-001-standardized-agent-service-entrypoint.md`
+- `version-scope/FEAT-013-client-invocation-event-forwarding.md`
+- `version-scope/FEAT-001-standardized-agent-service-entrypoint.md`

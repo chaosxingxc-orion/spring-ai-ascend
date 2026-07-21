@@ -1,26 +1,13 @@
 ---
-version: 0715
+scope: v0730
 module: agent-runtime
 feature_type: functional
 feature_id: FEAT-017
-status: draft
-related_docs:
-  - ../architecture/L0-Top-Level-Design/boundaries.md
-  - ../architecture/L0-Top-Level-Design/glossary.md
-  - ../architecture/L1-High-Level-Design/agent-runtime/README.md
-  - ../architecture/L1-High-Level-Design/agent-runtime/logical.md
-  - ../architecture/L1-High-Level-Design/agent-runtime/process.md
-  - ../architecture/L1-High-Level-Design/agent-runtime/scenarios.md
-  - ../architecture/L1-High-Level-Design/agent-bus/README.md
-  - ../architecture/L1-High-Level-Design/agent-bus/logical.md
-  - ./FEAT-001-standardized-agent-service-entrypoint.md
-  - ./FEAT-004-remote-agent-orchestration.md
-  - ./FEAT-012-client-invocation-bus-forwarding.md
-  - ./FEAT-013-client-invocation-event-forwarding.md
-  - ./FEAT-014-a2a-call-event-forwarding.md
+status: active
+updated: 2026-07-21
 ---
 
-# 订阅消费总线事件消息特性文档
+# 运行时订阅消费总线事件消息
 
 ## 1. 特性定位
 

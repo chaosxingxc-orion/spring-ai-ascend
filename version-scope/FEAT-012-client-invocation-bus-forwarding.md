@@ -1,11 +1,12 @@
 ---
-version: 0715
+scope: v0730
 module: agent-bus
 feature_type: functional
 feature_id: FEAT-012
 status: active
+updated: 2026-07-21
 ---
-# agent-gateway 组件客户端调用总线转发特性文档
+# 网关组件客户端调用总线转发
 
 ## 1. 特性定位
 
@@ -173,7 +174,7 @@ Gateway 对 client 的接口面与 `FEAT-011` 保持一致；本特性只说明�
 ## 7. 关联文档
 
 - `agent-sdk/Docs/agent-gateway组件客户端调用总线转发特性设计.md`
-- `Docs/FEAT_Design/FEAT-011-agent-gateway-client-invocation-route-forwarding.md`
-- `JAVA local working/version-scope/FEAT-013-client-invocation-event-forwarding.md`
-- `Docs/FEAT_Design/FEAT-017-agent-runtime-bus-event-subscription-consumption.md`
-- `Docs/FEAT_Design/FEAT-001-standardized-agent-service-entrypoint.md`
+- `version-scope/FEAT-011-client-invocation-route-forwarding.md`
+- `version-scope/FEAT-013-client-invocation-event-forwarding.md`
+- `version-scope/FEAT-017-bus-event-subscription-consumption.md`
+- `version-scope/FEAT-001-standardized-agent-service-entrypoint.md`
