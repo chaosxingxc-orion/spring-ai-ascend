@@ -52,7 +52,7 @@ dependency:
 
 ### 1.2 请求入口与执行域
 
-Runtime 的 northbound 分为 Task-owning A2A JSON-RPC 和非 Task Query facade。A2A 路径存在三类执行域：
+Runtime 的 northbound 入口是 A2A JSON-RPC over HTTP。当前运行时存在三类执行域：
 
 | 执行域 | 说明 |
 |---|---|
@@ -60,7 +60,7 @@ Runtime 的 northbound 分为 Task-owning A2A JSON-RPC 和非 Task Query facade�
 | A2A SDK 事件域 | TaskStore、QueueManager、MainEventBus 和 RequestHandler 管理 Task 生命周期、事件发布和事件消费。 |
 | Agent 后台执行域 | `MainEventBusProcessor` 使用 `A2AAutoConfiguration` 中创建的 executor 调用 `A2AAgentExecutor` 与业务 handler。 |
 
-进程视图中的“Task 执行”指 runtime 已经通过 A2A SDK 接管的执行路径；非 Task Query facade 是一次性 invocation 路径，不获得 Task 生命周期语义。业务 Agent 自身 checkpoint、工具内部状态和中间件服务状态不归 `agent-runtime` 进程视图拥有。FEAT-003 Redis cache 只作为 Task 状态缓存和 Agent checkpoint cache 桥接，缓存生命周期受 TTL 约束，不改变业务 checkpoint 的所有权。
+进程视图中的“执行”指 runtime 已经接管的 Task 执行路径；业务 Agent 自身 checkpoint、工具内部状态和中间件服务状态不归 `agent-runtime` 进程视图拥有。FEAT-003 Redis cache 只作为 Task 状态缓存和 Agent checkpoint cache 桥接，缓存生命周期受 TTL 约束，不改变业务 checkpoint 的所有权。
 
 ### 1.3 Task / Event / SSE 的关系
 
@@ -78,20 +78,6 @@ A2A Request
 ```
 
 非流式请求最终返回 JSON-RPC response；流式请求通过 QueueManager 把 Task 事件转换为 SSE 事件流。
-
-### 1.4 非 Task Query facade
-
-```text
-HTTP Query / Feat-Func-022 Custom REST
-  -> Query ingress / protocol adapter
-  -> ServeRequest
-  -> ServeOrchestrator.query / streamQuery
-  -> AgentHandler
-  -> QueryResponse / QueryChunk
-  -> 当前 HTTP JSON / SSE response
-```
-
-该路径不经过 A2A SDK `RequestHandler`、`MainEventBusProcessor` 或 `AgentEmitter`，因此不创建正式 Task。它适用于调用方只关心当前连接结果的兼容场景；需要 Task 查询、取消、重订阅、权威 `INPUT_REQUIRED` 或异步控制时必须使用 `/a2a`。
 
 ## 2. 主执行流程
 

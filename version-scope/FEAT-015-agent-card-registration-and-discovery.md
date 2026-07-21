@@ -1,23 +1,13 @@
 ---
-scope: version-draft
-module: agent-bus/r-and-d-center
+scope: v0730
+module: agent-bus
 feature_type: functional
-feature_id: Feat-Func-015
-status: draft
-updated: 2026-07-13
-authority:
-  - ../architecture/L0-Top-Level-Design
-  - ../architecture/L1-High-Level-Design/agent-bus
-  - ./FEAT-001-standardized-agent-service-entrypoint.md
-  - ./FEAT-013-client-invocation-event-forwarding.md
-  - ./FEAT-014-a2a-call-event-forwarding.md
-  - ./FEAT-016-runtime-instance-route-query.md
-drives:
-  - ../architecture/L1-High-Level-Design/agent-bus/logical.md
-  - ../architecture/L2-Low-Level-Design/agent-bus/Feat-Func-015-agent-card-registration-and-discovery.md
+feature_id: FEAT-015
+status: active
+updated: 2026-07-21
 ---
 
-# Agent Card 注册与发现特性文档
+# Agent Card 注册与发现
 
 ## 1. 特性定位
 

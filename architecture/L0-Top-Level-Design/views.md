@@ -59,7 +59,6 @@ L0 逻辑视图描述系统的稳定心智模型。它不等同于 Java 包、�
 | Task | V1 统一的服务端权威执行生命周期状态。 | `agent-runtime` 实例。 |
 | Task tree | 父子执行、委派、汇合、失败传播和成本归因关系。 | 同实例由本地 `agent-runtime` 拥有；跨实例通过 `agent-bus` 联邦控制保留引用关系。 |
 | Client invocation | 客户端调用引用或 SDK 本地句柄，可映射到服务端 Task。 | `agent-client` + `agent-runtime` 查询表面。 |
-| Non-Task Query invocation | 不需要后续 Task 查询、订阅或取消的一次性同步/SSE 调用。 | `agent-runtime` 非 Task 查询表面；不得产生第二个生命周期 owner。 |
 | Session / Context package | 对话、变量、上下文投影、记忆和检索组装的上下文连续性。 | `agent-runtime` 与 `agent-middleware` 协作，生命周期不得覆盖 Task。 |
 | Agent definition | 绑定模型、技能、记忆、规划器、提示词和 advisor 的智能体定义。 | `agent-runtime` 持有服务侧注册/运行入口，组件来自 `agent-core` 或 `agent-middleware`。 |
 | Execution component | workflow 节点、ReAct loop、Tool、Hook、Planner 等开发者可选组件。 | `agent-core`。 |
@@ -115,7 +114,6 @@ L1 架构位于 `architecture/L1-High-Level-Design/`。L2 技术设计由后续 
 | 路径 | 顶层流程 | 涉及模块 | 必须保持的约束 |
 |---|---|---|---|
 | Task 创建与接入 | client / HTTP caller -> Service Task API 当前实现形态（A2A JSON-RPC） -> `agent-runtime` 创建 Task。 | `agent-client`、`agent-runtime` | 入口传播 tenant 和 trace；Platform Gateway 准入、actor、idempotency 和 posture 治理属于待展开 draft 设计。 |
-| 非 Task 查询接入 | client / HTTP caller -> Query facade -> 受治理执行入口 -> 当次 JSON/SSE 响应。 | `agent-runtime`、异构框架适配实现 | 不创建 Task，不支持 Task 查询/订阅/取消；中断和错误只在当前响应中表达，不能冒充权威 Task 状态。 |
 | 智能体执行 | `agent-runtime` Task owner -> 受治理执行契约 -> `agent-core` 官方组件或异构框架适配实现 -> 返回执行结果/意图。 | `agent-runtime`、`agent-core`、异构框架适配实现 | SDK/框架不直接拉取 Task，不直接写生命周期状态。 |
 | 上下文构建 | Task owner 请求上下文 -> Session shell -> memory/retrieval/prompt/advisor 组装 context package。 | `agent-runtime`、`agent-middleware` | Context 不覆盖 Task 生命周期；记忆和知识状态通过中间件边界读写。 |
 | 工具调用 | 执行组件产生 tool intent -> 服务侧治理 -> skill/tool/sandbox 执行 -> audit/evidence。 | `agent-core`、`agent-runtime`、`agent-middleware` | 不可逆副作用必须幂等或有重复保护；工具不得绕过治理直接外呼。 |

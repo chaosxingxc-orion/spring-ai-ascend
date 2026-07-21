@@ -1,11 +1,12 @@
 ---
-version: 0715
+scope: v0730
 module: agent-client
 feature_type: functional
 feature_id: FEAT-007
 status: active
+updated: 2026-07-21
 ---
-# 客户端本地工具注册与调用特性文档
+# 客户端本地工具注册与执行
 
 ## 1. 特性定位
 
@@ -157,8 +158,8 @@ FEAT-007 定义 `agent-client` 当前版本承载客户端本地工具接入的�
 
 - `agent-sdk/Docs/Agent-client组件本地工具注册与远端驱动调用特性设计.md`
 - `version-scope/FEAT-006-standard-agent-client-invocation.md`
-- `JAVA local working/version-scope/FEAT-011-client-invocation-route-forwarding.md`
-- `JAVA local working/version-scope/FEAT-012-client-invocation-bus-forwarding.md`
-- `JAVA local working/version-scope/FEAT-013-client-invocation-event-forwarding.md`
-- `Docs/FEAT_Design/FEAT-009-agent-runtime-client-side-tool-response.md`
-- `Docs/FEAT_Design/FEAT-010-agent-core-dynamic-client-side-tool-registration-invocation.md`
+- `version-scope/FEAT-011-client-invocation-route-forwarding.md`
+- `version-scope/FEAT-012-client-invocation-bus-forwarding.md`
+- `version-scope/FEAT-013-client-invocation-event-forwarding.md`
+- `version-scope/FEAT-009-client-side-tool-response.md`
+- `version-scope/FEAT-010-task-level-dynamic-tool-visibility-and-handoff.md`

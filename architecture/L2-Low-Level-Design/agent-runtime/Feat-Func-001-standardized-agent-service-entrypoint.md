@@ -14,7 +14,7 @@ dependency:
 # 标准化智能体服务入口设计文档
 
 > 目标模块：`service/agent-service-app/src/main/java/com/openjiuwen/service/app/controller/a2a/`、`service/agent-service-app/src/main/java/com/openjiuwen/service/app/autoconfigure/`、`service/agent-service-app/src/main/java/com/openjiuwen/service/app/config/`
-> 最后更新：2026-07-14
+> 最后更新：2026-07-09
 
 ---
 
@@ -30,8 +30,6 @@ agent-runtime 以 Google A2A JSON-RPC over HTTP 作为当前北向标准服务�
 ### 1.2 当前事实边界
 
 本文只描述 Feat-Func-001 在当前工程中的已接受实现事实。面向调用方的当前版本事实要求、用户场景和外部行为边界由 `version-scope/FEAT-001-standardized-agent-service-entrypoint.md` 驱动；本 L2 只展开当前 controller、SDK bridge、Agent Card controller 和 auto-configuration 的实现结构。
-
-Feat-Func-022“Custom REST API 到 Agent Runtime 执行入口适配 SPI”是与本特性关联的独立功能特性。它复用 `ServeOrchestrator` 内部执行入口，但只提供非 Task Custom REST facade，不属于 Feat-Func-001 的子特性，也不改变本特性定义的 A2A 标准协议与 Task 表面。
 
 ### 1.3 设计原则
 

@@ -26,7 +26,7 @@ dependency:
 
 ## 场景边界
 
-`agent-runtime` 的技术场景围绕运行时接入、Task 生命周期桥接、非 Task Query facade、异构 Agent 框架适配和结果回传展开。场景中的客户端、业务需求和版本取舍不是本文档的主要对象；本文只描述 active 架构现状中已经成立的运行机制。
+`agent-runtime` 的技术场景围绕运行时接入、Task 生命周期桥接、Agent 框架适配和结果回传展开。场景中的客户端、业务需求和版本取舍不是本文档的主要对象；本文只描述 active 架构现状中已经成立的运行机制。
 
 ## TS-01 A2A 客户端调用本地 Agent
 
@@ -120,7 +120,7 @@ runtime 管理 A2A Task、上下文、队列和事件推进；FEAT-003 可把 ru
 
 ### 场景目标
 
-在 Task-owning 路径中，runtime 将 Agent 执行结果统一表达为中立结果，再由 A2A SDK 映射为 A2A Task / Artifact / Status 表面，对外表现为同步、流式或异步查询路径。非 Task Query facade 的当次响应见 TS-09。
+runtime 将 Agent 执行结果统一表达为 A2A Task / Artifact / Status 表面，对外表现为同步、流式或异步查询路径。
 
 ### 参与组件
 
@@ -254,38 +254,5 @@ Runtime 可以读取远端 A2A Agent Card 并将远端 Agent 注册为本地可�
 
 ### 验证关注点
 
-- 框架适配器消费中立 `RemoteAgentToolSpec`，不依赖 A2A bridge 类型。
-- 远端 Task 生命周期由远端 Agent/runtime 拥有，本地 runtime 不抢占远端 owner。
-- 该路径不声明已经具备跨边界 agent-bus 治理、权限中介或数据引用信封。
 - 远端 Agent 调用属于 outbound 能力，不是本 runtime inbound 服务入口。
 - 远端 Agent 工具化不改变本 runtime 的 `/a2a` northbound 方法范围。
-
-## TS-09 非 Task Query facade 即时调用
-
-### 场景目标
-
-兼容调用方通过固定 Query API，或通过已启用的 Feat-Func-022 Custom REST facade，发起一次同步/SSE Agent invocation，并在当前连接内取得结果。该路径不创建 runtime Task，不提供 Task 查询、订阅或取消。
-
-### 参与组件
-
-| 组件 | 角色 |
-|---|---|
-| `/v1/query`, `/query`, `/v1/query/reactive` | openJiuwen Java 实现提供的固定非 Task Query 入口。 |
-| Custom REST protocol adapter | 把客户 HTTP 上下文转换为 `ServeRequest`，并包装当次响应。 |
-| ServeOrchestrator | 承接 query/streamQuery 和当前 conversation 内的远端 delegate 编排。 |
-| AgentHandler / framework adapter | 执行目标 Agent 并产出 `QueryResponse` / `QueryChunk`。 |
-
-### 基本路径
-
-1. 调用方进入固定 Query endpoint 或 Custom REST endpoint。
-2. ingress 将请求转换为 `ServeRequest`，直接调用 `ServeOrchestrator`。
-3. handler 执行 Agent，结果以当前 JSON 或 SSE 响应返回。
-4. 普通本地完成、失败或中断不创建正式 A2A Task；远端 delegate shadow Task 只用于 orchestrator 内部恢复。
-5. `reset_conversation` 取消当前流并请求 handler 清理会话，不等价于 A2A `CancelTask`。
-
-### 验证关注点
-
-- 响应不得返回或伪造可查询的 runtime taskId。
-- 文档和 SDK 不得声称该路径支持 GetTask、CancelTask、SubscribeToTask 或 Task 级断线重订阅。
-- 需要权威 `INPUT_REQUIRED`、异步控制或后续 Task 查询的调用必须使用 `/a2a`。
-- Query facade 与 Service Task API 可以复用执行适配器，但不能混写生命周期状态。
