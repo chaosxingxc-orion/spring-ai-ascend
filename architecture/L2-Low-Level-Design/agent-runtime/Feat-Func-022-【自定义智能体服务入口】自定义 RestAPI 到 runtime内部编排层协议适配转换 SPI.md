@@ -1,4 +1,4 @@
-﻿---
+---
 level: L2-LLD
 module: agent-runtime-ext-java
 feature_type: functional
@@ -11,13 +11,13 @@ dependency:
   - openJiuwen/agent-runtime-java
 ---
 
-# Custom REST API 到 Agent Runtime 执行入口适配 SPI 设计说明
+# Custom REST API 到 A2A 执行入口适配 SPI 设计说明
 
 > 目标仓库：`openJiuwen/agent-solution`
 > 目标模块：`common/agent-runtime-ext-java/agent-service-app/agent-service-app-custom-rest`
-> 最后更新：2026-07-20
+> 最后更新：2026-07-21
 
-说明：本文档描述独立功能特性 Feat-Func-022。它与 Feat-Func-001“标准化智能体服务入口”关联，二者复用相同的内部 `ServeOrchestrator` 执行基础；Feat-Func-022 归一到 runtime 的标准执行请求、同步响应和流式 chunk 语义，但自身属于非 Task Query facade，不归一为 A2A Task 生命周期，不属于 Feat-Func-001 的子特性，也不扩展 Feat-Func-001 的 A2A 标准协议表面。实际代码实现落在 `agent-solution` 仓库，不修改 `spring-ai-ascend/agent-runtime` 主模块代码。
+说明：本文档描述独立功能特性 Feat-Func-022。它与 Feat-Func-001“标准化智能体服务入口”关联：Feat-Func-001 提供标准 `/a2a` JSON-RPC 协议表面，Feat-Func-022 提供客户自定义 REST 协议表面；二者在 HTTP 协议层相互独立，但共享 runtime 已有的 A2A `RequestHandler`、`TaskStore`、事件总线、`A2AAgentExecutor` 和内部编排链路。Feat-Func-022 的实现放在 `agent-solution` 扩展仓，首版不修改 `agent-runtime-java` 源码。
 
 ---
 
@@ -25,49 +25,67 @@ dependency:
 
 ### 1.1 特性定位
 
-Feat-Func-022 在 `agent-solution/common/agent-runtime-ext-java` 中提供一个轻量 custom-rest 扩展 starter，使平台集成方可以用自有 REST URL、请求字段和响应信封调用 Agent Runtime。它是与 Feat-Func-001 关联的独立接入特性：二者共享 runtime 内部执行入口，但分别定义 Custom REST 非 Task facade 与 A2A 标准服务入口。
+Feat-Func-022 提供一个轻量 custom-rest 扩展 starter，使平台集成方可以使用自有 REST URL、请求字段和响应信封调用 runtime 的正式 A2A 执行入口。
 
-该扩展只负责 HTTP 外壳适配：
+该扩展完成两类适配：
+
+1. 将客户自定义 HTTP 请求转换为 A2A SDK `MessageSendParams`。
+2. 将 A2A 同步结果或流式事件交给业务 adapter 自定义包装。
 
 ```text
 自定义 REST HTTP 请求
   -> CustomRestProtocolAdapter Java SPI
+  -> A2ASendCommand(MessageSendParams, stream)
+  -> conversationId 续轮解析
+  -> A2A SDK RequestHandler
+  -> TaskStore / EventBus / QueueManager
+  -> A2AAgentExecutor
+  -> A2AProtocolAdapter
   -> ServeRequest
-  -> ServeOrchestrator.query()/streamQuery()
+  -> ServeOrchestrator
+  -> EventKind / StreamingEventKind
   -> CustomRestProtocolAdapter Java SPI
-  -> 自定义 REST HTTP 响应 / SSE event
+  -> 自定义 REST HTTP 响应 / SSE data
 ```
 
-核心原则是：自定义 REST 不新增执行状态机，不直接调用 A2A JSON-RPC HTTP controller，也不再走一次 HTTP。它和现有 `/v1/query` 固定 REST facade 一样，最终衔接到 runtime 内部统一的 `ServeOrchestrator`。配置的一个自定义 path 只新增一个 mapping，不替换也不禁用既有 `/a2a` 和 `/v1/query`；内置固定入口不计入“单 custom-rest path”约束。
+Custom REST 客户端不需要感知或回传 A2A `taskId`。业务 adapter 将客户会话标识映射为 A2A `Message.contextId`；框架在调用 `RequestHandler` 前根据该 contextId 查找唯一可续轮的正式 Task，并在需要时自动补入 `Message.taskId`。
+
+配置的一个自定义 path 只新增一个 mapping，不替换、不代理也不禁用既有 `/a2a`、`/v1/query` 和 `/query`。
 
 ### 1.2 当前事实依据
 
-当前 `agent-runtime-java` 中已有两类与本特性直接相关的入口：
+当前 `agent-runtime-java` 已有以下执行入口和组件：
 
-| 入口 | 当前路径 | 内部衔接点 | 说明 |
-| --- | --- | --- | --- |
-| 固定 REST facade | `POST /v1/query` | `ServeOrchestrator` | `QueryMvcController` 将 `QueryRequest` 转为 `ServeRequest` |
-| A2A JSON-RPC | `POST /a2a` | A2A SDK `RequestHandler` -> `A2AAgentExecutor` -> `ServeOrchestrator` | JSON-RPC 是外部协议壳，执行仍归一到 orchestrator |
+| 组件 | 当前职责 | 本特性复用方式 |
+| --- | --- | --- |
+| `POST /v1/query` | `QueryMvcController` 将 `QueryRequest` 转为 `ServeRequest` 后直接调用 `ServeOrchestrator` | 不经过该 controller |
+| `POST /a2a` | `A2aJsonRpcController` 解析 JSON-RPC 后调用 A2A SDK `RequestHandler` | 不经过该 controller，直接复用同一个 `RequestHandler` bean |
+| `RequestHandler` | 创建/恢复正式 Task，连接 TaskStore、QueueManager 和事件总线 | Custom REST 的 A2A 执行入口 |
+| `A2AAgentExecutor` | 将 A2A 请求投影到 `ServeOrchestrator`，并将输出投影为 A2A Task 事件 | 原样复用 |
+| `TaskStore` | 按 taskId 保存正式 Task，也保存 orchestrator 内部 `shadow:` Task | 用于 Custom REST 的 conversationId 续轮解析 |
+| `A2AEnabledServeOrchestrator` | 执行本地 Agent，并按 conversationId 管理远端 A2A delegate 的 shadow task | 作为 `A2AAgentExecutor` 下游原样复用 |
 
-`ServeOrchestrator` 的默认实现可能是 `A2AEnabledServeOrchestrator`。因此 custom-rest 和 `/v1/query` 一样可以复用 handler 调用、远端 A2A delegate 编排和当前流 observer 取消能力，但它们都是 **非 Task Query facade**：普通本地 query/stream 不进入 A2A SDK `RequestHandler`，不创建正式 Task。远端 delegate 使用的 shadow Task 只是 orchestrator 内部恢复状态。
+`/v1/query` 的多轮主要依赖 `ServeRequest.conversationId` 对应的 Agent session，以及 `A2AEnabledServeOrchestrator` 的内部 shadow task。正式 A2A `RequestHandler` 默认只按 `taskId` 恢复 Task，不会按 contextId 自动选择 Task。因此 Feat-Func-022 在扩展层增加只对 Custom REST 生效的 conversationId 续轮策略，不修改标准 `/a2a` 语义。
 
 ### 1.3 设计原则
 
-1. **YAML 只描述 HTTP 暴露面**：只配置 query URL，不把字段映射做成 YAML DSL；首版固定使用 POST。
-2. **转换全部由 Java SPI 实现**：入站请求转换、出站响应信封、SSE chunk 包装、错误包装都由业务实现类掌控。
-3. **单 adapter**：当前版本只允许启用一个自定义 REST adapter，不考虑多 adapter 共存、优先级和多路径路由表。
-4. **复用 `/v1/query` 执行主链**：转换后直接调用 `ServeOrchestrator`，不调用 `A2aJsonRpcController`，不构造 JSON-RPC 字符串。
-5. **agent-solution 扩展仓承载**：custom-rest 作为 `agent-runtime-ext-java` 的独立 Spring Boot auto-configuration module，被宿主应用引入 classpath 后生效。
+1. **YAML 只描述 HTTP 暴露面**：只配置一个 query URL，首版固定 POST，不把字段映射做成 YAML DSL。
+2. **转换全部由 Java SPI 实现**：客户字段到 A2A 请求、A2A 结果到客户响应均由业务 adapter 控制。
+3. **正式进入 A2A 执行链**：调用 `RequestHandler`，获得正式 Task、TaskState、Artifact 和事件语义。
+4. **conversationId 对客户稳定**：客户无需感知 taskId；框架按 contextId 自动解析唯一可续轮 Task。
+5. **不改变标准入口**：conversationId 自动续轮只作用于 Custom REST mapping，不修改 `/a2a` 和 `/v1/query`。
+6. **不做进程内协议绕行**：不调用 `A2aJsonRpcController`，不拼 JSON-RPC 字符串，不发起二次 HTTP。
+7. **首版复用现有存储**：使用 `TaskStore.list(contextId)` 查找正式 Task，不新增独立 task/run/job 状态机。
 
 ### 1.4 子特性全景
 
 | 子特性 | 职责 | 关键抽象 | 状态 |
 | --- | --- | --- | --- |
-| 自定义 URL 暴露 | 按 YAML 注册一个 query path，固定使用 POST | `CustomRestProperties`, `CustomRestAutoConfiguration` | 已实现 |
-| 入站转换 SPI | 将 HTTP 上下文转换为 `ServeRequest` | `CustomRestProtocolAdapter.Context` | 已实现 |
-| 出站转换 SPI | 将 `QueryResponse`、`QueryChunk`、错误转换为客户响应 | `CustomRestProtocolAdapter` | 已实现 |
-| 执行桥接 | 复用 runtime 内部 `ServeOrchestrator` | `ServeOrchestrator` | 既有依赖 |
-| 非 Task Query 边界 | 普通调用只返回当次 JSON/SSE；远端 delegate shadow Task 不升级为正式 Task | `A2AEnabledServeOrchestrator` | 已实现 |
+| 自定义 URL 暴露 | 按 YAML 注册一个 POST path | `CustomRestProperties`、`CustomRestAutoConfiguration` | 需按本文刷新 |
+| 入站转换 SPI | 将 HTTP Context 转为 A2A 发送命令 | `CustomRestProtocolAdapter`、`A2ASendCommand` | 需按本文刷新 |
+| conversationId 续轮 | 查找唯一可恢复正式 Task并自动补 taskId | `CustomRestA2ATaskResolver`、`TaskStore` | 新增 |
+| A2A 执行桥接 | 创建/恢复 Task并进入现有执行链 | `RequestHandler` | 既有依赖 |
+| 出站转换 SPI | 包装 A2A 同步结果、流式事件和错误 | `CustomRestProtocolAdapter` | 需按本文刷新 |
 
 ---
 
@@ -75,46 +93,48 @@ Feat-Func-022 在 `agent-solution/common/agent-runtime-ext-java` 中提供一个
 
 ### 2.1 能力清单
 
-| 能力 | 状态 | 说明 |
+| 能力 | 首版目标 | 说明 |
 | --- | --- | --- |
-| 单个自定义 query URL | 已实现 | 通过 YAML 配置路径模板，例如 `/custom/{session_key}`；占位变量名由接入方定义 |
-| 固定 POST method | 已实现 | Spring MVC endpoint 固定注册 `POST`，不提供 method 配置项 |
-| Java 入站转换 | 已实现 | 业务代码读取 header/path/query/body，构造 `ServeRequest` |
-| Java 出站转换 | 已实现 | 业务代码包装同步响应、SSE chunk 和错误响应 |
-| 同步执行 | 已实现 | 当 adapter 产出的 `ServeRequest.stream=false` 时调用 `ServeOrchestrator.query()` |
-| 流式执行 | 已实现 | 当 adapter 产出的 `ServeRequest.stream=true` 时调用 `ServeOrchestrator.streamQuery()`，返回 SSE |
-| 非 Task Query 语义 | 已实现 | 与 `/v1/query` 相同，不创建正式 Task；需要 Task 能力时使用 `/a2a` |
-| 多 adapter 共存 | out | 当前版本不支持 |
-| YAML 字段映射 DSL | out | 请求/响应转换全部由 Java 代码实现 |
-| runtime-to-runtime 标准入口 | out | 自定义 REST 不作为 runtime 间调用标准；runtime 间仍使用 A2A |
-| webhook callback | out | 非一次性响应仍使用 SSE 或标准 task 查询能力 |
-| multipart / 文件输入 | out | 当前版本只处理 JSON body |
+| 单个自定义 query URL | 支持 | URL 模板可包含业务自定义 path variable |
+| 固定 POST | 支持 | 不提供 method 配置项 |
+| Java 入站转换 | 支持 | HTTP Context 转为 `A2ASendCommand` |
+| conversationId 自动续轮 | 支持 | 客户不传 taskId；框架解析唯一可续轮 Task |
+| A2A 正式 Task | 支持 | 请求进入 `RequestHandler`、TaskStore 和事件总线 |
+| 同步执行 | 支持 | 调用 `RequestHandler.onMessageSend(...)` |
+| 流式执行 | 支持 | 调用 `RequestHandler.onMessageSendStream(...)` 并输出 SSE |
+| Java 出站转换 | 支持 | 包装 `EventKind`、`StreamingEventKind` 和错误 |
+| 多 adapter 共存 | 不支持 | 首版只允许一个 path 和一个 adapter |
+| GetTask/CancelTask/SubscribeToTask 自定义端点 | 不支持 | 首版只提供发送/续轮入口 |
+| YAML 字段映射 DSL | 不支持 | 转换由 Java SPI 实现 |
+| multipart / 文件输入 | 不支持 | 首版只解析 JSON object body |
 
 ### 2.2 显式排除
 
 | 排除项 | 原因 | 替代 |
 | --- | --- | --- |
-| 调用 `A2aJsonRpcController.handleJsonRpc` | 该 controller 是 JSON-RPC HTTP 协议壳，会导致 custom-rest 先组 JSON-RPC 再被解析，链路绕且绑定协议 envelope | 直接调用 `ServeOrchestrator` |
-| 走二次 HTTP | 同进程内方法调用即可，二次 HTTP 增加延迟、错误面和部署耦合 | Spring bean 方法调用 |
-| 接入 A2A SDK `RequestHandler` | custom-rest 目标是自定义 REST facade，不是重新实现 A2A JSON-RPC 表面 | 复用 orchestrator 的协议无关入口 |
-| 多 adapter 路由 | 当前需求只允许一个自定义 REST | 单 properties + 单 adapter bean |
-| 在 YAML 配置字段映射规则 | 字段别名、metadata 透传、响应信封属于业务协议语义，配置化会演变成复杂 DSL | Java SPI 实现 |
+| 调用 `A2aJsonRpcController.handleJsonRpc` | controller 是 JSON-RPC HTTP 外壳，进程内调用会重复解析和序列化 | 直接调用 `RequestHandler` |
+| 构造 JSON-RPC 字符串 | adapter 已经位于 Java 对象边界，无需协议文本往返 | 构造 `MessageSendParams` |
+| 直接调用 `ServeOrchestrator` | 会绕过正式 TaskStore/EventBus 生命周期，不满足“转成 A2A”目标 | 经 `RequestHandler` 和 `A2AAgentExecutor` 调用 |
+| 修改 A2A SDK 按 contextId 恢复 | 会改变标准 `/a2a` 语义，并引入同 context 多 Task 歧义 | 只在 Custom REST 扩展层解析 taskId |
+| 新建独立 TaskStore | 会复制正式 Task状态并产生一致性问题 | 复用 runtime 已有 `TaskStore` |
+| 多路径、多操作路由 DSL | 当前需求只有一个自定义发送入口 | 单 path + 单 adapter |
 
 ### 2.3 行为承诺
 
-- **必须**：custom-rest 的 `POST {query-path}` 被调用时，扩展解析 HTTP 上下文并调用 `CustomRestProtocolAdapter.toServeRequest(...)`。
-- **必须**：adapter 返回的 `ServeRequest` 进入 `ServeOrchestrator.query()` 或 `streamQuery()`。
-- **必须**：ready gate 与 `/v1/query` 对齐，`AgentReadiness` 未 ready 时返回 adapter 包装后的 503 错误。
-- **必须**：`ServeOrchestrator` 不存在时返回 adapter 包装后的 503 错误。
-- **必须**：非空请求体的 `Content-Type` 只接受 `application/json` 或 `application/*+json`；空 body 可以缺省 Content-Type。不支持的 media type 返回 adapter 包装后的 415 错误，JSON body 解析失败返回 adapter 包装后的 400 错误。
-- **必须**：`executionTimeMs` 使用单调时钟，从 custom-rest handler 方法进入后开始计时，所有同步成功和失败分支采用同一口径；不要求包含 Spring MVC 参数解析耗时。
-- **必须**：adapter 产出的 `ServeRequest.conversationId` 非空；`userId`、`spaceId`、`tenantId` 在通用 SPI 层允许为空，其是否必填以及缺失影响由具体 adapter 和下游 Agent 契约说明。
-- **必须**：入口日志记录 method、requestPath、conversationId 和 tenantId，且不记录认证 header 和 raw body；correlation/trace 复用宿主已有 Web Filter、网关或观测组件，本扩展不新建 tracing 机制。
-- **必须**：流式执行中发生异常时，输出一帧 adapter 包装的错误 SSE data 后结束流。
-- **必须**：只注册一个自定义 path；该 mapping 与 `/a2a`、`/v1/query` 共存，不改变内置入口行为。
-- **允许**：adapter 自行决定外部字段取值优先级、metadata 结构和响应字段名；框架不要求 adapter 建立客户自定义字段校验体系。
-- **禁止**：custom-rest 扩展维护独立 task/run/job 状态机。
-- **禁止**：custom-rest 扩展新建特性私有的 timeout、conversation 级 cancel 或 tracing 机制；这些能力沿用宿主 Web 生命周期、runtime/orchestrator 配置和既有观测设施。
+- **必须**：`POST {query-path}` 被调用时，框架解析 HTTP Context 并调用 `CustomRestProtocolAdapter.toA2ARequest(...)`。
+- **必须**：adapter 产出的 `Message.contextId` 非空，它是框架续轮解析使用的内部 conversationId。
+- **必须**：adapter 不从客户请求映射 `taskId`；taskId 由框架解析和注入。
+- **必须**：框架调用 runtime 已有 `TaskStore`，只在正式非 shadow Task 中查找续轮候选。
+- **必须**：存在唯一 `INPUT_REQUIRED` 正式 Task时自动续轮；不存在可续轮 Task时创建新 Task。
+- **必须**：存在 `SUBMITTED`/`WORKING` Task或多个非终态正式 Task时拒绝请求，避免错误续轮。
+- **必须**：同步和流式调用分别进入 `RequestHandler.onMessageSend(...)` 和 `onMessageSendStream(...)`。
+- **必须**：A2A 原始同步结果或每个原始流式事件交给 adapter 包装，框架不先转换为 `QueryResponse/QueryChunk`。
+- **必须**：非空 body 只接受 `application/json` 或 `application/*+json`；非法 JSON 或非 object 根节点返回 400。
+- **必须**：配置的 mapping 与 `/a2a`、`/v1/query`、`/query` 共存，不改变内置入口行为。
+- **必须**：入口日志不记录认证 header 和 raw body。
+- **允许**：adapter 自行决定外部字段名、消息 parts、metadata、同步响应信封和 SSE data 信封。
+- **禁止**：按 TaskStore 返回顺序随意选择多个候选 Task。
+- **禁止**：将 `shadow:` 开头的 orchestrator 内部 Task作为正式续轮 Task。
 
 ---
 
@@ -122,118 +142,124 @@ Feat-Func-022 在 `agent-solution/common/agent-runtime-ext-java` 中提供一个
 
 ### 3.1 模块放置
 
-在 `openJiuwen/agent-solution` 新增 ext 子模块：
+实现继续放在：
 
 ```text
-common/agent-runtime-ext-java/agent-service-app/agent-service-app-custom-rest
+openJiuwen/agent-solution
+  common/agent-runtime-ext-java/agent-service-app/agent-service-app-custom-rest
 ```
 
-该模块不放在 ext 根目录的 `agent-service-adapters/` 下。`agent-service-adapters/` 当前承载的是 AgentHandler/框架适配类模块（例如 versatile、agentcore-ext）；custom-rest 是北向 HTTP ingress/app 扩展，因此放在 `agent-service-app` 分组，模块名使用 `agent-service-app-custom-rest`。目录分组、artifact 前缀和职责边界保持一致，也与 `agent-service-adapters/agent-service-adapters-*` 的命名规则对称。
+该模块是北向 HTTP ingress/app 扩展，不放在 `agent-service-adapters/`。宿主应用已经引入 runtime 的 `agent-service-app` 后，再引入 custom-rest jar 并声明唯一 adapter bean；配置 `openjiuwen.service.custom-rest.query-path` 即注册入口。
 
-在 `agent-solution/common/agent-runtime-ext-java/pom.xml` 新增 module：
-
-```xml
-<module>agent-service-app/agent-service-app-custom-rest</module>
-```
-
-模块定位是 Spring Boot auto-configuration starter。宿主应用引入该 jar，并提供一个 `CustomRestProtocolAdapter` bean 后，配置 `openjiuwen.service.custom-rest.query-path` 即可注册自定义 REST 入口；不配置该路径时扩展不启用。首版固定使用 `POST`。
+首版只修改 `agent-solution` 扩展模块及其使用方，不修改 `agent-runtime-java`。扩展通过 Spring 注入 runtime 已有的 `RequestHandler` 和 `TaskStore` bean。
 
 ### 3.2 入站主流程
 
 ```text
 HTTP POST {query-path}
-  -> Spring MVC 以 @RequestBody(required=false) String 绑定可选 rawBody
-  -> CustomRestAutoConfiguration 注册的 HandlerMethod
-  -> 启动单调计时器
   -> 校验 Content-Type
-  -> ObjectMapper 将 JSON body 解析为 Map<String,Object>
-  -> 从 NativeWebRequest/HttpServletRequest 提取：
-       headers
-       pathVariables
-       queryParams
-       bodyMap
-       requestPath
+  -> ObjectMapper 解析 JSON object body
+  -> 提取 requestPath / headers / pathVariables / queryParams / body
   -> CustomRestProtocolAdapter.Context
-  -> CustomRestProtocolAdapter.toServeRequest(context)
-       ServeRequest
-  -> 按 runtime 标准入口规则校验 ServeRequest
-  -> AgentReadiness gate
-  -> ServeOrchestrator provider gate
-  -> if serveRequest.isStream(): streamQuery(...)
-     else: query(...)
-  -> CustomRestProtocolAdapter.fromQueryResponse/fromQueryChunk/fromError
+  -> adapter.toA2ARequest(context)
+  -> A2ASendCommand
+       MessageSendParams params
+       boolean stream
+  -> 校验 params.message.contextId
+  -> CustomRestA2ATaskResolver.resolve(params)
+       list TaskStore by contextId
+       排除 shadow:* Task
+       判断正式 Task 状态
+       必要时自动注入 taskId
+  -> 构建 ServerCallContext
+  -> state["_a2a_stream"] = stream
+  -> if stream: RequestHandler.onMessageSendStream(...)
+     else: RequestHandler.onMessageSend(...)
+  -> adapter 出站包装
 ```
 
-请求体规则：
+请求体规则保持为：
 
 | 场景 | 框架行为 |
 | --- | --- |
-| `Content-Type: application/json` 或 `application/*+json` | 继续解析 JSON object |
+| JSON media type + JSON object | 继续进入 adapter |
 | Content-Type 缺失且 body 为空 | 按空 object 处理 |
-| Content-Type 缺失但 body 非空 | 返回 415，不尝试猜测 media type |
-| 其他 Content-Type | 返回 415，adapter 不介入 |
-| JSON 语法非法或根节点不是 object | 返回 400 |
-
-handler 使用 `@RequestBody(required=false) String rawBody` 接收请求体：`null` 或空字符串按空 object 处理，非空字符串再由 `ObjectMapper` 解析。`rawBody` 只是 handler 内部的解析输入，不进入 adapter context。Servlet 容器和 Spring MVC 负责请求体读取与字符集处理，本扩展不重复建设独立的 body reader。
+| Content-Type 缺失但 body 非空 | 返回 415 |
+| 非 JSON media type | 返回 415 |
+| JSON 语法非法或根节点非 object | 返回 400 |
 
 ### 3.3 HTTP method 配置
 
-当前版本框架层只注册一个 `queryPath`，并固定使用 `POST` 作为 Spring MVC method condition，不提供 method 配置项。
-
-```text
-HTTP POST {query-path}
-  -> CustomRestProtocolAdapter.toServeRequest(context)
-  -> ServeRequest
-  -> ServeOrchestrator.query/streamQuery
-```
-
-设计约束：
-
-| 约束 | 说明 |
-| --- | --- |
-| 单 method | 当前只注册 POST，不支持同一路径多 method 分发 |
-| 非匹配 method | 由 Spring MVC 按未匹配 method 处理，不进入 adapter |
-
-### 3.4 与 A2A Task 状态的关系
-
-custom-rest 是非 Task Query facade，不生成 A2A JSON-RPC `Task` 响应对象，也不把普通本地 invocation 写入正式 `TaskStore`。
+框架固定注册：
 
 ```text
 POST {query-path}
-  -> CustomRestProtocolAdapter
-  -> ServeRequest
-  -> ServeOrchestrator
-     -> A2AEnabledServeOrchestrator
-        -> local query/stream: QueryResponse / QueryChunk only
-        -> remote A2A delegate: optional shadow task
-        -> current-stream cancel
 ```
 
-因此：
+非 POST 请求不进入 adapter，由 Spring MVC 按 method mismatch 处理。首版不提供 `enabled` 或 `query-method` 属性；存在合法 `query-path` 即启用，不配置即不启用。
 
-| 项 | custom-rest 行为 |
+### 3.4 正式 A2A Task 与 conversationId 续轮
+
+A2A SDK 的标准行为是按 `Message.taskId` 恢复 Task，`Message.contextId` 只表示上下文。Custom REST 客户端不提供 taskId，因此扩展定义以下专属策略：
+
+```text
+外部 conversationId
+  -> adapter 映射为 Message.contextId
+  -> resolver 查询该 contextId 下的正式 Task
+  -> 自动决定创建新 Task或恢复 INPUT_REQUIRED Task
+```
+
+状态决策表：
+
+| 查询结果 | 决策 |
 | --- | --- |
-| 普通本地完成 | 只返回 `QueryResponse` / `QueryChunk`，不创建正式 Task |
-| ask-user interrupt | 以 `QueryChunk.TYPE_INTERRUPT` 或 `QueryResponse.result._interrupt` 在当前响应中返回，不形成可查询的 `INPUT_REQUIRED` Task |
-| 远端 A2A delegate | 由 `A2AEnabledServeOrchestrator` 消费 `a2a_delegate` interrupt 并调用远端 |
-| A2A shadow task | 只在远端 delegate pending/recovery 时保存，属于 orchestrator 内部状态，不是 Custom REST 返回的 Task |
-| Task 查询/取消/订阅 | 不支持 GetTask、CancelTask、SubscribeToTask；需要这些能力时调用 `/a2a` |
+| 无正式非终态 Task | 保持 taskId 为空，SDK 创建新 Task |
+| 唯一正式 Task为 `INPUT_REQUIRED` | 将该 Task.id 注入 `Message.taskId` 后续轮 |
+| 存在正式 `SUBMITTED` 或 `WORKING` Task | 返回 409 `conversation is already running` |
+| 只有 `COMPLETED/FAILED/CANCELED/REJECTED` | 不复用终态 Task，创建新 Task |
+| 多个正式非终态 Task | 返回 409 `ambiguous active task` |
 
-业务 adapter 不应将自定义响应声明为权威 A2A Task，也不应使用自定义字段模拟可查询的 Task 生命周期。框架只负责序列化 adapter 返回的任意对象，不检查其中的业务字段；该约束属于 adapter 与接入方之间的集成契约。
+`AUTH_REQUIRED` 当前不作为自动续轮状态；如后续明确支持认证恢复，再单独扩展状态规则。
+
+TaskStore 还保存 orchestrator 内部远端委托状态，其 taskId 以 `shadow:` 开头。resolver 必须先排除这些内部 Task。它们仍由 `A2AEnabledServeOrchestrator` 按 conversationId 管理，不能作为 `RequestHandler` 的外层正式 Task 恢复。
+
+该设计形成两层互不替代的状态：
+
+```text
+外层正式 A2A Task
+  -> Custom REST resolver 按 conversationId 找到并向 RequestHandler 注入 taskId
+
+内层远端 delegate shadow task
+  -> A2AEnabledServeOrchestrator 按 conversationId 保存/恢复远端 taskId
+```
 
 ### 3.5 SPI 形态
 
-最小 SPI 使用一个接口承载入站和出站转换，并把请求上下文定义为接口内嵌类型，避免为纯数据结构单独增加 Java 文件。
-
 ```java
 public interface CustomRestProtocolAdapter {
-    ServeRequest toServeRequest(Context context);
+    A2ASendCommand toA2ARequest(Context context);
 
-    Object fromQueryResponse(QueryResponse response, Context context, long executionTimeMs);
+    Object fromA2AResponse(
+        EventKind response,
+        Context context,
+        long executionTimeMs
+    );
 
-    Object fromQueryChunk(QueryChunk chunk, Context context);
+    Object fromA2AStreamEvent(
+        StreamingEventKind event,
+        Context context
+    );
 
-    Object fromError(int httpStatus, String errorMessage, Context context, long executionTimeMs);
+    Object fromError(
+        int httpStatus,
+        String errorCode,
+        String errorMessage,
+        Context context,
+        long executionTimeMs
+    );
+
+    record A2ASendCommand(MessageSendParams params, boolean stream) {
+    }
 
     record Context(
         String requestPath,
@@ -246,351 +272,275 @@ public interface CustomRestProtocolAdapter {
 }
 ```
 
-四个方法共同构成一个双向协议边界：`toServeRequest(...)` 负责入站转换，另外三个方法分别负责同步成功、流式 chunk 和错误的出站转换。具体输入字段、转换后 DTO、框架后处理和输出控制边界见第 4、5 章。
-
-SPI 不引入自定义 HTTP response 类型。出站函数统一返回 `Object`，允许接入方返回 `Map<String,Object>`、DTO 或其他 Jackson 可序列化对象。
+`A2ASendCommand` 不是校验结果包装。它承载一次真实 A2A 发送所需的两个独立信息：A2A 请求参数和调用同步/流式方法的选择。`MessageSendParams` 本身不包含 `onMessageSend` 与 `onMessageSendStream` 的选择，因此该 record 有独立必要性。
 
 ### 3.6 SPI Context
 
-`CustomRestProtocolAdapter.Context` 不是转换器，而是一次 HTTP 请求的只读上下文。它是 SPI 的内嵌 record，不单独拆 Java 文件。构造器对顶层集合做防御性不可变复制，不承诺递归冻结嵌套 JSON 对象；字段来源和入站转换规则见第 4 章。
-
-```java
-CustomRestProtocolAdapter.Context context
-```
+`Context` 仍是一次 HTTP 请求的只读视图。框架不把 `HttpServletRequest`、原始 body 字符串或 Spring MVC 类型暴露给 adapter。顶层集合做防御性不可变复制，不承诺递归冻结嵌套 JSON 对象。
 
 ### 3.7 endpoint 注册
 
-由于只支持一个 adapter，注册逻辑放在 `CustomRestAutoConfiguration` 内部即可，不单拆 registrar，也不单拆 MVC endpoint 文件。auto-configuration 仅在 Servlet WebApplication 中生效，可以声明一个内部 handler 对象，并通过 `RequestMappingHandlerMapping.registerMapping(...)` 绑定到 `queryPath` 和固定 POST method。构造 `RequestMappingInfo` 时使用 `RequestMappingHandlerMapping.getBuilderConfiguration()`，使动态 mapping 与宿主的 path pattern 和内容协商配置保持一致。
+auto-configuration 继续通过 `RequestMappingHandlerMapping.registerMapping(...)` 动态注册固定 POST mapping，并使用宿主的 builder configuration。
 
-启动期行为：
+启动期规则：
 
-```text
-1. 未配置 queryPath -> auto-configuration 不生效，不要求 CustomRestProtocolAdapter bean
-2. 已配置 queryPath 但缺少 CustomRestProtocolAdapter bean -> 启动失败
-3. queryPath 为空、空白或不是绝对路径 -> 启动失败
-4. 使用 RequestMappingHandlerMapping.registerMapping(...) 注册 POST handler method；完全相同的 path + method 由 Spring MVC 拒绝重复注册
-```
+1. 未配置 `query-path`：不启用，不要求 adapter、RequestHandler 或 TaskStore。
+2. 配置 path 但缺少或存在多个 adapter：启动失败。
+3. path 为空、空白或不是绝对路径：启动失败。
+4. 已启用但缺少 `RequestHandler` 或 `TaskStore`：启动失败，说明宿主没有完整 A2A server能力。
+5. path + POST 与既有 mapping 完全冲突：由 Spring MVC 拒绝注册。
 
-只注册一个 queryPath 和 POST method condition。非 POST 请求不进入 custom-rest adapter。扩展不复制维护 runtime 内置路径清单：完全相同的 path + method 由 Spring MVC 在注册时拒绝；更具体的内置 mapping 继续按 Spring MVC 路由优先级处理。
+### 3.8 同步与 SSE 输出
 
-### 3.8 SSE 包装
+同步模式调用 `RequestHandler.onMessageSend(...)`，返回 `EventKind`。当前 runtime 的 `A2AAgentExecutor` 会提交正式 Task，因此正常结果通常是 `Task`，但 SPI 使用接口类型以遵循 SDK 契约。
 
-流式调用使用 MVC `SseEmitter`，行为与 `/v1/query` 对齐。首版直接复用现有 MVC 入口的 `SseEmitter(0L)` 和 `CompletableFuture.runAsync(...)` 模式，使 handler 先返回 emitter，再由异步任务调用可能阻塞的 `ServeOrchestrator.streamQuery(...)`；本扩展不额外引入线程池配置：
+流式模式调用 `RequestHandler.onMessageSendStream(...)`，订阅 `Flow.Publisher<StreamingEventKind>`：
 
-```text
-1. response Content-Type = text/event-stream
-2. Cache-Control = no-cache, no-transform
-3. Connection = keep-alive
-4. X-Accel-Buffering = no
-5. 每个 QueryChunk 调用 adapter.fromQueryChunk(...)
-6. Jackson 序列化后作为 SSE data 输出
-7. 每次流式调用最多输出一帧错误：若已经收到并发送 `QueryChunk.TYPE_ERROR`，后续 `onError` 只 complete；否则由 `onError` 调用 `adapter.fromError(...)` 输出一帧错误 data 后 complete
-```
-
-SSE data 不强制加 JSON-RPC envelope。客户需要什么外部格式，由 `fromQueryChunk` 决定。
-
-SSE 生命周期由框架层拥有：
-
-- `onTimeout`：标记当前 observer cancelled，并完成 emitter；不调用 `adapter.fromError(...)`。
-- `onCompletion`：标记当前 observer cancelled，不再发送 chunk。
-- `onError`：若错误来自连接写出或客户端断开，只标记当前 observer cancelled，不再尝试发送 error frame。
-- 客户端断开只取消当前调用的 observer。不得仅因一个 emitter 断开而调用 conversation 级 `ServeOrchestrator.cancelActive(conversationId)`，避免误取消同 conversation 的其他并发流。
-- 收到 `TYPE_INTERRUPT` 时，adapter 只负责包装该 chunk；是否结束流由 orchestrator/observer 的 terminal 回调决定，adapter 不直接操作 emitter。
+1. 每个事件调用 `adapter.fromA2AStreamEvent(...)`。
+2. adapter 返回对象经 Jackson 序列化后作为无 event name 的 SSE `data:` 输出。
+3. publisher 正常完成时结束 emitter。
+4. publisher 异常时最多输出一帧 adapter 错误 data，然后结束。
+5. emitter completion、timeout或写失败时取消当前 `Flow.Subscription`。
+6. 客户端断连只取消当前订阅，不自动调用 `RequestHandler.onCancelTask(...)`，避免把网络断开等同于业务取消。
 
 ---
 
-## 4. 入站协议转换（Custom REST -> Runtime）
+## 4. 入站协议转换（Custom REST -> A2A）
 
 ### 4.1 转换边界
 
-入站转换方法为：
+入站方法为：
 
 ```java
-ServeRequest toServeRequest(CustomRestProtocolAdapter.Context context);
+A2ASendCommand toA2ARequest(CustomRestProtocolAdapter.Context context);
 ```
 
-框架不把 `HttpServletRequest`、原始 body 字符串或 Spring MVC 对象暴露给 adapter，而是先把合法 HTTP 请求整理为只读 `Context`。adapter 再从 `Context` 中选择所需字段，构造 runtime 固定入口对象 `ServeRequest`。
+adapter 负责理解客户字段，框架负责 A2A Task 续轮和执行。
 
 ```text
-HTTP POST 请求
-  -> 框架校验 media type 并解析 JSON object body
-  -> CustomRestProtocolAdapter.Context
-  -> adapter.toServeRequest(context)
-  -> ServeRequest
-  -> 框架校验 conversationId
-  -> ServeOrchestrator.query/streamQuery
+HTTP Context
+  -> adapter
+  -> MessageSendParams + stream
+  -> framework conversation resolver
+  -> RequestHandler
 ```
 
 ### 4.2 转换前参数：Context
 
-假设配置的 URL 模板为：
+假设配置 URL 为：
 
 ```text
 POST /custom/{session_key}?version={version}
 ```
 
-其中 `{session_key}` 和 `{version}` 是本节示例自行定义的占位参数，不是框架固定字段。请求 body 可以是接入方定义的任意 JSON object，例如：
+其中 `{session_key}` 和 `{version}` 都只是业务示例，不是框架固定字段。adapter 收到：
 
-```json
-{
-  "input": {
-    "query": "用户问题"
-  },
-  "stream": true
-}
-```
-
-框架完成 Content-Type 与 JSON object 校验后，向 adapter 传入：
-
-```java
-record Context(
-    String requestPath,
-    Map<String, String> headers,
-    Map<String, String> pathVariables,
-    Map<String, List<String>> queryParams,
-    Map<String, Object> body
-)
-```
-
-| Context 字段 | 框架提供的内容 | 约束 |
+| Context 字段 | 内容 | 约束 |
 | --- | --- | --- |
-| `requestPath` | 当前请求的实际 URI path | 不包含 query string |
-| `headers` | HTTP request headers | header 名统一转为小写；不承诺保留原始大小写 |
-| `pathVariables` | Spring MVC 从 URL 模板解析出的路径变量 | 例如本节示例中的键 `session_key` 对应实际路径值；实际键名取决于 `query-path` 配置 |
-| `queryParams` | URL query parameters | 每个参数保留全部值，因此 value 类型为 `List<String>` |
-| `body` | JSON object 转换后的结构化 Map | 空 body 为不可变空 Map；非法 JSON 或非 object 根节点在进入 adapter 前返回 400 |
+| `requestPath` | 实际 URI path | 不含 query string |
+| `headers` | HTTP headers | header 名统一小写 |
+| `pathVariables` | URL 模板变量 | 键名由 `query-path` 决定 |
+| `queryParams` | 全部 query parameter值 | 每个键对应 `List<String>` |
+| `body` | JSON object对应 Map | 空 body 为不可变空 Map |
 
-`Context` 不包含 HTTP method 和 raw body：入口固定为 POST，因此不需要 adapter 再做 method 路由；raw body 仅作为框架解析输入，不属于 SPI 契约。顶层集合不可修改，但 `body` 内嵌的 Map、List 等 JSON 对象不保证递归不可变。
+### 4.3 转换后参数：A2ASendCommand
 
-### 4.3 转换后参数：ServeRequest
+adapter 必须构造 A2A SDK `MessageSendParams`，重点字段如下：
 
-`toServeRequest(...)` 必须返回 runtime 认识的 `ServeRequest`：
-
-```java
-class ServeRequest {
-    String conversationId;
-    List<Map<String, Object>> messages;
-    String userId;
-    String spaceId;
-    String tenantId;
-    boolean stream;
-    Map<String, Object> metadata;
-}
-```
-
-| ServeRequest 字段 | 用途 | 常见来源，但不构成强制映射 |
+| A2A 字段 | 用途 | 规则 |
 | --- | --- | --- |
-| `conversationId` | runtime 会话标识；当前框架唯一统一校验的必填字段 | path variable、body、query parameter 或受信任 header |
-| `messages` | 交给 AgentHandler 的 runtime 消息列表 | 自定义 body 中的输入、历史消息或其组合 |
-| `userId` | 用户身份上下文 | 受信任 header、body 或 path variable |
-| `spaceId` | 空间身份上下文 | 受信任 header、body 或 path variable |
-| `tenantId` | 租户身份上下文 | 受信任 header、body 或 path variable |
-| `stream` | 选择 `query()` 或 `streamQuery()` | 自定义 body、query parameter，或 adapter 固定策略 |
-| `metadata` | 不适合进入固定字段的协议扩展信息 | path、query、header、body 中需要下游使用的其他字段 |
+| `message.contextId` | runtime 内部 conversationId，也是续轮查询键 | 必填；可来自任意自定义字段 |
+| `message.taskId` | 正式 Task 恢复标识 | adapter 必须留空，由框架注入 |
+| `message.messageId` | 本轮消息标识 | adapter 按客户协议映射或生成 |
+| `message.role` | A2A 消息角色 | 通常为 `ROLE_USER` |
+| `message.parts` | 交给 A2A/runtime 的消息内容 | 支持 SDK 允许的 Part 类型；当前 runtime 主要消费 TextPart |
+| `message.metadata` | 消息级扩展信息 | 不承载可信身份 |
+| `params.metadata` | 请求级扩展信息 | 将进入现有 A2A adapter的 metadata处理 |
+| `params.tenant` | A2A tenant | 按宿主租户策略设置 |
+| `command.stream` | 选择同步或流式调用 | 由 adapter从自定义协议字段或固定策略得出 |
 
-框架不规定外部字段名、字段优先级、消息结构转换方式或 metadata 结构，也不要求把整个外部 body 原样放入 `metadata`。接入方只需确保生成的 `ServeRequest` 符合其 AgentHandler 契约。
-
-`ServeRequest.conversationId` 是 runtime 固定内部字段，但其值不要求来自名为 `conversation_id` 的 URL 变量。adapter 可以从任意自定义 path variable、query parameter、header 或 body 字段完成映射；错误消息 `conversation_id is required` 描述的是内部字段校验，不定义外部协议字段名。
-
-示意转换代码如下，字段名仅用于说明 SPI 用法：
+示意代码：
 
 ```java
-public ServeRequest toServeRequest(Context context) {
+public A2ASendCommand toA2ARequest(Context context) {
     Map<String, Object> input = (Map<String, Object>) context.body().get("input");
-
-    ServeRequest request = new ServeRequest();
-    request.setConversationId(context.pathVariables().get("session_key"));
-    request.setMessages(List.of(Map.of(
-        "role", "user",
-        "content", input.get("query")
-    )));
-    request.setStream(Boolean.TRUE.equals(context.body().get("stream")));
-    request.setMetadata(Map.of(
-        "version", context.queryParams().getOrDefault("version", List.of()).stream()
-            .findFirst().orElse("")
-    ));
-    return request;
+    Message message = Message.builder()
+        .role(Message.Role.ROLE_USER)
+        .contextId(context.pathVariables().get("session_key"))
+        .messageId(UUID.randomUUID().toString())
+        .parts(List.of(new TextPart(String.valueOf(input.get("query")))))
+        .build();
+    MessageSendParams params = MessageSendParams.builder()
+        .message(message)
+        .build();
+    return new A2ASendCommand(params, Boolean.TRUE.equals(context.body().get("stream")));
 }
 ```
 
-### 4.4 转换后的框架处理
+### 4.4 conversationId 续轮解析
 
-| adapter 结果 | 框架行为 |
+resolver 使用 `message.contextId` 调用：
+
+```java
+taskStore.list(ListTasksParams.builder().contextId(contextId).build())
+```
+
+然后执行：
+
+1. 排除 taskId 为空和 taskId 以 `shadow:` 开头的内部 Task。
+2. 忽略所有终态 Task。
+3. 没有非终态 Task：保持 taskId 为空。
+4. 唯一非终态 Task为 `INPUT_REQUIRED`：重建 `Message` 并注入该 Task.id。
+5. 唯一非终态 Task为 `SUBMITTED`/`WORKING`：返回 409。
+6. 多个非终态 Task：返回 409。
+
+resolver 不修改 adapter 提供的 contextId、parts、metadata、configuration 和 tenant。
+
+### 4.5 转换后的框架处理
+
+| adapter/resolver结果 | 框架行为 |
 | --- | --- |
-| 返回 `null` | 视为 adapter 实现错误，调用 `fromError(500, "adapter execution failed", ...)`，不进入 orchestrator |
-| 抛出运行时异常 | 记录完整异常，对外使用脱敏后的 `adapter execution failed`，不进入 orchestrator |
-| `conversationId` 为空或空白 | 调用 `fromError(400, "conversation_id is required", ...)`，不进入 orchestrator |
-| `stream=false` | 调用 `ServeOrchestrator.query(serveRequest)` |
-| `stream=true` | 调用 `ServeOrchestrator.streamQuery(serveRequest, observer)` |
-
-`userId`、`spaceId`、`tenantId` 在通用 SPI 层允许为空。接入方需要根据自身协议和下游 Agent 契约决定其来源与必填性。adapter 可以映射受信任网关传入的身份字段，但不在本扩展中执行 OAuth、签名或租户授权判断。
+| command或 params/message 为 null | 500 `adapter execution failed` |
+| `message.contextId` 为空 | 400 `conversation_id is required` |
+| adapter 写入非空 taskId | 500 `adapter task_id must be empty` |
+| 唯一 `INPUT_REQUIRED` Task | 自动注入 taskId并调用 RequestHandler |
+| conversation 正在执行 | 409，不调用 RequestHandler |
+| 无活跃 Task | 由 SDK 创建新 Task |
+| `stream=false` | `onMessageSend(...)` |
+| `stream=true` | `onMessageSendStream(...)` |
 
 ---
 
-## 5. 出站协议转换（Runtime -> Custom REST）
+## 5. 出站协议转换（A2A -> Custom REST）
 
 ### 5.1 转换边界
 
-runtime 的同步结果、流式 chunk 和框架错误分别进入三个出站方法：
-
-| 场景 | adapter 转换方法 | 转换前主要参数 | 转换后参数 |
+| 场景 | adapter 方法 | 转换前参数 | 转换后参数 |
 | --- | --- | --- | --- |
-| 同步成功 | `fromQueryResponse(...)` | `QueryResponse`、原请求 `Context`、`executionTimeMs` | 自定义 JSON body `Object` |
-| 流式输出 | `fromQueryChunk(...)` | 单个 `QueryChunk`、原请求 `Context` | 自定义 SSE data body `Object` |
-| 框架或 runtime 错误 | `fromError(...)` | `httpStatus`、脱敏错误消息、原请求 `Context`、`executionTimeMs` | 自定义错误 body `Object` |
+| 同步成功 | `fromA2AResponse(...)` | `EventKind`、Context、耗时 | 自定义 JSON body Object |
+| 流式事件 | `fromA2AStreamEvent(...)` | 单个 `StreamingEventKind`、Context | 自定义 SSE data Object |
+| 框架或 A2A 错误 | `fromError(...)` | HTTP status、错误码、脱敏消息、Context、耗时 | 自定义错误 Object |
 
-三个方法的返回值都必须能够被 Jackson 序列化。原请求 `Context` 会再次传给 adapter，便于响应包装使用同一次请求的 path、header、query parameter 或 body 信息。
+所有返回值必须能被 Jackson 序列化。框架不要求客户响应使用 A2A JSON-RPC envelope。
 
-### 5.2 同步成功转换：QueryResponse -> Object
-
-方法签名：
+### 5.2 同步成功转换
 
 ```java
-Object fromQueryResponse(
-    QueryResponse response,
+Object fromA2AResponse(
+    EventKind response,
     Context context,
     long executionTimeMs
 );
 ```
 
-`QueryResponse` 是 runtime 的固定同步结果：
+adapter 会收到 SDK 原始 `EventKind`。正常情况下通常为 `Task`，可读取：
+
+- `Task.id`
+- `Task.contextId`
+- `Task.status`
+- `Task.artifacts`
+- `Task.history`
+- `Task.metadata`
+
+客户协议可以隐藏 taskId，只返回 conversationId 和业务结果；框架续轮不依赖客户回传 taskId。但 adapter 不应丢失客户实际需要的 Task 状态、interrupt 或 artifact 语义。
+
+同步成功固定返回 HTTP 200 和 `application/json`。
+
+### 5.3 流式事件转换
 
 ```java
-class QueryResponse {
-    Object result;
-    String conversationId;
-}
+Object fromA2AStreamEvent(
+    StreamingEventKind event,
+    Context context
+);
 ```
 
-| 输入参数 | 含义 |
+可能收到的主要事件包括：
+
+| 类型 | 语义 |
 | --- | --- |
-| `response.result` | AgentHandler/runtime 产生的原始业务结果，具体结构由下游实现决定 |
-| `response.conversationId` | runtime 返回的会话标识 |
-| `context` | 本次入口请求对应的原始 SPI Context |
-| `executionTimeMs` | 从 custom-rest handler 方法进入到包装响应时的单调时钟耗时 |
+| `Task` | Task 快照 |
+| `TaskStatusUpdateEvent` | `SUBMITTED`、`WORKING`、`INPUT_REQUIRED`、终态等状态变化 |
+| `TaskArtifactUpdateEvent` | 增量或最终 artifact |
+| `Message` | SDK允许的消息事件 |
 
-adapter 可以把 `response.getResult()` 直接作为外部 body，也可以将其放入自定义响应信封。若外部协议要求保留 runtime 原始结果，应把 `response.getResult()` 作为信封中的原始数据字段，而不是重新解析或丢弃。
+adapter 返回单帧 SSE data body。框架不把 A2A 事件预先转换为 `QueryChunk`，也不固定客户 event 名称；首版统一输出未命名 `data:` 帧。
 
-转换完成后，框架固定以 HTTP 200、`application/json` 输出 adapter 返回对象。adapter 不能通过该返回值修改 HTTP status、Content-Type 或 response headers。
-
-### 5.3 流式转换：QueryChunk -> Object
-
-方法签名：
-
-```java
-Object fromQueryChunk(QueryChunk chunk, Context context);
-```
-
-每次 runtime 流式回调传入：
-
-```java
-class QueryChunk {
-    String type;
-    Object data;
-}
-```
-
-| 输入参数 | 含义 |
-| --- | --- |
-| `chunk.type` | runtime chunk 类型，当前包括 `TYPE_CHUNK`、`TYPE_INTERRUPT` 和 `TYPE_ERROR` |
-| `chunk.data` | 该 chunk 携带的原始 runtime 数据 |
-| `context` | 本次入口请求对应的原始 SPI Context |
-
-adapter 返回的是单帧 SSE 的 data body，不是完整 SSE 文本。框架负责 Jackson 序列化，并以不设置 event name 的 SSE `data:` 帧输出；框架不再根据 `QueryChunk.type` 生成第二套事件类型。`fromQueryChunk(...)` 不接收 `executionTimeMs`，也不能设置 SSE event name、id、retry、HTTP status 或 headers。
-
-`TYPE_INTERRUPT` 是本次 invocation 的正常协议结果。adapter 可以按外部协议包装 interrupt 数据，但不能自行结束 emitter；流的最终收束由 observer terminal 回调和框架控制。
-
-### 5.4 错误转换：错误上下文 -> Object
-
-方法签名：
+### 5.4 错误转换
 
 ```java
 Object fromError(
     int httpStatus,
+    String errorCode,
     String errorMessage,
     Context context,
     long executionTimeMs
 );
 ```
 
-| 输入参数 | 含义 |
-| --- | --- |
-| `httpStatus` | 框架按错误类型确定的状态码，例如 400、415、500 或 503 |
-| `errorMessage` | 框架提供的脱敏错误消息，不包含原始异常堆栈 |
-| `context` | 当时已经构建出的请求 Context；body 解析前错误对应的 body 为空 Map |
-| `executionTimeMs` | 从 handler 进入到错误包装时的单调时钟耗时 |
+`errorCode` 用于区分解析错误、conversation冲突、adapter错误和 A2A SDK错误。`errorMessage` 必须脱敏，不直接回显异常堆栈或认证信息。
 
-adapter 只负责生成错误 body，不能覆盖框架确定的 HTTP status。同步错误以对应 HTTP status 和 `application/json` 输出；流式 terminal error 在 SSE 已建立后通过 `fromError(...)` 生成一帧 SSE data 并结束流。
-
-如果 `fromError(...)` 返回 `null` 或抛出运行时异常，框架使用固定兜底 body，并保留原错误分支确定的 status：
+若 `fromError(...)` 返回 null或抛出异常，框架使用固定兜底：
 
 ```json
 {
   "type": "error",
   "status": 500,
-  "error": "脱敏错误消息"
+  "code": "internal_error",
+  "error": "internal error"
 }
 ```
-
-上例中的 `500` 仅表示对应错误分支的状态；实际值使用传给 `fromError(...)` 的 `httpStatus`。
 
 ### 5.5 输出控制边界
 
 | 输出项 | owner | adapter 是否可自定义 |
 | --- | --- | --- |
 | JSON/SSE data body | `CustomRestProtocolAdapter` | 是 |
-| HTTP status | `CustomRestAutoConfiguration` | 否；按统一错误分类设置 |
-| Content-Type / SSE headers | `CustomRestAutoConfiguration` | 否 |
-| SSE event name / id / retry | `CustomRestAutoConfiguration` | 否；首版不设置 event name，只输出 data 帧 |
-| 任意响应 header | 宿主 Web filter / gateway | 否 |
-
-只有出现明确的客户 header、media type 或 SSE id/retry 需求时，才新增结构化 `CustomHttpResponse` / `CustomSseEvent`；当前返回 `Object` 的最小 SPI 足以覆盖“自定义响应信封”目标。
+| HTTP status | custom-rest framework | 否；按统一错误分类设置 |
+| Content-Type / SSE headers | custom-rest framework | 否 |
+| SSE event name/id/retry | custom-rest framework | 否；首版只输出 data |
+| 任意响应 header | 宿主 filter/gateway | 否 |
 
 ---
 
 ## 6. 模块结构（Development View）
 
-### 6.1 新增代码结构
+### 6.1 代码结构
 
 ```text
-common/agent-runtime-ext-java/agent-service-app/agent-service-app-custom-rest
+agent-service-app-custom-rest
 |-- pom.xml
 |-- src/main/java/com/openjiuwen/service/app/customrest
 |   |-- CustomRestProtocolAdapter.java
+|   |-- CustomRestA2ATaskResolver.java
 |   |-- CustomRestProperties.java
 |   `-- CustomRestAutoConfiguration.java
 `-- src/main/resources/META-INF/spring
     `-- org.springframework.boot.autoconfigure.AutoConfiguration.imports
 ```
 
-最小主代码 3 个顶层 Java 文件。
-
-Java package 统一使用 `com.openjiuwen.service.app.customrest`。该扩展属于 agent-service-app 的北向入口能力，package 与模块分组保持一致；artifact 独立存在，不会与 runtime 主仓的 `agent-service-app` 类发生冲突。
-
 | 文件 | 职责 |
 | --- | --- |
-| `CustomRestProtocolAdapter` | 业务实现的 Java SPI；`toServeRequest` 直接返回 `ServeRequest`，`fromQueryResponse/fromQueryChunk/fromError` 负责出站转换；内嵌 `Context` |
-| `CustomRestProperties` | 绑定 `openjiuwen.service.custom-rest` 配置 |
-| `CustomRestAutoConfiguration` | 条件装配、动态注册 mapping、内部 handler、`ServeRequest` 必填字段校验、orchestrator/readiness gate、SSE 输出 |
-| `AutoConfiguration.imports` | 增加 `CustomRestAutoConfiguration` 自动装配入口 |
+| `CustomRestProtocolAdapter` | A2A 入站和出站业务 SPI，内嵌 `Context`、`A2ASendCommand` |
+| `CustomRestA2ATaskResolver` | 按 contextId 查询正式 Task 并决定创建、续轮或冲突 |
+| `CustomRestProperties` | 绑定和校验 `query-path` |
+| `CustomRestAutoConfiguration` | 条件装配、mapping注册、HTTP解析、RequestHandler调用和 SSE桥接 |
+
+resolver 独立成文件是为了隔离状态选择规则并进行针对性测试，不对业务侧公开扩展点。
 
 ### 6.2 Maven 依赖
 
-`agent-service-app-custom-rest/pom.xml` 实际依赖：
-
 | 依赖 | scope | 用途 |
 | --- | --- | --- |
-| `com.openjiuwen:agent-service-spec` | compile | `ServeRequest`、`QueryResponse`、`QueryChunk`、`ServeOrchestrator`、`AgentReadiness` |
-| `org.springframework.boot:spring-boot-autoconfigure` | optional | auto-configuration 和 properties |
-| `org.springframework.boot:spring-boot-configuration-processor` | optional | 配置元数据生成 |
-| `org.springframework.boot:spring-boot-starter-webmvc` | optional | Servlet MVC、`RequestMappingHandlerMapping`、`SseEmitter` |
-| `com.fasterxml.jackson.core:jackson-databind` | compile | body parse 和响应序列化 |
-| `org.slf4j:slf4j-api` | compile | 日志 |
-| `org.springframework.boot:spring-boot-starter-test` | test | 单元测试和 auto-configuration 测试 |
-| `org.springframework.boot:spring-boot-starter-webmvc-test` | test | MockMvc 和 MVC 集成测试 |
-| `org.springframework.boot:spring-boot-starter-restclient` | test | 测试期 HTTP client 支持 |
+| `a2a-java-sdk-spec` | compile | `MessageSendParams`、`EventKind`、`StreamingEventKind`、Task DTO |
+| `a2a-java-sdk-server-common` | compile | `RequestHandler`、`TaskStore`、`ServerCallContext` |
+| `spring-boot-autoconfigure` | optional | auto-configuration |
+| `spring-boot-starter-webmvc` | optional | Servlet MVC、`SseEmitter` |
+| `jackson-databind` | compile | body解析和客户响应序列化 |
+| `slf4j-api` | compile | 日志 |
+| Spring Boot test 依赖 | test | 单元和集成测试 |
 
-WebMVC 依赖建议设为 optional，并在 auto-config 上同时增加 `@ConditionalOnClass(RequestMappingHandlerMapping.class)` 和 `@ConditionalOnWebApplication(type = SERVLET)`。这样 ext jar 在非 Web 或 Reactive WebApplication 中被引入时不会误注册 MVC endpoint。
+版本必须与宿主 runtime 使用的 A2A SDK版本一致。扩展不依赖 runtime 的 controller 或 orchestrator具体实现类。
 
 ### 6.3 静态关系
 
@@ -598,87 +548,73 @@ WebMVC 依赖建议设为 optional，并在 auto-config 上同时增加 `@Condit
 CustomRestAutoConfiguration
   -> CustomRestProperties
   -> CustomRestProtocolAdapter
-  -> ObjectProvider<ServeOrchestrator>
-  -> ObjectProvider<AgentReadiness>
+  -> CustomRestA2ATaskResolver
+  -> RequestHandler
+  -> TaskStore
   -> ObjectMapper
-  -> RequestMappingHandlerMapping.registerMapping
+  -> RequestMappingHandlerMapping
 
-CustomRestProtocolAdapter
-  -> ServeRequest
-  -> QueryResponse / QueryChunk
-
-CustomRestProtocolAdapter.Context
-  -> requestPath/headers/pathVariables/queryParams/body
+CustomRestA2ATaskResolver
+  -> TaskStore
+  -> MessageSendParams / Task / TaskState
 ```
 
 ---
 
 ## 7. 运行流程（Process View）
 
-### 7.1 同步 query
-
-handler 方法进入后记录 `startNanos = System.nanoTime()`；传给 `fromQueryResponse(...)` 或 `fromError(...)` 的 `executionTimeMs` 统一按当前单调时钟与该起点之差计算。media type 校验、JSON parse、adapter 转换、ServeRequest 校验、readiness 和 orchestrator 异常都使用同一口径，不允许在不同分支重新起表或固定返回 0；Spring MVC 在 handler 方法调用前完成的 rawBody 绑定时间不计入该值。
+### 7.1 同步发送
 
 ```text
 Client
   -> POST {query-path}
-  -> CustomRestAutoConfiguration.handleQuery
-  -> CustomRestProtocolAdapter.toServeRequest
-  -> ServeRequest(stream=false)
-  -> ServeOrchestrator.query
-  -> QueryResponse
-  -> CustomRestProtocolAdapter.fromQueryResponse
+  -> Context
+  -> adapter.toA2ARequest
+  -> resolver按 conversationId解析 Task
+  -> ServerCallContext state[_a2a_stream]=false
+  -> RequestHandler.onMessageSend
+  -> EventKind（通常为 Task）
+  -> adapter.fromA2AResponse
   -> HTTP 200 application/json
 ```
 
-异常分支：
+若本轮返回 `INPUT_REQUIRED`，正式 Task保存在 TaskStore。下一轮相同 conversationId进入 resolver 时，框架自动注入该 Task.id并恢复同一正式 Task。
 
-| 场景 | HTTP status | 响应来源 |
-| --- | --- | --- |
-| unsupported media type | 415 | `fromError(415, "unsupported media type", ...)` |
-| JSON parse error | 400 | `fromError(400, "invalid JSON object", ...)` |
-| conversationId missing | 400 | `fromError(400, "conversation_id is required", ...)` |
-| adapter conversion error | 500 | 完整异常只记录到受控日志；固定调用 `fromError(500, "adapter execution failed", ...)` |
-| agent not loaded | 503 | `fromError(503, "agent not loaded", ...)` |
-| no orchestrator | 503 | `fromError(503, "no agent handler configured", ...)` |
-| orchestrator exception | 500 | 完整异常只记录到受控日志；对 adapter 固定调用 `fromError(500, "agent execution failed", ...)` |
-
-### 7.2 流式 query
+### 7.2 流式发送
 
 ```text
 Client
-  -> POST {query-path}, body stream=true
-  -> CustomRestProtocolAdapter.toServeRequest
-  -> ServeRequest(stream=true)
-  -> 返回 SseEmitter(0L)
-  -> CompletableFuture.runAsync 调用 ServeOrchestrator.streamQuery
-  -> QueryChunk ...
-  -> CustomRestProtocolAdapter.fromQueryChunk(chunk)
-  -> SSE data: <json>
-  -> onComplete close
+  -> POST {query-path}
+  -> adapter.toA2ARequest
+  -> resolver
+  -> ServerCallContext state[_a2a_stream]=true
+  -> RequestHandler.onMessageSendStream
+  -> Flow.Publisher<StreamingEventKind>
+  -> adapter.fromA2AStreamEvent(event)
+  -> SSE data: <custom json>
+  -> publisher terminal -> emitter complete
 ```
 
-流式错误：
+`INPUT_REQUIRED` 由 A2A `TaskStatusUpdateEvent` 表达，是正常任务状态，不作为 HTTP错误处理。下一轮由 resolver 恢复。
+
+### 7.3 新建与续轮示例
 
 ```text
-streamQuery QueryChunk(TYPE_ERROR)
-  -> CustomRestProtocolAdapter.fromQueryChunk(errorChunk, context)
-  -> emitter.send(event.data(json))
-  -> 标记 errorFrameSent=true
+第一轮 conversationId=C1
+  -> 无正式活跃 Task
+  -> SDK创建 Task=T1
+  -> T1状态 INPUT_REQUIRED
 
-streamQuery onError / runtime exception
-  -> if errorFrameSent=false:
-       CustomRestProtocolAdapter.fromError(500, "agent execution failed", context, elapsed)
-       emitter.send(event.data(json))
-  -> if errorFrameSent=true: 不再发送第二帧错误
-  -> emitter.complete()
+第二轮 conversationId=C1，客户仍不传 taskId
+  -> resolver找到唯一 T1(INPUT_REQUIRED)
+  -> 自动注入 taskId=T1
+  -> RequestHandler恢复 T1
+
+T1完成后再次请求 conversationId=C1
+  -> resolver忽略终态 T1
+  -> SDK创建新 Task=T2
+  -> Agent session仍可继续使用 conversationId=C1
 ```
-
-`TYPE_INTERRUPT` 是本次调用的正常协议结果，不是 HTTP 错误：同步 query 返回 HTTP 200 并由 `fromQueryResponse(...)` 包装 `_interrupt`；流式 query 发送 adapter 包装的 interrupt chunk，随后等待 orchestrator 的 `onComplete/onError` 收束，不由 adapter 主动结束 emitter。
-
-### 7.3 HTTP method 处理
-
-custom-rest 框架固定注册 `POST {query-path}`，不提供 HTTP method 配置项。adapter 不负责 method 路由，非 POST 请求不会进入 handler，由 Spring MVC 返回 405。
 
 ---
 
@@ -693,7 +629,7 @@ openjiuwen:
       query-path: /custom/{session_key}
 ```
 
-业务侧提供 adapter bean：
+业务侧声明：
 
 ```java
 @Bean
@@ -704,23 +640,19 @@ CustomRestProtocolAdapter customRestProtocolAdapter() {
 
 ### 8.2 配置属性表
 
-| 属性路径 | 类型 | 默认值 | 说明 |
+| 属性 | 类型 | 默认值 | 说明 |
 | --- | --- | --- | --- |
-| `openjiuwen.service.custom-rest.query-path` | String | 空 | query endpoint 路径模板；启用时必填 |
+| `openjiuwen.service.custom-rest.query-path` | String | 空 | Custom REST POST路径模板；存在即启用 |
 
 ### 8.3 启用条件
 
-custom-rest auto-configuration 激活条件：
+1. 当前应用是 Servlet WebApplication。
+2. classpath 中存在 Spring MVC 和 A2A SDK server类型。
+3. 已配置合法 `query-path`。
+4. 容器中存在且仅存在一个 `CustomRestProtocolAdapter`。
+5. 容器中存在 `RequestHandler`、`TaskStore` 和 `ObjectMapper`。
 
-```text
-1. 当前应用是 Servlet WebApplication
-2. classpath 中存在 Spring MVC RequestMappingHandlerMapping
-3. 已配置 openjiuwen.service.custom-rest.query-path
-4. 容器中存在且仅存在一个 CustomRestProtocolAdapter bean
-5. 容器中存在 ObjectMapper
-```
-
-`ServeOrchestrator` 和 `AgentReadiness` 不作为启动必需条件；它们按请求时 `ObjectProvider` 获取，与现有 query controller 行为保持一致。缺少 orchestrator 时请求返回 503；未提供 `AgentReadiness` bean 时视为 ready，提供后仅在 `isAgentLoaded=false` 时返回 503。
+`RequestHandler` 和 `TaskStore` 是该方案的必要执行依赖，不再像旧的非 Task设计那样在请求期回退为 “no orchestrator” 503。
 
 ---
 
@@ -728,48 +660,49 @@ custom-rest auto-configuration 激活条件：
 
 ### 9.1 外部接口
 
-| 端点 / API | 方法 | 说明 |
+| 端点/API | 方法 | 说明 |
 | --- | --- | --- |
-| `{query-path}` | `POST` | Custom REST 同步或 SSE query；实际模式由 adapter 生成的 `ServeRequest.stream` 决定 |
-| `CustomRestProtocolAdapter` | Java SPI | 负责请求字段与响应 body envelope 转换 |
+| `{query-path}` | POST | Custom REST 同步或 SSE A2A发送/续轮入口 |
+| `CustomRestProtocolAdapter` | Java SPI | 自定义 HTTP与 A2A Java DTO双向转换 |
 
 ### 9.2 典型接入场景
 
-1. 宿主应用引入 custom-rest adapter artifact。
-2. 业务声明唯一 `CustomRestProtocolAdapter` bean。
-3. YAML 配置 `query-path`，存在该配置即启用入口。
-4. 外部请求经 adapter 转成 `ServeRequest`，进入既有 `ServeOrchestrator`。
-5. 同步结果或 SSE data 经 adapter 包装为客户响应信封。
+1. 宿主应用引入 runtime `agent-service-app` 和 custom-rest扩展。
+2. 业务声明唯一 adapter bean。
+3. 配置 query path。
+4. adapter 将客户 conversation字段映射为 A2A `Message.contextId`。
+5. 框架自动解析正式 Task 并调用 `RequestHandler`。
+6. adapter 将 A2A Task或流式事件包装成客户协议。
 
 ### 9.3 用户可见边界
 
-- 客户可以自定义 URL、字段映射和 body envelope；首版 method 固定为 POST。
-- 客户不能通过首版 SPI 自定义 HTTP status、Content-Type、SSE event id/retry 或任意响应 header。
-- 客户不能通过该 facade 获得正式 Task、Task 查询、Task 取消或断线后的 Task 级重订阅。
-- runtime-to-runtime 调用仍使用 A2A；Custom REST 不成为新的跨 runtime 标准协议。
-- 自定义 mapping 与 `/a2a`、`/v1/query` 同时存在；“只支持一个”仅约束可配置的 custom-rest path 和 adapter。
+- 客户可以自定义 URL、请求字段、A2A message parts、响应 body 和 SSE data 信封。
+- 客户只需要稳定传递 conversationId，不需要保存或回传 taskId。
+- 同一个 conversationId 同一时刻只允许一个正式非终态 Task。
+- 客户通过该入口可以获得正式 A2A Task语义，但首版不额外提供 GetTask、CancelTask和 SubscribeToTask自定义 URL。
+- `/a2a` 仍是 runtime-to-runtime 的标准 JSON-RPC入口；Custom REST不是新的 runtime 间标准协议。
 
 ---
 
 ## 10. 错误处理（Process View）
 
-| 错误场景 | 触发条件 | 框架行为 | 对外结果 |
+| 错误场景 | HTTP status | errorCode | 行为 |
 | --- | --- | --- | --- |
-| media type 不支持 | 非空 body 未声明 JSON media type，或 Content-Type 不是 JSON | 不解析 body，不调用 `toServeRequest`/orchestrator；只调用 `fromError` 包装错误 | HTTP 415 + `fromError` body |
-| 请求解析失败 | body 不是 JSON object | 不调用 orchestrator | HTTP 400 + `fromError` body |
-| conversationId 缺失 | adapter 未产出有效 conversationId | 不调用 orchestrator | HTTP 400 + `fromError` body |
-| adapter 转换失败 | `toServeRequest` 抛出异常或返回 `null` | 记录完整异常，不调用 orchestrator | HTTP 500 + `fromError` body，固定消息为 `adapter execution failed` |
-| 同步响应包装失败 | `fromQueryResponse` 抛出异常 | 记录完整异常，不混同为 runtime 执行异常 | HTTP 500 + `fromError` body，固定消息为 `adapter execution failed` |
-| runtime 未就绪 | readiness=false 或无 orchestrator | 拒绝执行 | HTTP 503 + `fromError` body |
-| 同步执行异常 | `query()` 抛出异常 | 完整异常只记录到受控日志，传给 adapter 的固定消息为 `agent execution failed` | HTTP 500 + `fromError` body |
-| 流内 error chunk | 收到 `TYPE_ERROR` | 经 `fromQueryChunk` 输出并标记已发送 | 一帧包含 adapter 错误信封的 SSE data |
-| 流式响应包装失败 | `fromQueryChunk` 抛出异常 | 记录完整异常；若尚未发送错误帧则经 `fromError` 输出 | 一帧包含 `adapter execution failed` 信封的 SSE data 后关闭 |
-| 流式 terminal error | `onError` 且此前无 error chunk | 经 `fromError` 输出 | 一帧包含 adapter 错误信封的 SSE data 后关闭 |
-| 客户端断连 | emitter completion/error | 当前 observer 进入 cancelled；不调用 `fromError`，不触发 conversation 级 `cancelActive` | 停止当前流继续发送；底层执行取消能力以 orchestrator/handler 为准 |
+| media type不支持 | 415 | `unsupported_media_type` | 不调用 adapter入站方法和 RequestHandler |
+| JSON解析失败 | 400 | `invalid_json` | 不调用 RequestHandler |
+| contextId缺失 | 400 | `conversation_id_required` | 不查询 TaskStore |
+| adapter command非法 | 500 | `adapter_execution_failed` | 记录完整异常，对外脱敏 |
+| adapter提供 taskId | 500 | `adapter_task_id_not_allowed` | 防止绕过 conversation续轮规则 |
+| conversation存在运行中 Task | 409 | `conversation_busy` | 不并发创建 Task |
+| 多个非终态正式 Task | 409 | `ambiguous_active_task` | 不任意选择 |
+| TaskStore查询失败 | 500 | `task_resolution_failed` | 不调用 RequestHandler |
+| A2A SDK参数/Task错误 | 按统一映射 | `a2a_<code>` | 保留 SDK错误码语义，消息脱敏 |
+| 同步输出包装失败 | 500 | `adapter_execution_failed` | 使用 `fromError` 或兜底 body |
+| 流式 adapter包装失败 | SSE已建立 | `adapter_execution_failed` | 最多输出一帧错误 data后结束 |
+| publisher terminal error | SSE已建立 | `a2a_stream_failed` | 最多输出一帧错误 data后结束 |
+| 客户端断连 | 无新增响应 | 无 | 取消当前 subscription，不取消整个 Task |
 
-`fromError(...)` 返回 `null` 或抛出运行时异常时，框架使用固定兜底 body：`{"type":"error","status":<HTTP status>,"error":"<脱敏错误消息>"}`。该兜底只保证错误响应可输出，不改变原错误分支的 HTTP status。
-
-错误消息不得直接回显异常原始 message、敏感异常堆栈、认证 header 或 raw body；完整异常只进入受控日志，correlation/trace 由宿主已有设施负责。
+`executionTimeMs` 从 custom-rest handler方法进入后使用单调时钟计时。同步成功和所有同步失败分支使用同一口径；流式事件不逐帧携带统一耗时，流式错误可以携带截至错误发生时的耗时。
 
 ---
 
@@ -779,49 +712,64 @@ custom-rest auto-configuration 激活条件：
 
 | 测试类 | 覆盖点 |
 | --- | --- |
-| `CustomRestPropertiesTest` | query-path 合法绝对路径、缺失和相对路径校验 |
-| `CustomRestProtocolAdapterTest` | context 顶层集合的防御性不可变复制 |
+| `CustomRestPropertiesTest` | query-path缺失、绝对路径校验 |
+| `CustomRestProtocolAdapterTest` | Context顶层集合防御性复制、A2ASendCommand基本契约 |
+| `CustomRestA2ATaskResolverTest` | 新建、唯一 INPUT_REQUIRED续轮、终态忽略、busy、多活跃冲突、shadow过滤 |
 
 ### 11.2 集成测试
 
-| 测试类 | 场景 |
+| 场景 | 验收点 |
 | --- | --- |
-| `CustomRestAutoConfigurationTest` | POST method condition、同步/流式执行、HTTP context 提取、media type/JSON 错误、conversationId 缺失和空白校验、adapter 和 runtime 异常分类 |
-| `CustomRestDisabledIntegrationTest` | 未配置 query-path 时不要求 adapter bean，且不注册自定义入口 |
-| `CustomRestUnavailableIntegrationTest` | agent not ready / no orchestrator 返回 adapter 包装后的 503 |
+| 同步首轮 | adapter产出 A2A请求，RequestHandler创建正式 Task，结果经 adapter包装 |
+| 流式首轮 | 原始 A2A Task/Status/Artifact事件逐帧进入 adapter |
+| conversation续轮 | 第二轮不传 taskId，框架恢复同一 INPUT_REQUIRED Task |
+| 终态后新轮 | 同 conversation在原 Task完成后创建新 Task |
+| shadow共存 | 同 context存在 `shadow:` Task时不被选为正式续轮 Task |
+| conversation busy | `WORKING`/`SUBMITTED` 时返回 409 |
+| 多活跃冲突 | 不按列表顺序选择，返回 409 |
+| adapter和 A2A错误 | 错误分类、脱敏、兜底 body正确 |
+| SSE断连 | 取消当前 subscription，不调用 Task取消 |
 
 ### 11.3 宿主回归断言
 
-以下内容属于引入该扩展后的宿主应用回归责任，不表示当前模块已有同名专项测试：
-
-- `/v1/query` 仍可用。
-- `/a2a` 仍可用。
-- custom-rest path 与内置 path 冲突时启动失败。
-- custom-rest 通过 `ServeOrchestrator` 进入与 `/v1/query` 相同的 handler/orchestrator 链路。
-- custom-rest 与 `/v1/query` 均保持非 Task Query facade 边界，不暴露 GetTask/CancelTask/SubscribeToTask 能力。
+- `/v1/query` 和 `/query` 保持现有 conversationId/Agent session行为。
+- `/a2a` 保持标准 taskId恢复语义，不应用 Custom REST resolver。
+- Custom REST mapping与内置 mapping共存。
+- Custom REST 同步和流式请求均经过 `RequestHandler`。
+- 不修改 `agent-runtime-java` 源码即可完成首版集成。
 
 ---
 
 ## 12. 限制与待补
 
-| 限制 | 影响范围 | 临时方案 |
+| 限制 | 影响 | 首版处理 |
 | --- | --- | --- |
-| 只支持一个 custom-rest adapter | 不能同时挂多个客户协议 | 多协议场景部署多个 runtime 实例 |
-| 只支持 Spring MVC | WebFlux custom endpoint 不自动注册 | 先使用 MVC runtime；如需 WebFlux 后续新增独立 registrar |
-| 不返回 A2A JSON-RPC Task 对象 | 客户响应不是标准 A2A Task envelope | adapter 可投影当次 invocation 的 success/error/interrupt，但不得生成 taskId 或宣称权威 Task 生命周期 |
-| 不支持 YAML 字段映射 | 不能靠配置声明复杂字段别名 | 在 Java adapter 中实现 |
-| 不支持 multipart/file | 文件上传类协议无法直接接入 | 另起版本事实和 L2 设计 |
-| 不做认证授权 | custom-rest 只信任前置网关传入身份 | 在网关层完成 OAuth/签名校验 |
-| adapter 只控制 body envelope | 不能自定义 status/header/media type/SSE id/retry | 由 Web filter/gateway 扩展；出现稳定需求后再演进结构化响应 SPI |
+| 单 adapter、单 path | 不能同时挂多个客户协议 | 多协议部署多个实例或后续扩展路由 |
+| 只支持 Servlet MVC | WebFlux不自动注册 | 首版使用 MVC |
+| conversation只允许一个非终态正式 Task | 无 taskId客户无法区分同 context多 Task | busy/歧义返回 409 |
+| `TaskStore.list(contextId)` 可能扫描 Task | Redis Task量大时查询成本上升 | 首版复用现有能力；规模明确后增加 `(tenant, conversationId) -> activeTaskId` 索引 |
+| shadow task与正式 Task共用 TaskStore | context查询可能同时返回内部状态 | resolver明确排除 `shadow:` taskId |
+| 不提供 Get/Cancel/Subscribe自定义端点 | 客户无法通过 Custom REST主动查询、取消或重订阅 | 有明确需求后单独设计，不扩展当前发送 SPI |
+| adapter只控制 body | 不能自定义 status/header/media type/SSE id/retry | 由框架和宿主 filter/gateway控制 |
+| 不支持 multipart/file | 文件类协议不能直接接入 | 后续独立设计 |
+| 不新建认证授权体系 | 依赖宿主网关/filter | 身份字段不得从不可信 body伪造 |
+| A2A可信身份字段传递不完整 | 当前 `A2AMessageContext` 未完整承接 Custom REST header 到 `ServeRequest.userId/spaceId/tenantId` | 首版通过 A2A metadata 传递一般业务上下文；若下游必须使用这些固定字段，需要后续修改 runtime 的可信调用上下文传递 |
+
+多租户环境下，conversation续轮的实际唯一键必须至少包含 tenant维度。若现有 `TaskStore.list` 实现不能按 tenant可靠隔离，则接入方必须保证 contextId全局唯一，或在后续索引实现中使用 `(tenantId, conversationId)` 复合键。
+
+---
 
 ## 13. 实施结论
 
-当前已在 `agent-solution/common/agent-runtime-ext-java/agent-service-app` 中实现 `agent-service-app-custom-rest` 模块，以 Spring Boot auto-configuration 形式提供一个单 adapter custom-rest 扩展入口。
-
-最终边界是：
+刷新后的目标边界是：
 
 ```text
-YAML 只配 queryPath；入口固定 POST；Java SPI 做转换；ServeOrchestrator 做执行；adapter 包响应。
+YAML只配置一个 POST path；
+Java SPI将 Custom REST转换为 A2A MessageSendParams；
+扩展按 conversationId自动解析正式 Task；
+RequestHandler负责 A2A Task生命周期；
+adapter包装原始 A2A同步结果和流式事件；
+runtime源码不修改。
 ```
 
-这样可以保持 runtime 主仓执行核心不变，复用 `/v1/query` 现有 handler 调用、远端 A2A delegate 编排和当前流取消能力，同时给平台集成方保留足够自由的请求和响应协议转换能力。该入口始终保持非 Task Query facade 边界。
+该方案同时满足两项要求：对内真正进入 A2A `RequestHandler`/TaskStore/EventBus执行链，对外继续保持客户只传 conversationId、不感知 taskId的调用方式。conversationId自动续轮是 Custom REST专属策略，不改变标准 `/a2a` 或既有 `/v1/query` 行为。
