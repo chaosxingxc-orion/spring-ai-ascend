@@ -88,10 +88,10 @@ Custom REST POST
 | conversationId 隔离 | ✅ | `(tenant, conversationId)` 经带长度帧的 SHA-256 编码生成不透明 internal contextId |
 | 自动创建/续轮 | ✅ | 无活跃正式 Task 时新建；唯一 `INPUT_REQUIRED` 正式 Task 时恢复 |
 | 显式 taskId | ✅ | adapter 设置的 `message.taskId`优先，跳过resolver并交由 runtime 校验 |
-| shadow Task 排除 | ✅ | history 为空且 id 为 `shadow:`前缀的已知辅助 Task 不参与正式父 Task 选择 |
+| shadow Task 排除 | ✅ | id 为 `shadow:`前缀且 history 为空的已知辅助 Task 不参与正式父 Task 选择 |
 | 单 JVM conversation 互斥 | ✅ | 同一 internal context 在解析到首次可观察事件窗口内只允许一个请求 |
-| 客户错误投影 | ✅ | adapter 可抛 `CustomRestRequestException`返回稳定 4xx；其他异常统一脱敏 |
-| 错误兜底 | ✅ | adapter 错误投影返回 null、抛错或不可序列化时使用 framework 固定信封 |
+| framework错误投影 | ✅ | framework内部失败经`CustomRestError`交给adapter映射；adapter自身异常不由bridge包装 |
+| 错误兜底 | ✅ | adapter错误投影返回null或结果不可序列化时使用framework固定信封；投影抛错不在bridge内吞掉 |
 | 非空 tenant 下游传播 | ⚠️ | bridge 原样设置 `MessageSendParams.tenant`，但当前 runtime 尚未传播到 `ServeRequest.tenantId` |
 
 ### 2.2 显式排除
@@ -150,15 +150,7 @@ public interface CustomRestProtocolAdapter {
 }
 ```
 
-adapter 判断客户字段缺失、格式错误或业务校验不通过时，抛出：
-
-```java
-public final class CustomRestRequestException extends RuntimeException {
-    public CustomRestRequestException(int httpStatus, String code, String message);
-}
-```
-
-`httpStatus`只允许 400-499；`code`和`message`必须非 null。其他未声明运行时异常按 adapter 内部错误处理，不把实现细节暴露给客户。
+SPI不定义客户请求异常。客户字段解释与业务校验归宿主adapter；adapter方法抛出的运行时异常不由bridge捕获或改写。framework只统一校验command/params和conversationId，其中conversationId为null或blank时返回400 `invalid_custom_request`。
 
 #### 2.3.2 数据类型
 
@@ -182,6 +174,7 @@ public final class CustomRestRequestException extends RuntimeException {
 - **禁止**：扩展直接save/delete Task、覆盖runtime `A2AProtocolAdapter`或通过私有metadata绕行tenant传播。
 - **允许**：tenant为null、空字符串或非空字符串；framework不trim、不补默认值。
 - **允许**：adapter自定义客户JSON结构、SSE event名称和data，但不能改变原始A2A状态与终止规则。
+- **允许**：adapter映射或投影方法抛出运行时异常；bridge不包装为自定义请求异常，也不保证将其转换为adapter错误信封。
 
 ---
 
@@ -196,7 +189,6 @@ common/agent-runtime-ext-java/
     └── src/main/
         ├── java/com/openjiuwen/service/app/custom/rest/
         │   ├── CustomRestProtocolAdapter.java    // 公共业务SPI及命令/Context/响应类型
-        │   ├── CustomRestRequestException.java  // 公共、受约束的客户4xx异常
         │   ├── CustomRestFailure.java           // 模块内部统一错误载体
         │   ├── CustomRestA2ATaskResolver.java   // 正式父Task识别与自动续轮决策
         │   ├── CustomRestA2ABridge.java         // A2A参数重建、reservation和RequestHandler调用
@@ -206,7 +198,7 @@ common/agent-runtime-ext-java/
             └── org.springframework.boot.autoconfigure.AutoConfiguration.imports
 ```
 
-当前为7个生产Java文件：5个核心组件加2个异常类型。`CustomRestProtocolAdapter`和`CustomRestRequestException`是使用方API；其余类型均为包内实现。contextId编码和reservation只被bridge使用，不拆成独立bean或文件。
+当前为6个生产Java文件：1个公共业务SPI、4个核心实现组件和1个内部失败载体。只有`CustomRestProtocolAdapter`是使用方API；其余类型均为包内实现。contextId编码和reservation分别内聚在resolver和bridge中，不拆成独立bean或文件。
 
 ### 3.2 核心类静态关系
 
@@ -237,7 +229,7 @@ CustomRestSseTransport ──> CustomRestA2ABridge
 - `a2a-java-sdk-spec`：A2A DTO；
 - `a2a-java-sdk-server-common`：`RequestHandler`、`TaskStore`、`ServerCallContext`；
 - `a2a-java-sdk-jsonrpc-common`：`ListTasksResult`；
-- Spring Boot auto-configuration、Servlet MVC和Jackson。
+- Spring Boot auto-configuration、Servlet MVC、`jackson-core`和`jackson-databind`。
 
 模块不直接依赖 `agent-service-app`。宿主应用必须单独引入runtime A2A server，再引入本扩展；这样扩展只面向公开bean类型，不把runtime实现及其传递依赖打包进自身。
 
@@ -309,7 +301,7 @@ Context
   -> Prepared
 ```
 
-adapter抛`CustomRestRequestException`时保留其4xx status/code/message；其他运行时异常统一转成500 `adapter_execution_failed`。command为null或params为null属于adapter实现错误；conversationId为null或blank统一返回400 `invalid_custom_request`。
+`adapter.toA2ARequest`抛出的运行时异常原样传播。command为null或params为null属于adapter实现错误，转换为500 `adapter_execution_failed`；conversationId为null或blank统一返回400 `invalid_custom_request`。校验在生成internal contextId和获取reservation之前完成。
 
 #### 4.2.2 参数重建
 
@@ -376,18 +368,18 @@ do:
 while pageToken != null
 ```
 
-list/get任一运行时异常统一失败关闭为503 `task_store_unavailable`，不能降级成“没有Task”，否则可能重复创建正式父Task。
+list/get抛`TaskStoreException`，或者分页返回null page、null tasks、重复page token等内部非法状态时，统一失败关闭为503 `task_store_unavailable`，不能降级成“没有Task”，否则可能重复创建正式父Task。其他未按`TaskStore`契约包装的运行时异常保持原异常传播。
 
 #### 4.3.3 正式父Task分类
 
 | 分类 | 判据 | 处理 |
 |------|------|------|
-| 正式父Task | history中至少一条非null Message的contextId等于internalContextId | 进入状态决策 |
+| 正式父Task | id非null且不以`shadow:`开头 | 进入状态决策；history允许为空 |
 | 已知shadow Task | id以`shadow:`开头且history为空 | 排除 |
 | 已知终态非正式Task | completed/failed/canceled/rejected | 忽略 |
-| 其他同context Task | 无法证明正式归属且非已知终态 | 409 `conversation_task_conflict` |
+| 其他同context Task | `shadow:`前缀但不满足已知shadow判据，且非已知终态 | 409 `conversation_task_conflict` |
 
-正式识别不依赖message role、TaskStore返回顺序或私有metadata。该规则依赖当前runtime正式Task初始history保存入站message这一事实。
+正式识别依赖Custom REST私有internal context和runtime的`shadow:`命名约定，不依赖history、message role、TaskStore返回顺序或私有metadata。当前A2A SDK由`MainEventBusProcessor`使用`initialMessage=null`持久化首轮流式事件，因此首轮正式Task可能合法地保持空history；若以history作为身份标记，SSE无法确认Task可观察并会永久保留reservation，第二轮只能得到409 `conversation_busy`。
 
 #### 4.3.4 状态决策
 
@@ -426,6 +418,7 @@ Prepared
   -> publisher非null
   -> CustomRestSseTransport.connect(publisher, prepared)
   -> subscribe exactly once
+       -> 未正常返回: finally abort，释放reservation并取消已建立的subscription，原异常继续传播
   -> request(1)
   -> onNext(event)
        -> 尝试确认正式父Task可观察并释放reservation
@@ -447,7 +440,7 @@ Prepared
 ConcurrentHashMap<internalContextId, Object token>
 ```
 
-请求在resolver之前执行`putIfAbsent`。已有reservation时返回409 `conversation_busy`；释放使用`remove(internalContextId, token)`，迟到回调不能误删后继请求的token。同步调用在`finally`释放；流式调用在正式父Task首次可观察、publisher error/complete或stream错误时释放。
+请求在resolver之前执行`putIfAbsent`。已有reservation时返回409 `conversation_busy`；释放使用`remove(internalContextId, token)`，迟到回调不能误删后继请求的token。同步调用在`finally`释放；流式调用在正式父Task首次可观察、publisher error/complete、stream错误或subscribe未正常返回时释放。
 
 reservation只保护：
 
@@ -463,7 +456,7 @@ reservation只保护：
 
 | 当前状态/事件 | 行为 | reservation |
 |---------------|------|-------------|
-| subscribe抛错 | 输出最多一个安全error event并结束 | 释放一次 |
+| subscribe未正常返回 | `finally`执行abort，标记终止并取消已建立的subscription；原异常传播 | 释放一次 |
 | 首个携带taskId事件且正式父Task可观察 | 先释放，再投影和写帧 | 释放一次 |
 | TaskStore确认抛错 | 转成stream error、取消订阅并结束 | 释放一次 |
 | 普通非终止事件 | 写帧后request(1) | 保持当前状态 |
@@ -579,8 +572,8 @@ openjiuwen:
 example adapter执行以下映射：
 
 - path中的`conversation_id`映射到`A2ASendCommand.conversationId`；
-- body中的`input`转成一个`ROLE_USER` `TextPart`；
-- body中的`stream`决定阻塞或流式；
+- body中的`input`转成一个`ROLE_USER` `TextPart`；缺失时使用空文本，非字符串值序列化为JSON文本；
+- body中的`stream`决定阻塞或流式；缺失时默认`true`；
 - body、headers、query和path variables写入`MessageSendParams.metadata`；
 - tenant保持null；
 - 同步Task和流事件中的internal contextId在出站前替换为外部conversationId；
@@ -659,23 +652,27 @@ curl.exe -N `
 | Content-Type不支持 | 非空body但没有JSON media type | 不调用adapter | HTTP 415 `unsupported_media_type` |
 | JSON非法 | 语法错误或根节点非object | 不调用adapter | HTTP 400 `invalid_json` |
 | SSE不可接受 | command.stream=true且Accept不允许SSE | 不获取reservation | HTTP 406 `stream_not_acceptable` |
-| 客户请求非法 | adapter抛合法`CustomRestRequestException` | 保留其脱敏4xx信息 | HTTP 400-499，adapter错误body |
-| command无效 | command/params为null或adapter意外异常 | 隐藏实现异常 | HTTP 500 `adapter_execution_failed` |
+| adapter请求映射异常 | `toA2ARequest`抛运行时异常 | bridge不捕获、不包装 | 原异常进入Servlet/Spring异常处理 |
+| command无效 | command或params为null | 转为framework内部失败 | HTTP 500 `adapter_execution_failed` |
 | conversationId缺失 | null或blank | framework统一拒绝 | HTTP 400 `invalid_custom_request` |
 | Agent未就绪 | readiness bean存在且返回false | 不生成context、不获取reservation、不创建Task | HTTP 503 `agent_not_ready` |
 | conversation忙 | 本地reservation已存在或正式Task为SUBMITTED/WORKING | 失败关闭 | HTTP 409 `conversation_busy` |
 | 不可自动续轮 | 正式Task为AUTH_REQUIRED | 不按普通输入恢复 | HTTP 409 `conversation_not_resumable` |
 | Task歧义 | 多个非终态正式Task | 不按顺序或时间猜测 | HTTP 409 `conversation_task_ambiguous` |
 | Task冲突 | 未知同context Task、未知状态或空状态 | 不创建新父Task | HTTP 409 `conversation_task_conflict` |
-| TaskStore不可用 | list/get异常、null page或重复page token | 不降级为空结果 | HTTP 503或SSE错误 `task_store_unavailable` |
+| TaskStore不可用 | list/get抛`TaskStoreException`、null page/tasks或重复page token | 不降级为空结果 | HTTP 503或SSE错误 `task_store_unavailable` |
 | A2A协议错误 | RequestHandler抛`A2AError` | 按`A2AErrorCodes.httpCode`映射，未知code为500 | `a2a_<numeric-code>` |
 | 阻塞结果非Task | onMessageSend返回其他EventKind | 拒绝投影 | HTTP 502 `invalid_a2a_result` |
-| 同步成功投影无效 | adapter返回null或投影/序列化失败 | 调用错误投影，必要时固定fallback | HTTP 500 `adapter_execution_failed` |
+| 同步成功投影无效 | adapter返回null或结果不可序列化 | 调用错误投影，必要时固定fallback | HTTP 500 `adapter_execution_failed` |
+| 同步adapter投影抛错 | `fromA2ATask`或`fromError`抛运行时异常 | bridge不吞掉异常 | 原异常进入Servlet/Spring异常处理 |
 | 流式事件投影无效 | adapter返回null、非法event/data或不可序列化 | 最多投影并发送一个安全error event | SSE error后结束 |
-| publisher失败 | subscribe、onError或stream启动异常 | 释放reservation并脱敏 | 启动前为HTTP错误；启动后为SSE error |
+| 流式adapter错误投影抛错 | `fromStreamError`抛运行时异常 | 不再尝试第二次投影，`completeWithError` | SSE连接异常结束，可能没有error帧 |
+| stream启动失败 | `onMessageSendStream`抛错或返回null publisher | 释放reservation；A2A错误按协议映射，其他运行时异常脱敏 | HTTP错误 |
+| subscribe失败 | `publisher.subscribe`未正常返回 | `finally`释放reservation、终止subscriber并取消subscription | 原异常进入Servlet/Spring异常处理 |
+| publisher异步失败 | publisher调用`onError` | 释放reservation并投影stream error | SSE error后结束 |
 | 客户端断连 | Servlet emitter completion/timeout/error | 停止写下游；按首次可观察状态决定继续或取消上游 | 不新增响应，不自动取消正式Task |
 
-同步`fromError`和流式`fromStreamError`返回null、抛错或结果不可序列化时，framework使用固定信封：
+同步`fromError`或流式`fromStreamError`返回null，以及错误投影结果不可序列化或不满足SSE event约束时，framework使用固定信封：
 
 ```json
 {
@@ -686,7 +683,7 @@ curl.exe -N `
 }
 ```
 
-SSE fallback event名称固定为`error`。adapter只能控制body/event内容，不能覆盖实际HTTP status、原始Task状态或连接终止时机。
+SSE fallback event名称固定为`error`。adapter错误投影自身抛错时不使用固定信封：同步异常原样离开handler，流式异常交给`SseEmitter.completeWithError`。adapter只能控制body/event内容，不能覆盖实际HTTP status、原始Task状态或连接终止时机。
 
 ---
 
@@ -698,7 +695,7 @@ SSE fallback event名称固定为`error`。adapter只能控制body/event内容�
 |------|---------|----------------|
 | runtime未传播非null tenant到ServeRequest | adapter提供tenant时，下游`ServeRequest.tenantId`仍为null | 合入runtime标准传播修复；solution不绕行 |
 | reservation仅限单JVM | 多实例可能同时查询无Task并各自创建父Task | 同会话实例亲和或单writer |
-| 正式Task识别依赖history契约 | runtime若不再把入站message写入初始history，classifier会失效 | 版本锁定并同步更新契约测试 |
+| 正式Task识别依赖`shadow:`命名约定 | 同一私有context若新增非`shadow:`前缀辅助Task，会被视为正式父Task | runtime新增辅助Task时必须沿用shadow命名空间或同步更新classifier |
 | RedisTaskStore list为全量scan | Task规模较大时查询成本上升 | 上线前压测；规模化前由runtime增加context索引 |
 | TaskStore生命周期有限 | InMemory重启或Redis TTL后旧Task不可续 | 接受创建新Task或使用满足生命周期要求的TaskStore |
 | stream无可确认事件且不terminal | reservation持续fail-closed，同conversation后续请求409 | 进程重启后按TaskStore事实重建；不使用不安全超时 |
@@ -709,16 +706,16 @@ SSE fallback event名称固定为`error`。adapter只能控制body/event内容�
 
 ### 8.2 当前测试事实
 
-当前Custom REST模块有29个单元测试，覆盖：
+当前Custom REST模块有34个单元测试，覆盖：
 
-- Context顶层防御性复制和客户异常4xx约束；
+- Context顶层防御性复制和adapter运行时异常透传；
 - internal contextId稳定、隔离和不透明；
-- TaskStore分页、list后get、shadow排除、已知终态、busy/ambiguous/conflict和重复page token；
+- TaskStore分页、list后get、空history正式Task、shadow排除、已知终态、busy/ambiguous/conflict和重复page token；
 - A2A参数重建、internal context覆盖、tenant/metadata保留、阻塞释放和A2A错误脱敏；
 - path条件装配、基础path校验、HTTP Context采集、Content-Type、Accept specificity和SSE响应头；
-- subscribe失败、TaskStore确认失败、逐帧背压、terminal、fail-closed reservation和非法SSE投影。
+- subscribe异常透传与abort清理、TaskStore确认失败、逐帧背压、terminal、fail-closed reservation和非法SSE投影。
 
-Agent A example另有3个adapter契约测试，覆盖请求映射、metadata透传以及Task/嵌套status message/stream event中的internal contextId外部化。
+Agent A example有9个单元测试：其中6个adapter契约测试覆盖请求映射、stream缺失默认true、conversationId交给framework校验、input缺失转空文本以及Task/嵌套status message/stream event中的internal contextId外部化；其余3个覆盖DeepAgent装配和Agent A/B运行时隔离。
 
 尚未自动化覆盖但仍属于发布验收关注项的高风险场景包括：完整状态决策表、同key/不同key并发、显式taskId跳过resolver、readiness不获取reservation、首事件前后断连、迟到onError/重复terminal、错误投影null/抛错/不可序列化以及多adapter/缺bean/mapping冲突启动失败。
 
