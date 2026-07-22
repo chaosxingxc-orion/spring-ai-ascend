@@ -31,7 +31,7 @@ SkillHub 提供渐进式 skill 发现与加载能力：先列出轻量摘要，�
 
 ### 1.2 核心设计原则
 
-1. **启动期下载 + 请求期注册** — `Handler.start()` 阶段调用 `SkillHubManager.download()` 触发首次下载+校验；`Handler.query()`/`streamQuery()` 阶段调用 `SkillHubManager.register(agent)` 注册已下载校验通过的 skill
+1. **启动期下载 + 请求期注册** — `Handler.start()` 阶段调用 `SkillHubManager.start()` 触发 `provider.start()` + 首次下载+校验；`Handler.query()`/`streamQuery()` 阶段调用 `SkillHubManager.register(agent)` 注册已下载校验通过的 skill
 2. **稳定部署态** — SkillHub SPI 入参是部署态稳定的配置（endpoint、加密凭据、localDir），不依赖每次请求的 user/session/task，也不要求调用方传入 skillId（调用方在下载前拿不到 skillId）
 3. **渐进式加载** — 摘要阶段不加载 instructions 或 skill 包；完整定义只在安装前按需加载
 4. **Agent 自治** — `registerSkill` 已将 skill description 注入 prompt，适配层不重复注入 instructions，遵循 skill 懒加载设计原则
@@ -124,7 +124,7 @@ SkillHub SPI 只声明一个聚合接口 `SkillHubProvider`，业务方整体替
 /**
  * SkillHub Provider：Skill Hub 访问边界。
  * 声明 start / download / verify / stop 四个方法。
- * start/stop 由 SkillHubManager 构造/关闭时调用；download/verify 由 SkillHubManager 编排调用。
+ * start/stop 由 SkillHubManager.start()/stop() 调用；download/verify 由 SkillHubManager 编排调用。
  *
  * 设计说明（实现确认 2026-07-20）：
  *   - SPI 入参用纯 POJO 契约 SkillHubConfig（非 SkillHubMiddlewareProperties），保持 spec-ext 无 Spring 依赖
@@ -136,7 +136,7 @@ public interface SkillHubProvider {
 
     /**
      * 启动 Provider（建立连接池、预热认证等）。
-     * 由 SkillHubManager 构造方法中调用。
+     * 由 SkillHubManager.start() 调用。
      *
      * @param config          SkillHub 连接配置（endpoint、authType、localDir 等，纯 POJO 契约）
      * @param decryptedToken  已解密的明文 token（空字符串/null 表示匿名访问）；不得落日志或持久化
@@ -205,7 +205,7 @@ public record LocalSkillEntry(
 
 > 模块/包归属：`agent-service-adapters-agentcore-ext`，包 `com.openjiuwen.service.adapters.agentcore.ext.middleware.skillhub`（实现类，非 SPI）。
 
-`SkillHubManager` 是 skill 下载/校验/注册的编排者，构造入参为 `SkillHubProvider` 实现 bean，对内管理生命周期与后台重试，对外提供下载与注册入口。
+`SkillHubManager` 是 skill 下载/校验/注册的编排者，构造入参为 `SkillHubProvider` 实现 bean，对内管理生命周期与后台重试，对外提供启动与注册入口。
 
 ```java
 /**
@@ -213,7 +213,8 @@ public record LocalSkillEntry(
  * 构造入参为 SkillHubProvider 实现 bean + SkillHubInstaller 实现 bean。
  *
  * 生命周期：
- *   构造方法 → provider.start() + 触发首次下载
+ *   构造方法 → 只装配依赖（provider/installer/config/token 赋值），不做任何副作用
+ *   start() → provider.start(config, decryptedToken) + 触发首次下载
  *     首次下载成功 → verify 校验下载的 skill → 校验通过项加入"已校验路径池"（verifiedSkillPaths）
  *     首次下载失败 → 启动后台线程定时重试 download，成功后 verify + 加入"已校验路径池"
  *   Handler.query/streamQuery → 调 register(agent) → 取该 agent 尚未处理的路径
@@ -228,7 +229,7 @@ public record LocalSkillEntry(
  *   - "已校验路径池" + "per-agent 已处理集合"的复合操作（快照、标记、清空）由私有 listLock 串行化
  *   - installer.install / provider.download / provider.verify 不在锁内执行（避免阻塞请求线程）
  *
- * 两个数据结构语义（per-agent 模型，issue #10）：
+ * 两个数据结构语义（per-agent 模型）：
  *   - verifiedSkillPaths: CopyOnWriteArrayList<Path> — download + verify 通过的路径，常驻不移除；
  *     路径在物理上共享，agent-core 的 SkillManager 是 agent 私有的，同一 skill 必须分别注册给每个 agent
  *   - processedForAgent: WeakHashMap<Object, Set<Path>> — per-agent 已处理路径集合，agent 引用被 GC 后自动清理；
@@ -237,30 +238,35 @@ public record LocalSkillEntry(
  */
 public class SkillHubManager {
 
-    /** 构造方法：入参为 SkillHubProvider 实现 bean + SkillHubInstaller 实现 bean + config（纯 POJO 契约）+ decryptedToken（已解密明文）。内部调用 provider.start(config, decryptedToken) 并触发首次下载。 */
+    /** 构造方法：入参为 SkillHubProvider 实现 bean + SkillHubInstaller 实现 bean + config（纯 POJO 契约）+ decryptedToken（已解密明文）。只装配依赖，不做任何副作用。 */
     public SkillHubManager(SkillHubProvider provider,
                            SkillHubInstaller installer,
                            SkillHubConfig config,
                            String decryptedToken) { ... }
 
     /**
-     * 触发下载（同步，用于 Handler.start() 阶段）。幂等：只首次触发，后续 no-op。
+     * 启动 Manager（同步，用于 Handler.start() 阶段）。幂等：用 started CAS 标志保证只首次触发，后续 no-op。
+     * 内部步骤：
+     *   1. provider.start(config, decryptedToken) — 失败时向上抛异常（config/auth 类 fail fast）
+     *   2. 首次 doDownloadAndVerify() — 下载失败时 catch + degrade + 启动后台重试（download/integrity 类降级）
      * 下载成功 → verify 校验 → 校验通过项加入"已校验路径池"
      * 下载失败 → 启动后台线程定时重试，成功后校验并加入"已校验路径池"
-     * <p>后台重试成功关闭线程后复位 backgroundRetryStarted，允许后续失败再次启动重试（issue #3）
-     * <p>单例语义：SkillHubManager 是 Spring 单例，firstDownloadTriggered 是进程级；
-     * 若 handler 被重建，download() 会 no-op，下载只在构造时触发一次（issue #4）
+     * <p>后台重试成功关闭线程后复位 backgroundRetryStarted，允许后续失败再次启动重试
+     * <p>单例语义：SkillHubManager 是 Spring 单例，started 是进程级；
+     * 若 handler 被重建，start() 会 no-op，启动只在首次调用时触发一次
      * <p>阻塞语义：首次调用是同步的，可能阻塞到 REQUEST_TIMEOUT/skill；应在容器启动期调用，
-     * 不要在首个请求路径才 start()（issue #8）
+     * 不要在首个请求路径才 start()
+     * <p>分层失败语义：provider.start() 失败（config/auth 类）→ 向上抛（fail fast）；
+     * doDownloadAndVerify() 失败（download/integrity 类）→ catch + degrade + 后台重试
      */
-    public void download() { ... }
+    public void start() { ... }
 
     /**
      * 注册 skill 到 agent 实例（用于 Handler.query/streamQuery 阶段）。
      * 取该 agent 尚未处理的路径：
      *   非空 → 快照（加锁），委托 SkillHubInstaller.install(agent, paths)（释放锁），标记为该 agent 已处理（加锁）
      *   为空 → 直接返回（请求照常处理，skill 已全部注册或尚无 skill）
-     * <p>INSTALL_FAILED 处理（issue #1）：install 抛异常时先把路径标记为该 agent 已处理再抛出，
+     * <p>INSTALL_FAILED 处理：install 抛异常时先把路径标记为该 agent 已处理再抛出，
      *   避免同一 agent 的后续请求重复抛同一异常；路径留在 verifiedSkillPaths 中，
      *   其他 agent 仍可尝试自己的 handover
      */
@@ -315,13 +321,14 @@ public interface SkillHubInstaller {
 
 #### 行为承诺
 
-- **必须**：`SkillHubManager` 构造方法中调用 `provider.start()` 并触发首次 `download()`
-- **必须**：`download()` 成功后逐条调用 `provider.verify(skillPath)`，校验通过的路径加入已校验路径池（`verifiedSkillPaths`）；校验失败的路径不加入
-- **必须**：`download()` 失败时启动后台线程定时重试 `provider.download()`，成功后执行 verify + 加入已校验路径池
+- **必须**：`SkillHubManager` 构造方法只装配依赖，不做任何副作用
+- **必须**：`SkillHubManager.start()` 调用 `provider.start()` 并触发首次 `doDownloadAndVerify()`；`provider.start()` 失败（config/auth 类）向上抛异常（fail fast），`doDownloadAndVerify()` 失败（download/integrity 类）catch + degrade + 后台重试
+- **必须**：`doDownloadAndVerify()` 成功后逐条调用 `provider.verify(skillPath)`，校验通过的路径加入已校验路径池（`verifiedSkillPaths`）；校验失败的路径不加入
+- **必须**：`doDownloadAndVerify()` 失败时启动后台线程定时重试 `provider.download()`，成功后执行 verify + 加入已校验路径池
 - **必须**：后台线程只负责 download + verify + 维护已校验路径池，不触碰 agent-core 的 SkillManager
-- **必须**：后台重试成功关闭线程后**复位 `backgroundRetryStarted` 标志**，允许后续失败再次启动重试（issue #3）
+- **必须**：后台重试成功关闭线程后**复位 `backgroundRetryStarted` 标志**，允许后续失败再次启动重试
 - **必须**：`register(agent)` 取该 agent 尚未处理的路径委托 `SkillHubInstaller.install(agent, paths)`，install 成功或 INSTALL_FAILED 都标记为该 agent 已处理（`processedForAgent`）；该 agent 已全部处理时直接返回
-- **必须**：`Handler.start()` 阶段调用 `SkillHubManager.download()`；`Handler.query()`/`streamQuery()` 阶段调用 `SkillHubManager.register(agent)`
+- **必须**：`Handler.start()` 阶段调用 `SkillHubManager.start()`；`Handler.query()`/`streamQuery()` 阶段调用 `SkillHubManager.register(agent)`
 - **必须**：`reregister(agent)` 清空该 agent 的已处理集合，把已校验路径池中的全部 skill 路径重新委托 `SkillHubInstaller.install(agent, paths)` 注册
 - **必须**：`SkillHubInstaller.install(agent, paths)` 仅在 `agent instanceof DeepAgent` 或 `agent instanceof BaseAgent` 时执行注册
 - **必须**：下载材料完整性校验由 `SkillHubProvider` 实现自决（不强制算法），校验失败由 `verify` 返回 false 或抛 `IllegalStateException`（message 前缀 `SkillHub[CHECKSUM_MISMATCH]`），Manager 据此将失败项从已校验路径池排除
@@ -420,12 +427,13 @@ runtime 的模块分层为 `agent-service-spec`（SPI 接口 + DTO，纯契约�
 SkillHubMiddleware              →   SkillHubManager
 AutoConfiguration                    │
   │ @ConditionalOnProperty           │ 构造方法(provider, installer, config, decryptedToken)
-  │   openjiuwen.service.            │   → provider.start(config, decryptedToken) + 触发首次 download()
-  │   middleware.skillhub.enabled    ├─ download() 成功 → 逐条 verify(skillPath) → 已校验路径池
-  │ @ConditionalOnMissingBean        │   download() 失败 → 后台线程定时重试 + verify + 已校验路径池
-  │   SkillHubProvider               │
-  │  默认 = OpenJiuwen               │ register(agent)（query/streamQuery 阶段调）
-  │  SkillHubProvider                │   取该 agent 未处理路径 → 委托 SkillHubInstaller.install(agent, paths) → 标记为该 agent 已处理
+  │   openjiuwen.service.            │   → 只装配依赖，不做副作用
+  │   middleware.skillhub.enabled    ├─ start() → provider.start() + 首次 doDownloadAndVerify()
+  │ @ConditionalOnMissingBean        │   provider.start() 失败 → 向上抛（fail fast）
+  │   SkillHubProvider               │   doDownloadAndVerify() 成功 → 逐条 verify(skillPath) → 已校验路径池
+  │  默认 = OpenJiuwen               │
+  │  SkillHubProvider                │ register(agent)（query/streamQuery 阶段调）
+  │                                  │   取该 agent 未处理路径 → 委托 SkillHubInstaller.install(agent, paths) → 标记为该 agent 已处理
   │                                  │   已校验路径池为空 → 直接返回（请求照常处理）
   ▼                                  │
 SkillHubProvider                ←────┤ reregister(agent) → 清空per-agent 已处理集合，全部 skill 重新注册
@@ -446,7 +454,7 @@ SkillHubProvider                ←────┤ reregister(agent) → 清空p
 JiuwenCoreAgentExtHandler (extends JiuwenCoreAgentHandler)
   │
   ├─ start()   ← override
-  │    ├─ skillHubManager.download()   ← 新增（触发首次下载+校验，失败则后台重试）
+  │    ├─ skillHubManager.start()    ← 新增（provider.start + 首次下载+校验，download 失败则后台重试，provider.start 失败则 fail fast 向上抛）
   │    └─ super.start()
   │         ├─ middlewareAdapterRegistrar.applyToRunnerConfig(...)
   │         ├─ externalSvcAdapterRegistrar.registerToRunner()
@@ -476,10 +484,10 @@ SkillHubMiddlewareProperties  ← @ConfigurationProperties("openjiuwen.service.m
   ▼
 JiuwenCoreAgentExtHandler.start()
   │
-  ├─ skillHubManager.download()   ← 触发首次下载+校验
+  ├─ skillHubManager.start()    ← 触发 provider.start + 首次下载+校验
   │     │
   │     │  ┌─────────────────────────────────────────────────────────────┐
-  │     │  │ SkillHubManager.download() 内部逻辑                        │
+  │     │  │ SkillHubManager.start() 内部逻辑                            │
   │     │  │                                                             │
   │     │  ├─ boolean ok = provider.download(config, decryptedToken)
   │     │  │     下载应下载的全部 skill 到 properties.getLocalDir()
@@ -530,12 +538,12 @@ JiuwenCoreAgentExtHandler.start()
 ```
 
 **关键语义**：
-- `SkillHubManager.download()` 对下载和校验分别处理，start() 阶段不抛异常（下载失败降级 + 后台重试）
-- required skill 移交失败（registerSkill 后 skillCount 未增长）→ 首次 `install` 抛异常 → 请求线程感知；路径标记为该 agent 已处理，同一 agent 后续请求不重复抛（issue #1）
+- `SkillHubManager.start()` 对下载和校验分别处理，`provider.start()` 失败向上抛（config/auth 类 fail fast），download/integrity 失败 catch + degrade + 后台重试
+- required skill 移交失败（registerSkill 后 skillCount 未增长）→ 首次 `install` 抛异常 → 请求线程感知；路径标记为该 agent 已处理，同一 agent 后续请求不重复抛
 - required skill 下载/校验失败 → 降级（已校验路径池为空），`start()` 继续 `super.start()`，Agent ready（skill 不可用）；后台线程重试成功后校验通过项加入已校验路径池
 - optional skill 任何失败 → warn + skip + 降级诊断，该 skill 不注册为可用
 - 下载/校验失败的 skill 不得加入已校验路径池
-- 已校验路径池为空时请求照常处理，skill 尚未注册；`register(agent)` 成功后路径标记为该 agent 已处理避免重复 install；路径常驻在已校验路径池，新 agent 仍可取用（per-agent 模型，issue #10）
+- 已校验路径池为空时请求照常处理，skill 尚未注册；`register(agent)` 成功后路径标记为该 agent 已处理避免重复 install；路径常驻在已校验路径池，新 agent 仍可取用（per-agent 模型）
 
 ### 4.2 稳定部署态配置
 
@@ -609,7 +617,7 @@ SkillHubMiddlewareAutoConfiguration
   │   → String decryptedToken = decryptor.decrypt(properties.getEncryptedToken())
   │   → new SkillHubManager(provider, installer, properties, decryptedToken)
   │     （properties 是 SkillHubMiddlewareProperties，作为 SkillHubConfig 纯 POJO 契约传入）
-  │     （构造方法内部调用 provider.start(config, decryptedToken) + 触发首次 download()）
+  │     （构造方法只装配依赖，不做副作用；provider.start() + 首次 download 由 Manager.start() 触发）
   │
   └─ 注入到 JiuwenCoreAgentExtHandler
       └─ @Autowired(required = false) SkillHubManager
@@ -627,7 +635,7 @@ SkillHubMiddlewareAutoConfiguration
 ### 4.8 安装顺序与冲突语义
 
 SkillHub installer 与 MCP installer、远程 Agent tool installer 在同一启动阶段执行时，顺序和冲突语义必须可诊断。当前项目中：
-- middleware 注册（checkpointer，`applyToRunnerConfig`）→ SkillHub 下载（`SkillHubManager.download()`）→ external 注册（MCP/Remote/Sandbox，`registerToRunner`）→ `Runner.start()` → 请求期 SkillHub 注册（`SkillHubManager.register(agent)` 在 query/streamQuery 中调用）
+- middleware 注册（checkpointer，`applyToRunnerConfig`）→ SkillHub 启动（`SkillHubManager.start()`）→ external 注册（MCP/Remote/Sandbox，`registerToRunner`）→ `Runner.start()` → 请求期 SkillHub 注册（`SkillHubManager.register(agent)` 在 query/streamQuery 中调用）
 - **required skill 移交失败阻断请求**：`install` 抛异常，请求线程感知（start() 阶段下载失败不阻断，降级 + 后台重试）
 - **required skill 下载/校验失败不阻断 start()**：降级（已校验路径池为空）后继续 `super.start()`，进入 external 注册和 `Runner.start()`；后台线程重试成功后校验通过项加入已校验路径池，后续请求注册 skill
 - **optional skill 失败不阻断**：warn + skip 后继续处理下一个 skill；optional 全部失败后仍正常进入 external 注册和 `Runner.start()`
@@ -704,14 +712,14 @@ throw new IllegalStateException("SkillHub[" + category + "] skillId=" + skillId 
 - `provider.download` / `provider.verify` — 涉及网络 IO / hash 计算，持锁会阻塞
 - `installer.install` — 调 agent-core 的 `BaseAgent.registerSkill`，触及 `SkillManager`（非线程安全），且 SkillManager 只允许请求线程访问
 - `startBackgroundRetry` / `stop` 的后台线程生命周期由 `bgLock` 单独保护（与 listLock 分离，避免后台线程关闭和列表操作互相阻塞）
-- 后台重试成功关闭线程后**复位 `backgroundRetryStarted`**（issue #3），允许后续失败再次启动重试
+- 后台重试成功关闭线程后**复位 `backgroundRetryStarted`**，允许后续失败再次启动重试
 
 **不变量**：
-- 路径一旦进入 `verifiedSkillPaths` **常驻不移除**（per-agent 模型，issue #10）——agent-core 的 SkillManager 是 agent 私有的，同一 skill 必须分别注册给每个 agent，路径必须保留供后续 agent 取用
+- 路径一旦进入 `verifiedSkillPaths` **常驻不移除**（per-agent 模型）——agent-core 的 SkillManager 是 agent 私有的，同一 skill 必须分别注册给每个 agent，路径必须保留供后续 agent 取用
 - 路径是否已处理是 per-agent 的：同一路径对 agent A 已处理后，对 agent B 仍是"未处理"
 - `register(agent)` 的快照可能落后于后台线程新增的路径——这是允许的：新增路径在下一次 `register(agent)` 处理
 - `register(agent)` 的 `installer.install` 在锁外，install 期间后台线程可继续往 `verifiedSkillPaths` 加路径——install 完成后只标记快照里的路径，新路径不受影响
-- INSTALL_FAILED 路径标记为该 agent 已处理后仍留在 `verifiedSkillPaths`（issue #1）——其他 agent 仍可尝试自己的 handover；但同一 agent 的后续请求不重复抛同一异常
+- INSTALL_FAILED 路径标记为该 agent 已处理后仍留在 `verifiedSkillPaths`——其他 agent 仍可尝试自己的 handover；但同一 agent 的后续请求不重复抛同一异常
 
 ### 4.11 凭据与敏感信息保护
 
@@ -720,8 +728,8 @@ throw new IllegalStateException("SkillHub[" + category + "] skillId=" + skillId 
 | 项 | 要求 |
 |---|---|
 | 凭据存储 | `SkillHubMiddlewareProperties.encryptedToken` 持有密文 token（对齐 `MiddlewareProperties.RedisEndpoint.encryptedPassword`） |
-| 凭据解密 | `SkillHubMiddlewareAutoConfiguration` 注入 `CredentialDecryptor` Bean，调用 `decryptor.decrypt(encryptedToken)` 获取明文 token（对齐 `RedisMiddlewareAutoConfiguration`）；默认实现 `PassthroughCredentialDecryptor` 直通返回（密文=明文），业务可通过自定义 Bean 覆盖为真实解密。**不接受"无 decryptor 时把密文当明文"的 fallback**（issue #12）——runtime 的 `CredentialDecryptorAutoConfiguration` 总会注册 `PassthroughCredentialDecryptor`，bean 缺失视为部署错误，返回空 token 走匿名访问，不允许把 `encryptedToken` 密文当明文塞进 HTTP 头 |
-| endpoint 校验 | `SkillHubMiddlewareAutoConfiguration` 在装配 Provider 前校验 `endpoint` 非空（issue #13），空值直接抛 `IllegalArgumentException`，避免延迟到 `download()` 时以 `URI.create("")` 报错 |
+| 凭据解密 | `SkillHubMiddlewareAutoConfiguration` 注入 `CredentialDecryptor` Bean，调用 `decryptor.decrypt(encryptedToken)` 获取明文 token（对齐 `RedisMiddlewareAutoConfiguration`）；默认实现 `PassthroughCredentialDecryptor` 直通返回（密文=明文），业务可通过自定义 Bean 覆盖为真实解密。**不接受"无 decryptor 时把密文当明文"的 fallback**——runtime 的 `CredentialDecryptorAutoConfiguration` 总会注册 `PassthroughCredentialDecryptor`，bean 缺失视为部署错误，返回空 token 走匿名访问，不允许把 `encryptedToken` 密文当明文塞进 HTTP 头 |
+| endpoint 校验 | `SkillHubMiddlewareAutoConfiguration` 在装配 Provider 前校验 `endpoint` 非空，空值直接抛 `IllegalArgumentException`，避免延迟到 `download()` 时以 `URI.create("")` 报错 |
 | 凭据使用 | `OpenJiuwenSkillHubProvider` 构造时接收解密后的明文 token，作为 HTTP 认证头值；明文 token 不持久化、不进日志 |
 | 日志 | 不得输出 token、API key、认证头、内部敏感地址、skill 包敏感内容；只记录 `credential=provided` 或 `credential=absent` |
 | 错误响应 | 对外只返回 `SkillHubErrorCategory` 和脱敏摘要，不暴露 endpoint 完整路径、凭据片段或内部堆栈 |
@@ -737,17 +745,17 @@ throw new IllegalStateException("SkillHub[" + category + "] skillId=" + skillId 
 
 ### 4.12 下载并发模型
 
-**当前实现：4 路有界并行下载**。`OpenJiuwenSkillHubProvider` 在 `start()` 时创建 `downloadPool: ExecutorService`（`Executors.newFixedThreadPool(DOWNLOAD_CONCURRENCY=4)`，daemon 线程命名 `skillhub-download`）作为** Provider 字段**，`download()` 调用 `downloadPool.submit(...)` 并发执行 `downloadOne`，`AtomicBoolean allSucceeded` 汇总结果，主线程 `Future.get()` 等所有任务完成。线程池在 `stop()` 时 `shutdownNow()`（issue #5：不再每次 `download()` 重建，避免后台重试每 30s 一次的线程 churn）。
+**当前实现：4 路有界并行下载**。`OpenJiuwenSkillHubProvider` 在 `start()` 时创建 `downloadPool: ExecutorService`（`Executors.newFixedThreadPool(DOWNLOAD_CONCURRENCY=4)`，daemon 线程命名 `skillhub-download`）作为** Provider 字段**，`download()` 调用 `downloadPool.submit(...)` 并发执行 `downloadOne`，`AtomicBoolean allSucceeded` 汇总结果，主线程 `Future.get()` 等所有任务完成。线程池在 `stop()` 时 `shutdownNow()`（不再每次 `download()` 重建，避免后台重试每 30s 一次的线程 churn）。
 
 **并行设计要点**：
 - **失败隔离**：单个 skill 的 `downloadOne` 抛异常被 catch 在任务内部，`allSucceeded.set(false)`，其他任务继续；`Future.get()` 抛 `ExecutionException` 也会被 catch 并汇总
 - **单 skill 原子性**：`downloadOne` 内部串行执行「列表 → 元信息 → 下载 zip → SHA-256 → 解压 → 删 zip」，同一 skill 的下载/校验/解压不会跨线程交错
-- **流式下载**（issue #6）：`httpDownloadFile` 用 `BodyHandlers.ofFile(target)` 直接流式写盘，避免一次性把整个 zip 加载到 `byte[]` 导致大包 OOM；下载体大小通过 `Files.size(target)` 校验
+- **流式下载**：`httpDownloadFile` 用 `BodyHandlers.ofFile(target)` 直接流式写盘，避免一次性把整个 zip 加载到 `byte[]` 导致大包 OOM；下载体大小通过 `Files.size(target)` 校验
 - **线程安全**：`java.net.http.HttpClient` 是 thread-safe 的，多线程共享同一个 `httpClient` 实例；`downloadOne` 内的 IO 都在各自 skill 的 `skillDir` 下，互不冲突
 - **与 SkillManager 非线程安全无关**：并发只影响 Provider 内部下载；注册仍严格在请求线程由 `SkillHubInstaller` 执行
 - **与 Manager 后台重试解耦**：Manager 只调度 `provider.download()` 整体重试，不感知 Provider 内部并发
 
-**资源释放**（`stop()`，issue #7）：
+**资源释放**（`stop()`）：
 - JDK 17 的 `HttpClient` 没有 `close()` 方法（JDK 21+ 才有），当前实现只能 `this.httpClient = null` 依靠 GC 兜底；项目升级到 JDK 21+ 后应改调 `httpClient.close()` 显式释放连接池/事件循环
 - `downloadPool` 显式 `shutdownNow()`（ExecutorService 自早期版本就支持）
 - 后续若要彻底解决 HttpClient 资源泄漏，需升级 JDK 或改用 Apache HttpClient 等可显式 close 的客户端
@@ -863,12 +871,9 @@ public class JiuwenCoreAgentExtHandler extends JiuwenCoreAgentHandler {
 @Override
 public void start() {
     if (skillHubManager != null) {
-        try {
-            skillHubManager.download();  // 触发首次下载+校验，失败降级+后台重试
-        } catch (Exception ex) {
-            // start() 阶段下载失败不阻断（内部降级 + 后台重试）
-            log.warn("SkillHub download failed, will retry in background reason={}", sanitize(ex.getMessage()));
-        }
+        // provider.start() 失败（config/auth 类）向上传播（fail fast）
+        // download/integrity 失败在 Manager.start() 内部 catch + degrade + 后台重试
+        skillHubManager.start();
     }
     super.start();
 }
@@ -968,15 +973,16 @@ INFO  SkillHub not active (no provider or disabled), agent starts normally
 ### 7.4 E2E 流程
 
 1. 应用启动 → Spring 装配 `SkillHubMiddlewareProperties` + `OpenJiuwenSkillHubProvider` + `SkillHubManager`
-2. `SkillHubManager` 构造方法调用 `provider.start()` + 触发首次 `download()`
-3. `JiuwenCoreAgentExtHandler.start()` 调用 `skillHubManager.download()`（若已由构造触发则跳过重复下载）
-4. Manager 调用 `provider.download(config, decryptedToken)` → boolean（Provider 内部自决下载哪些 skill，下载到 config.getLocalDir()）
-5. 下载成功 → Manager 扫描本地路径，逐条调 `provider.verify(skillPath)` → 校验通过路径加入已校验路径池
-6. 下载失败 → Manager 启动后台线程定时重试 `provider.download()`，成功后 verify + 加入已校验路径池
-7. required 下载/校验失败 → 降级（已校验路径池为空）+ 后台重试；optional 失败 → skip
-8. `super.start()` → `Runner.start()`
-9. 请求处理 → `Handler.query()`/`streamQuery()` 调 `skillHubManager.register(agent)` → 取该 agent 尚未处理的路径 `install(agent, paths)`，安装后标记为该 agent 已处理 → `Runner.runAgentStreaming` → agent 使用已注册的 skill
-10. `register(agent)` 成功后路径标记为该 agent 已处理，避免同一 agent 重复 install；路径常驻在已校验路径池，其他 agent 仍可取用
+2. `JiuwenCoreAgentExtHandler.start()` 调用 `skillHubManager.start()`
+3. `SkillHubManager.start()` 调用 `provider.start(config, decryptedToken)`（config/auth 失败 → fail fast 向上抛）
+4. `SkillHubManager.start()` 触发首次 `doDownloadAndVerify()`（download/integrity 失败 → catch + degrade + 后台重试）
+5. `doDownloadAndVerify()` 内部：`provider.download(config, decryptedToken)` → boolean（Provider 内部自决下载哪些 skill，下载到 config.getLocalDir()）
+6. 下载成功 → Manager 扫描本地路径，逐条调 `provider.verify(skillPath)` → 校验通过路径加入已校验路径池
+7. 下载失败 → Manager 启动后台线程定时重试 `provider.download()`，成功后 verify + 加入已校验路径池
+8. required 下载/校验失败 → 降级（已校验路径池为空）+ 后台重试；optional 失败 → skip
+9. `super.start()` → `Runner.start()`
+10. 请求处理 → `Handler.query()`/`streamQuery()` 调 `skillHubManager.register(agent)` → 取该 agent 尚未处理的路径 `install(agent, paths)`，安装后标记为该 agent 已处理 → `Runner.runAgentStreaming` → agent 使用已注册的 skill
+11. `register(agent)` 成功后路径标记为该 agent 已处理，避免同一 agent 重复 install；路径常驻在已校验路径池，其他 agent 仍可取用
 
 ### 7.5 无 Provider 降级
 
@@ -1086,15 +1092,15 @@ Provider 的 `sendJson` 在 `MAPPER.readTree` 前已按 HTTP status 拦截 404 �
 | T9 | optional skill 任何失败 | 降级 skip | warn 日志 + 跳过，该 skill 不注册，Agent ready |
 | T10 | 日志脱敏 | 不泄露敏感信息 | 日志无 token/认证头/敏感凭据，只有 `credential=provided/absent` |
 | T11 | 无 Provider 降级 | noop 不影响启动 | `enabled=false` 或无 Provider 时 Agent 正常启动，`SkillHubManager` 为 null |
-| T13 | required 移交失败（INSTALL_FAILED） | 请求线程抛异常（首次） | registerSkill 后 skillCount 未增长，首次 `register(agentA)` 抛异常；**同一 agentA 的后续请求不重复抛**（路径已标记为 agentA 已处理，issue #1）；路径留在 `verifiedSkillPaths` 供其他 agent 尝试 |
+| T13 | required 移交失败（INSTALL_FAILED） | 请求线程抛异常（首次） | registerSkill 后 skillCount 未增长，首次 `register(agentA)` 抛异常；**同一 agentA 的后续请求不重复抛**（路径已标记为 agentA 已处理）；路径留在 `verifiedSkillPaths` 供其他 agent 尝试 |
 | T14 | DeepAgent 适配 | 取 inner ReActAgent | `install(DeepAgent, paths)` 取 `deepAgent.getAgent()` 注册 |
 | T15 | 路径池为空时请求 | 请求照常处理 | `verifiedSkillPaths` 为空时 `query()`/`streamQuery()` 直接调父类，skill 尚未注册但 Agent 可响应 |
 | T16 | 后台重试成功后注册 | 加入已校验路径池 | 下载失败后后台重试成功 → verify 通过 → 加入 `verifiedSkillPaths` → 后续请求 `register(agent)` 注册 skill |
 | T17 | 并发 register 与后台重试 | 线程安全（listLock 保护复合操作） | 4 个请求线程并发 `register(agent)` + 后台线程并发 `scanAndVerifyLocalDir`：不抛异常、不重复添加路径 |
 | T18 | reregister 重新注册 | 清空 per-agent 已处理集合 + 重新注册 | `reregister(agentA)` 清空 agentA 的 `processedForAgent` 项后重新 install；`verifiedSkillPaths` 仍保留全部路径（常驻） |
-| T19 | 多 agent 共享单例 Manager | per-agent 隔离 | `register(agentA)` 后 `register(agentB)` 也能拿到 skill——agentB 的已处理集合初始为空，从 `verifiedSkillPaths` 取全部路径 install（issue #10） |
-| T20 | 后台重试可重启 | flag 复位 | 首次失败 → 重试成功 → `backgroundRetryStarted` 复位为 false；再次失败能启动新重试（issue #3） |
-| T21 | INSTALL_FAILED 不重复抛 | per-agent 标记 | `install` 抛异常后路径标记为该 agent 已处理，同一 agent 后续 `register` 是 no-op（issue #1） |
+| T19 | 多 agent 共享单例 Manager | per-agent 隔离 | `register(agentA)` 后 `register(agentB)` 也能拿到 skill——agentB 的已处理集合初始为空，从 `verifiedSkillPaths` 取全部路径 install |
+| T20 | 后台重试可重启 | flag 复位 | 首次失败 → 重试成功 → `backgroundRetryStarted` 复位为 false；再次失败能启动新重试 |
+| T21 | INSTALL_FAILED 不重复抛 | per-agent 标记 | `install` 抛异常后路径标记为该 agent 已处理，同一 agent 后续 `register` 是 no-op |
 
 ---
 
