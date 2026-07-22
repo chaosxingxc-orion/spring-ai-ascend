@@ -842,11 +842,7 @@ openjiuwen:
     a2a-gateway:
       enabled: true
       base-url: https://gateway.example.com       # A2A Gateway 基础 URL
-      agent-card-path: /{agentCard}/.well-known/agent-card.json
       json-rpc-path: /{agentCard}/a2a
-      # 默认实现（不启用 A2A Gateway 时使用）
-      default-card-url-suffix: /.well-known/agent-card.json
-      default-json-rpc-suffix: /a2a
 ```
 
 - `a2a-gateway.enabled=true` 时注入 `A2AGatewayRemoteAgentCaller` + `A2AGatewayCardResolver`（来自部署模块 `versatile-intent-boot`）；`false` 时注入 runtime 核心 module 的默认实现。
