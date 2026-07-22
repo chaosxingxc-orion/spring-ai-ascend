@@ -209,7 +209,7 @@ FEAT-017 定义 `agent-runtime` 当前版本作为目标智能体服务端时，
 - `architecture/L1-High-Level-Design/agent-bus/README.md`
 - `architecture/L1-High-Level-Design/agent-bus/logical.md`
 - `version-scope/FEAT-001-standardized-agent-service-entrypoint.md`
-- `version-scope/FEAT-004-remote-agent-orchestration.md`
+- `version-scope/FEAT-004-task-driven-remote-agent-communication.md`
 - `version-scope/FEAT-012-client-invocation-bus-forwarding.md`
 - `version-scope/FEAT-013-client-invocation-event-forwarding.md`
 - `version-scope/FEAT-014-a2a-call-event-forwarding.md`

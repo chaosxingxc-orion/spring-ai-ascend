@@ -199,7 +199,7 @@ runtime-hosted DeepAgent 提供 Todolist 规划能力时，Todolist 的领域语
 - `architecture/L1-High-Level-Design/agent-runtime/development.md`
 - `architecture/L1-High-Level-Design/agent-runtime/spi-appendix.md`
 - `version-scope/FEAT-001-standardized-agent-service-entrypoint.md`
-- `version-scope/FEAT-004-remote-agent-orchestration.md`
+- `version-scope/FEAT-004-task-driven-remote-agent-communication.md`
 - `architecture/L2-Low-Level-Design/agent-runtime/Feat-Func-001-standardized-agent-service-entrypoint.md`
 - `architecture/L2-Low-Level-Design/agent-runtime/Feat-Func-003-agent-task-state-cache.md`
 - `architecture/L2-Low-Level-Design/agent-runtime/Feat-Func-004-remote-agent-orchestration.md`

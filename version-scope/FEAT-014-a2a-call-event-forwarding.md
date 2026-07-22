@@ -210,5 +210,5 @@ FEAT-014 定义 `agent-bus` 逻辑域中 event-bus 单元承载智能体服务�
 - `architecture/L1-High-Level-Design/agent-bus/scenarios.md`
 - `architecture/L1-High-Level-Design/agent-bus/features/README.md`
 - `version-scope/FEAT-001-standardized-agent-service-entrypoint.md`
-- `version-scope/FEAT-004-remote-agent-orchestration.md`
+- `version-scope/FEAT-004-task-driven-remote-agent-communication.md`
 - `version-scope/FEAT-013-client-invocation-event-forwarding.md`

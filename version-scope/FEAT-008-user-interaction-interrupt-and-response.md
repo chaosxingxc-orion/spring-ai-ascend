@@ -170,5 +170,5 @@ runtime 不应基于业务内容不匹配返回上述运行时失败；该类判
 - `architecture/L1-High-Level-Design/agent-runtime/spi-appendix.md`
 - `version-scope/FEAT-001-standardized-agent-service-entrypoint.md`
 - `version-scope/FEAT-002-heterogeneous-agent-framework-compatibility.md`
-- `version-scope/FEAT-004-remote-agent-orchestration.md`
+- `version-scope/FEAT-004-task-driven-remote-agent-communication.md`
 - `version-scope/DFX-001-trajectory-observability.md`
