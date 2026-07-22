@@ -70,7 +70,6 @@ agent-runtime 作为 A2A 客户端接入和调用其他 A2A Agent，实现跨 Ag
 | 父 Task 进度投射 | ✅ | 远程 progress → 父 Task artifact |
 | 取消级联传播 | ⬜ | 父 Task cancel → 远程 CancelTask；当前 `A2ARemoteAgentClient` 无 `cancelTask` 调用，`cancelActive` 仅取消本地 stream |
 | 超时检测 | ⬜ | 当前仅 `result.orTimeout()` 使本地 future 超时，未向远端发 CancelTask；超时后无 `REMOTE_TIMEOUT` 结构化 code |
-| 取消级联传播 | ⬜ | 父 Task cancel → 远程 CancelTask；当前 `A2ARemoteAgentClient` 无 `cancelTask` 调用，`cancelActive` 仅取消本地 stream |
 | 嵌套远程调用 | ⬜ | resume 后再次请求远程 → 返回错误 NESTED_REMOTE_INVOCATION_UNSUPPORTED |
 | 同轮远端工具并行编排 | ⬜ | Feat-Func-026 已接受设计；当前代码仍是单中断/单远端调用路径，待 026 落地后支持批次并发和完整回灌 |
 
@@ -136,7 +135,7 @@ OpenJiuwenRemoteAgentInterruptRail.beforeToolCall()
   │     runtime.remote.toolCallId = "tool-call-1"
   │     runtime.remote.arguments = {"message":"hello remote"}
   │
-  └─ → AgentExecutionResult.interrupted(remoteInvocation)
+  └─ → QueryChunk(TYPE_INTERRUPT, remoteInvocation)
   │
   ▼ A2A 层
 A2aRemoteInvocationOrchestrator
@@ -187,7 +186,7 @@ A2aRemoteInvocationOrchestrator
 远程 COMPLETED → toolResult = "remote answer"
   │
   ▼
-A2aParentTaskProjector 构造 AgentExecutionContext:
+A2aParentTaskProjector 构造 ServeRequest:
   inputType = REMOTE_RESUME
   variables = {
     runtime.remoteToolCallId: "tool-call-1",

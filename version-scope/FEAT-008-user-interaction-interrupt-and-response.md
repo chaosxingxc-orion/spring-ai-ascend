@@ -61,7 +61,7 @@ FEAT-008 不拥有独立外部 API 或 SPI 定义权。下游设计与实现必�
 
 ### 3.2 FEAT-002 异构智能体框架兼容
 
-本地智能体如何表达“需要客户端交互”、adapter 如何归一原生中断、runtime 如何恢复 handler 执行，属于 FEAT-002 的框架兼容和 SPI 范围。FEAT-008 只消费 FEAT-002 已归一出的交互式中断事实，不定义 `AgentExecutionResult`、handler input type、resume context 或 adapter API。
+本地智能体如何表达“需要客户端交互”、adapter 如何归一原生中断、runtime 如何恢复 handler 执行，属于 FEAT-002 的框架兼容和 SPI 范围。FEAT-008 只消费 FEAT-002 已归一出的交互式中断事实，不定义 `QueryChunk`、handler input type、resume context 或 adapter API。
 
 ### 3.3 任务状态缓存特性
 
@@ -148,7 +148,7 @@ runtime 不应基于业务内容不匹配返回上述运行时失败；该类判
 
 - 下游设计必须把 FEAT-008 作为交互式中断处理行为的事实来源，而不是服务入口、客户端协议、框架 SPI 或状态存储接口的事实来源。
 - 不得在 FEAT-008 的名义下新增 A2A endpoint、method、专用响应 DataPart、统一表单 schema、审批协议或客户端专用 wire 格式；这类能力必须先进入 FEAT-001 或新的服务入口特性。
-- 不得在 FEAT-008 的名义下新增或修改 `AgentRuntimeHandler`、`AgentExecutionResult`、adapter resume input 等 SPI；这类能力必须由 FEAT-002 承接。
+- 不得在 FEAT-008 的名义下新增或修改 `AgentHandler`、`QueryChunk`、adapter resume input 等 SPI；这类能力必须由 FEAT-002 承接。
 - 不得在 FEAT-008 的名义下承诺 Task 状态缓存、冷热转换、持久化存储、跨实例或重启恢复；这类能力由任务状态缓存特性承接。
 - 不得在 FEAT-008 的名义下重定义远端 Task 绑定、远端续接、重试、幂等或取消传播；这类能力由 FEAT-005 承接。
 - 实现必须保证同 Task 的合法续接消息能够恢复当前等待点，并保证非同 Task 消息不会隐式抢占旧等待点。
