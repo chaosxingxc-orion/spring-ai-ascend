@@ -3,7 +3,7 @@
 ## level: L2
 module: agent-gateway
 feature: FEAT-011
-status: draft
+status: in-review
 
 # FEAT-011 L2：客户端调用直连路由转发
 
@@ -105,7 +105,7 @@ Gateway 负责接入、治理、选路与转发/桥接；不执行 Agent，不�
 | 编号   | 标准                                                      |
 | ---- | ------------------------------------------------------- |
 | SC-1 | 合法创建请求经治理与选路后到达目标 runtime，并返回可消费结果或已接受 Task 表面          |
-| SC-2 | 流式创建完成 SSE 桥接；Gateway 不生成、不缓存 token；client 断开后释放桥接      |
+| SC-2 | 流式创建完成 SSE 桥接；Gateway 不生成、不缓存 token；client 断开后释放桥接，**不**自动 Cancel/关闭 Task |
 | SC-3 | 无 `agentId` 时落到默认 Agent；有 `agentId` 时落到指定 Agent         |
 | SC-4 | 治理拒绝或选路失败时返回明确失败，不暴露内部 endpoint / `routeHandle`，不伪造成功投递 |
 | SC-5 | 工具续跑在同 Task 语义下透传并粘滞到原 owner；continueInput 关联失败时明确报错    |
@@ -117,7 +117,7 @@ Gateway 负责接入、治理、选路与转发/桥接；不执行 Agent，不�
 
 ## 1. 共享设计
 
-本章固定跨场景横切骨架。各场景章只写本场景差量，不重复本章已定内容。接口字段、HTTP 头等细节在对应场景章展开，场景定稿后可回填本节。
+本章固定跨场景横切骨架。各场景章只写本场景差量，不重复本章已定内容。接口字段、HTTP 头等细节在对应场景章展开，场景定稿后可补充本节字段级细节。
 
 ### 1.1 统一入口形态
 
@@ -205,7 +205,7 @@ agent-gateway/
 | S2 创建调用（同步）      | I-01, I-02, I-03                                 |
 | S2 创建调用（流式）      | I-01, I-02, I-03, I-06                           |
 | S3 工具续跑          | I-01, I-02 或粘滞定位, I-03, I-07                     |
-| S4 continueInput | I-01（续跑类，复用 S3 粘滞）；或 I-06（若续跑亦流式，待 runtime 联调冻结） |
+| S4 continueInput | I-01（续跑类，复用 S3 粘滞）；runtime 亦支持流式续跑（I-06），**011 730 主路径用同步 SendMessage**（§4.10 AC-RT-5） |
 | S5 选路失败          | I-01, I-02（失败）；无 I-03 / I-06                     |
 | S6～S9            | 730 不交付；边保留叙述即可                                  |
 
@@ -239,11 +239,13 @@ agent-gateway/
 **部署假设：**
 
 
-| 项    | 约定                                 |
-| ---- | ---------------------------------- |
-| 进程形态 | 按可独立部署设计                           |
-| 网络   | 须能访问 RDC，以及目标 runtime 的标准 HTTP/SSE |
-| 消息总线 | FEAT-011 直连路径运行不依赖 Broker          |
+| 项 | 约定 |
+| --- | --- |
+| 单元边界 | Gateway 相对 Event Bus、RDC、runtime 为**可独立部署 / 可替换**的运行时单元（与 agent-bus「三单元可替换」语义对齐）。正式 Gateway **不**绑死在 Event Bus 进程制品内。 |
+| 进程形态 | **按可独立部署设计**（独立模块 / 可单独构建的运行制品）。**允许**与其它单元同进程或分进程部署；**不**把「必须独占 OS 进程」写成 730 硬约束。 |
+| 开发 vs 部署 | 开发阶段保证边界可拆、制品可单独运行；**实际起几个进程、几份副本由部署/运维决定**，不由业务报文或 client 选择。 |
+| 网络 | 须能访问 RDC，以及目标 runtime 的标准 HTTP/SSE |
+| 消息总线 | FEAT-011 **直连路径**运行不依赖 Broker / Event Bus 进程；总线路径见 FEAT-012 |
 
 
 ---
@@ -262,7 +264,7 @@ agent-gateway/
 | S1  | 入口治理                 | 730 交付（Gateway 自做）   | 鉴权、租户、校验、幂等、审计；S2～S4 成功路径均已通过本章                                                         |
 | S2  | 创建调用                 | 730 交付（承接 client 创建） | 无 `agentId` → 默认 Agent；有则指定 Agent；含同步 / 流式；含多实例候选挑选与 resolve                            |
 | S3  | 端侧工具结果续跑             | 730 交付（承接 client 续跑） | 同 Task；带 `taskId` + TextPart；粘滞路由到原 Task owner                                          |
-| S4  | 用户补充输入 continueInput | 730 交付（承接晓娜③）        | 业务上新 invocation、同 conversation；**wire 走 S3 续跑**（原 `taskId` + 新 `messageId`）；关联不可续接时明确失败 |
+| S4  | 用户补充输入 continueInput | 730 交付（与 agent-client continueInput 对齐） | 业务上新 invocation、同 conversation；**wire 走 S3 续跑**（原 `taskId` + 新 `messageId`）；关联不可续接时明确失败 |
 | S5  | 选路失败                 | 730 交付（Gateway 自做）   | 治理已通过后无可用候选、resolve 失败等；明确失败、不伪造成功投递                                                    |
 | S6  | 查询 Task              | **730 版本不交付**        | GetTask 转发；本版本不实现、不验收                                                                   |
 | S7  | 取消 Task              | **730 版本不交付**        | CancelTask 转发；同上                                                                        |
@@ -393,9 +395,9 @@ Gateway 是客户端进入平台的治理入口。任意调用在选路与转发
 
 
 ```text
-① 创建 HTTP        → G1 → … → 转发
-② 续跑 HTTP        → G1 → … → 转发     （再走门禁，不是沿用①的「已鉴权会话」）
-③ 补充输入 HTTP    → G1 → … → 转发
+创建 HTTP          → G1 → … → 转发
+续跑 HTTP          → G1 → … → 转发     （再走门禁，不是沿用创建请求的「已鉴权会话」）
+补充输入 HTTP      → G1 → … → 转发
 流式建连 HTTP      → G1 → … → SSE 桥接 （帧上不再鉴权）
 ```
 
@@ -562,7 +564,7 @@ G1 通过（含 principal / 已校验凭据）
 | C-G2-2 | SDK 本地配置中的 `tenantId`（若有）**仅用于本地**日志/调试，不得映射为 wire 权威 | 文档须标明非 wire 权威                   |
 | C-G2-3 | **禁止**要求业务「为调通 Gateway 而填写租户 header」                  | 避免错误用法固化                         |
 | C-G2-4 | 收到 403 + `TENANT_`* 时，按身份/租户不可用处理                     | **不要**建议加自报租户头重试；应换合法凭据或联系平台开通绑定 |
-| C-G2-5 | 不在 A2A 中新增「权威租户」必填字段                                  | 租户不由 body 提交                     |
+| C-G2-5 | client **入站**不要求 body 提交权威租户                              | 权威值由 Gateway 解析；**出站**到 runtime 注入 `params.metadata.tenantId`（§4.10 AC-RT-1），非 client 必填 |
 
 
 **判断顺序**
@@ -614,7 +616,7 @@ sequenceDiagram
 | 权威来源  | 只来自 Gateway 对已校验凭据的绑定/策略 | 生产 claim 名、正式映射数据、多租户开通流程      |
 | 自报    | 永不作为权威；必须清洗              | 冲突时是否升级为「硬 403」（730 默认清洗后继续）   |
 | 解析失败  | 必须 403，不得猜租户、不得用自报兜底     | 文案与是否区分 `TENANT_FORBIDDEN`     |
-| 向下游注入 | 转发时只带权威租户上下文             | 具体头名/信封字段见 **§4.10 AC-RT-1**（待尤国庆冻结） |
+| 向下游注入 | 转发时注入权威 `tenantId` | **约定（§4.10 AC-RT-1）**：写出 `params.metadata.tenantId`（清洗 client 自报后覆盖）；缺失或空值按非法参数，不回退自报。runtime 本期可读该字段（实现可暂不消费、预留） |
 
 
 #### 3.4.3 Gateway 内部（不对调用方提交付）
@@ -1150,7 +1152,7 @@ sequenceDiagram
 | ---- | ----------------- | -------------------- |
 | 下游   | HTTP 请求-响应        | 流式标准入口 + SSE         |
 | 回传   | 单次折叠              | 存活期内逐帧桥接             |
-| 生命周期 | 阻塞窗口结束            | client 断开必释放桥接       |
+| 生命周期 | 阻塞窗口结束            | client 断开必释放桥接；**不**因此自动 Cancel/关闭 Task（§4.10 AC-RT-2） |
 | 判定   | JSON-RPC `method` | 同左                   |
 
 
@@ -1205,10 +1207,11 @@ sequenceDiagram
 | 同步  | HTTP 转发 A2A 请求                        |
 | 流式  | 开流 + SSE 桥接（I-06）                     |
 | 响应  | 透传业务语义；清洗内部拓扑后再回 I-01                 |
-| 联调  | 与 runtime（尤国庆 / FEAT-001）待确认项见 **§4.10**；续跑 / continueInput 同样适用 |
+| 权威租户 | 转发前写入 `params.metadata.tenantId`（§4.10 AC-RT-1） |
+| 契约  | Gateway→runtime（FEAT-001）见 **§4.10**；续跑 / continueInput 同样适用 |
 
 
-Client→Gateway 契约（晓娜）见 §4.9 / §5.9 / §6.9；本节只定 Gateway→runtime 转发骨架。
+Client→Gateway 契约见 §4.9 / §5.9 / §6.9；本节只定 Gateway→runtime 转发骨架。
 
 
 #### 4.5.4 再入（带目标 agentId 的再次创建）
@@ -1244,7 +1247,7 @@ Client 首包与再入在 Gateway 内复用同一套选路转发实现。
 | 默认 Agent | 本地配置项给出默认 `agentId`                                           |
 | 粘滞索引     | **必须**在首次获得 `taskId` 时按 §4.4 P4 写入；供 S3 **只读**；TTL/共享存储见 §5.7 |
 | ASYNC    | 730 创建接口不展开第三种回传模式                                            |
-| 待联调      | 调用方侧见 §4.9（已冻结）；**Gateway→runtime** 见 **§4.10**（权威租户注入、SSE 细节、带 `taskId` 续跑、`_interrupt`、续跑同步口径等） |
+| 契约附录    | Client↔Gateway：§4.9 / §5.9 / §6.9；Gateway→runtime：§4.10 |
 
 
 ### 4.8 验收
@@ -1261,17 +1264,17 @@ Client 首包与再入在 Gateway 内复用同一套选路转发实现。
 | T-S2-7 | 创建响应含非空 `taskId`                       | 同步或流式创建成功   | Gateway 内部存在 `taskId → 本次 routeHandle`；对 client 响应无 `routeHandle` |
 
 
-### 4.9 与 agent-client（晓娜）联调对齐清单
+### 4.9 Client ↔ Gateway 契约（创建路径）
 
-> **用途**：发给 agent-client 负责人，可直接交给 AI 对照 Feat-Func-006/007 与 transport 实现，逐项给出「同意 / 需改 SDK / 反提案」及改动点。  
-> **范围**：仅 Client → Gateway 创建/续跑成功路径上与 S2、S1 治理相关的契约；不含 IdP 生产签发、RDC、审计存储等 Gateway 内部事项。  
-> **状态**：§4.9.2～4.9.3 已由 agent-client（晓娜）于 2026-07-22 回填冻结；原始问卷归档于 `<details>`。
+> **用途**：约定 Client → Gateway 创建路径上的 wire 与治理行为（对照 agent-client Feat-Func-006/007）。  
+> **范围**：创建/续跑成功路径上与 S2、S1 相关的契约；不含 IdP 生产签发、RDC、审计存储等 Gateway 内部事项。  
+> **续跑增量**：工具续跑见 §5.9；continueInput 见 §6.9。
 
-#### 4.9.1 Gateway 侧已定（请按此对接）
+#### 4.9.1 Gateway 侧约定
 
 
-| #     | 已定项               | 说明                                                                                                                                                             |
-| ----- | ----------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| #     | 项               | 约定                                                                                                                                                             |
+| ----- | --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | GW-1  | 统一入口              | 单一 A2A JSON-RPC facade（`POST /a2a`）；创建用 `SendMessage` / `SendStreamingMessage`（无非空 `taskId`）；**method 名须与 runtime 一致**，不接受 `message/send`、`message/stream` 等别名 |
 | GW-2  | 同步 / 流式           | 由 JSON-RPC `method` 区分；流式响应为 SSE（`event: jsonrpc` + 完整 JSON-RPC `data`），Gateway 逐帧透传                                                                           |
 | GW-3  | 鉴权                | **每一个**打到 Gateway 的 HTTP 请求携带 `Authorization: Bearer <token>`；不进 A2A body；续跑/流式建连同样每次带                                                                         |
@@ -1279,63 +1282,38 @@ Client 首包与再入在 Gateway 内复用同一套选路转发实现。
 | GW-5  | 创建 `agentId`      | **允许缺省**。缺省时 Gateway 使用本地默认 Agent。若携带，须为非空，路径见 GW-6                                                                                                            |
 | GW-6  | `agentId` wire 路径 | `params.metadata.agentId`                                                                                                                                      |
 | GW-7  | 创建幂等键             | `params.message.messageId`；同一逻辑创建重试复用同一键与一致正文；无键时不要默认自动再发创建                                                                                                    |
-| GW-8  | 续跑（S3 相关）         | 带原 `params.message.taskId` + 新 `messageId`；工具结果用 TextPart 透传；**细则与回填表见 §5.9**                                                                                  |
+| GW-8  | 续跑（S3 相关）         | 带原 `params.message.taskId` + 新 `messageId`；工具结果用 TextPart 透传；**细则见 §5.9**                                                                                  |
 | GW-9  | 错误分层              | 401/403/400/409 等治理/校验错误走 HTTP + `code`；勿当成「已接受 Task」                                                                                                          |
-| GW-10 | 联调凭据              | 使用双方约定的测试 Bearer；生产 IdP 不在本清单冻结                                                                                                                                |
+| GW-10 | 测试凭据              | 联调使用双方约定的测试 Bearer；生产 IdP 不在本节约定                                                                                                                                |
 
 
-#### 4.9.2 请 agent-client 确认并回填
-
-**agent-client 结论（2026-07-22 冻结）**
+#### 4.9.2 agent-client 侧约定
 
 
-| #        | 结论                                                                                                                                                                                                                                                      |
+| #        | 约定                                                                                                                                                                                                                                                      |
 | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **AC-1** | **选 A**：`InvocationRequest.agentId` API/校验放宽，创建允许不传 `agentId`；wire 缺省时**不写** `params.metadata.agentId`，由 Gateway 默认 Agent 选路。                                                                                                                           |
-| **AC-2** | **同意**：有 `agentId` 时写 `params.metadata.agentId`（非空）；无 `agentId` 时**整段省略**该字段，**绝不发空串**（空串会触发 G3 `VALIDATION_AGENT_ID`）。                                                                                                                                 |
-| **AC-3** | **同意**：每一次出站 HTTP（创建同步、流式建连、续跑、continueInput）均带 `Authorization: Bearer <token>`；InProcess fake 可另约定。                                                                                                                                                    |
-| **AC-4** | **同意**：`invocationId` / `idempotencyKey` → `params.message.messageId`；重试未获 `taskId` 时同键同正文。                                                                                                                                                             |
-| **AC-5** | **同意**：`conversationId` → `params.message.contextId`；创建与续跑（含 continueInput）均稳定带上。                                                                                                                                                                       |
-| **AC-6** | **同意**：无第二套私有 stream URL；JSON-RPC `method` 使用 `SendMessage` / `SendStreamingMessage`（与 Gateway/runtime 一致，不用 `message/send`、`message/stream` 别名）。联调冻结请求头：`Content-Type: application/json`；流式 `Accept: text/event-stream`；同步 `Accept: application/json`。 |
-| **AC-7** | **同意**：401/403/400/409 等治理/校验错误按 HTTP 层处理，不投影为成功 Task。                                                                                                                                                                                                  |
-| **AC-8** | **同意**：联调前与 Gateway 冻结 1 条测试 Bearer 及绑定租户（具体字符串写入联调表，不在本文硬编码）。                                                                                                                                                                                          |
+| **AC-1** | `InvocationRequest.agentId` 允许缺省；wire 缺省时**不写** `params.metadata.agentId`，由 Gateway 默认 Agent 选路。                                                                                                                           |
+| **AC-2** | 有 `agentId` 时写 `params.metadata.agentId`（非空）；无 `agentId` 时**整段省略**该字段，**绝不发空串**（空串会触发 G3 `VALIDATION_AGENT_ID`）。                                                                                                                                 |
+| **AC-3** | 每一次出站 HTTP（创建同步、流式建连、续跑、continueInput）均带 `Authorization: Bearer <token>`；InProcess fake 可另约定。                                                                                                                                                    |
+| **AC-4** | `invocationId` / `idempotencyKey` → `params.message.messageId`；重试未获 `taskId` 时同键同正文。                                                                                                                                                             |
+| **AC-5** | `conversationId` → `params.message.contextId`；创建与续跑（含 continueInput）均稳定带上。                                                                                                                                                                       |
+| **AC-6** | 无第二套私有 stream URL；JSON-RPC `method` 使用 `SendMessage` / `SendStreamingMessage`（与 Gateway/runtime 一致）。请求头：`Content-Type: application/json`；流式 `Accept: text/event-stream`；同步 `Accept: application/json`。 |
+| **AC-7** | 401/403/400/409 等治理/校验错误按 HTTP 层处理，不投影为成功 Task。                                                                                                                                                                                                  |
+| **AC-8** | 联调使用双方约定的测试 Bearer 及绑定租户（具体字符串写入联调配置，不在本文硬编码）。                                                                                                                                                                                          |
 
 
-原始待确认项（归档）
+#### 4.9.3 创建报文示例
 
-请对下列每项回复：**同意** / **不同意（说明原因与反提案）** / **SDK 将修改（说明改哪些）**。
+创建请求检查清单：
 
+- `Authorization: Bearer …`
+- `method` = `SendStreamingMessage`（流式）或 `SendMessage`（同步）
+- 创建类：**无**非空 `taskId`
+- `message.messageId`、`message.contextId`
+- 有 `agentId` 时写 `metadata.agentId`；无则省略
+- 可选 `metadata.clientTools`
 
-| #    | 待确认项                                                        | 背景                                                                           | 期望结论                                                                                                                                                     |
-| ---- | ----------------------------------------------------------- | ---------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| AC-1 | **首包是否允许不传 `agentId`**                                      | Gateway/架构：允许缺省并用默认 Agent。Feat-Func-006：`InvocationRequest.agentId` 非空。二者冲突。 | 选一：**(A)** SDK API/校验放宽，允许创建不传 `agentId`；或 **(B)** API 仍必填，由 SDK 在发往 Gateway 前写入约定默认/业务值，且 wire 上始终有非空 `metadata.agentId`（则 Gateway「缺省」仅作兜底）。请写明选 A 或 B。 |
-| AC-2 | **显式 `agentId` 是否写入 `params.metadata.agentId`**             | Gateway G3/S2 按此路径读取；当前 Feat-Func-006 创建 JSON 示例未包含该字段。                      | 确认 transport 在「有 agentId」时写出该路径；并更新 L2 示例。若必须用其他路径，给出唯一 JSON Pointer。                                                                                    |
-| AC-3 | **每次出站 HTTP 均带 `Authorization: Bearer …`**                  | 含：创建同步、流式建连、工具续跑、continueInput（若做）。非「登录一次后续免头」。                              | 确认生产 transport 行为；InProcess fake 可另约定。                                                                                                                   |
-| AC-4 | `**idempotencyKey` / `invocationId` → `message.messageId**` | 与 Feat-Func-006 §3.5、Gateway G4 一致。                                          | 确认映射仍成立；重试未获 `taskId` 时同键同正文。                                                                                                                            |
-| AC-5 | `**conversationId` → `message.contextId**`                  | Feat-Func-006 已有映射。                                                          | 确认创建/续跑均稳定带上。                                                                                                                                            |
-| AC-6 | **流式承载**                                                    | Gateway：同一 facade，`method=SendStreamingMessage`，响应 SSE 透传。                   | 确认无第二套私有 stream URL；若还有额外 HTTP 头要求（如 `Accept`），列出联调冻结表。                                                                                                  |
-| AC-7 | **治理错误处理**                                                  | `AUTH_`* / `TENANT_*` / `VALIDATION_*` / `IDEMPOTENCY_PAYLOAD_MISMATCH` 等。   | 确认 SDK 按 HTTP 层处理，不投影为成功 Task；730 不强制她交付失败用例，但成功路径不得误解析。                                                                                                 |
-| AC-8 | **联调测试 token**                                              | Gateway 730：合法 Bearer 绑定固定租户。                                                | 双方约定 1～N 条测试 token 字符串（或获取方式）及对应租户名，写入联调表。                                                                                                               |
-
-
-
-
-#### 4.9.3 请直接更新 / 输出的产物（便于 AI 执行）
-
-**已完成 / 冻结要点：**
-
-1. §4.9.2 结论已回填（AC-1 选 A；AC-2～AC-8 同意）。
-2. Feat-Func-006 待同步：`InvocationRequest.agentId` 改为可选；§3.5 创建示例补「带/不带 `metadata.agentId`」两例。
-3. transport 组 HTTP 请求检查清单（创建）：
-  - `Authorization: Bearer …`  
-  - `method` = `SendStreamingMessage`（流式）或 `SendMessage`（同步）  
-  - 创建类：**无**非空 `taskId`  
-  - `message.messageId`、`message.contextId`  
-  - 有 `agentId` 时写 `metadata.agentId`；无则省略  
-  - 可选 `metadata.clientTools`
-4. Client→Gateway 创建最小抓包（见下）。
-
-**创建最小抓包（AC-1-A：缺省 `agentId`）**
+**缺省 `agentId`（流式）**
 
 ```http
 POST /a2a HTTP/1.1
@@ -1346,71 +1324,82 @@ Accept: text/event-stream
 {"jsonrpc":"2.0","id":"req-1","method":"SendStreamingMessage","params":{"message":{"role":"ROLE_USER","messageId":"msg-1","contextId":"conv-1","parts":[{"text":"你好"}]}}}
 ```
 
-**创建最小抓包（显式 `agentId`）**：同上，`params.metadata.agentId` = 非空字符串。
+**显式 `agentId`**：同上，增加 `params.metadata.agentId` = 非空字符串。
 
-#### 4.9.4 不在本次对齐范围（无需 client 决策）
+#### 4.9.4 本节不覆盖
 
-- Gateway 默认 Agent 配置内容、RDC 多实例挑选、resolve、审计落库  
-- GetTask / Cancel / Subscribe / UNKNOWN（730 Gateway 不交付）  
-- 生产 IdP、正式租户开通流程  
-- Gateway→runtime 契约（见 **§4.10**，对接尤国庆 / FEAT-001）
+- Gateway 默认 Agent 配置内容、RDC 多实例挑选、resolve、审计落库
+- GetTask / Cancel / Subscribe / UNKNOWN（本期 Gateway 不交付）
+- 生产 IdP、正式租户开通流程
+- Gateway→runtime 契约（见 **§4.10** / FEAT-001）
 
 ---
 
-### 4.10 与 agent-runtime（尤国庆）联调对齐清单
+### 4.10 Gateway ↔ agent-runtime 契约（直连路径）
 
-> **用途**：发给 agent-runtime 负责人（尤国庆），可直接交给 AI 对照 **FEAT-001 标准 Agent 服务入口** 与本 FEAT-011 主文档，对 Gateway→runtime 直连路径逐项给出「同意 / 需改 001·实现 / 反提案」及改动点。  
-> **范围**：仅 **I-03 / I-06** 直连（创建同步/流式、工具续跑、continueInput 透传）；不含 FEAT-017 总线消费、不含 client SDK、不含 RDC 注册实现。  
-> **前提**：Client↔Gateway 契约见 §4.9 / §5.9 / §6.9（已与晓娜冻结）。本节只冻结「Gateway 透传后 **runtime 是否按此行为**」。  
-> **状态**：待尤国庆回填；回填后将结论写入 §4.10.2，原始问卷归档于下方表格。
+> **用途**：约定 Gateway → runtime 直连路径行为（对照 FEAT-001 标准 Agent 服务入口）。  
+> **范围**：仅 **I-03 / I-06**（创建同步/流式、工具续跑、continueInput 透传）；不含 FEAT-017、不含 client SDK、不含 RDC。  
+> **前提**：Client↔Gateway 见 §4.9 / §5.9 / §6.9。
 
-#### 4.10.1 Gateway 侧已定（请按此对接）
-
-
-| #       | 已定项              | 说明                                                                                                                                 | 主文档锚点              |
-| ------- | ---------------- | ---------------------------------------------------------------------------------------------------------------------------------- | ------------------ |
-| GW-RT-1 | 入口               | Gateway 选路后 HTTP 打到 runtime **标准入口** `POST /a2a`；JSON-RPC `method` 为 PascalCase（`SendMessage` / `SendStreamingMessage`），不接受别名     | §4.5.3、§4.9 GW-1   |
-| GW-RT-2 | 创建               | 无非空 `params.message.taskId` 的 `SendMessage` / `SendStreamingMessage`；业务正文原样转发                                                      | §4                 |
-| GW-RT-3 | 流式               | SSE：`event: jsonrpc` + 完整 JSON-RPC `data`；Gateway **逐帧桥接**、不生成、不缓存 token；client 断开则 release 下游                                      | §4、SC-2            |
-| GW-RT-4 | 工具续跑             | `SendMessage` + 原 `params.message.taskId` + 新 `messageId` + TextPart；**730 主路径用同步单次 JSON，非 SSE 续传**                                   | §5、§5.9            |
-| GW-RT-5 | continueInput    | **wire 与工具续跑相同**（带原 `taskId`）；业务差量在 client（新 invocation / 同 conversation）；Gateway 仍走 S3 粘滞透传                                       | §6、§6.9            |
-| GW-RT-6 | 粘滞               | 多实例时 Gateway 用内部 `taskId → routeHandle` 打回原实例；runtime 按**同 Task** 续跑即可，不必感知 Gateway 粘滞存储                                            | §4.4 P4、§5         |
-| GW-RT-7 | 拓扑清洗             | 对 client 的响应由 Gateway 清洗物理地址 / `routeHandle`；runtime **勿**把内部拓扑写进对 client 可见成功面（即便写了也会被 Gateway 洗；仍建议 runtime 侧不依赖泄漏）              | §0.2 OUT-8、§1      |
-| GW-RT-8 | 透传边界             | Gateway **不解析** `clientTools` / `_interrupt` 业务语义；创建下行与续跑上行均原样转发                                                                   | §5、OUT-7           |
-| GW-RT-9 | GetTask 等        | 011 **730 不对 client 交付** GetTask / CancelTask / SubscribeToTask 转发；runtime 自身能力可保留，联调不依赖 Gateway 转发这三类                             | §0.2 IN-9、§4.9.4   |
+#### 4.10.1 Gateway 侧约定
 
 
-#### 4.10.2 请 agent-runtime 确认并回填
-
-请对下列每项回复：**同意** / **不同意（原因 + 反提案）** / **001 或实现将修改（改哪些）**。回填后把结论写回本表「结论」列（或另起冻结表，风格同 §4.9.2）。
-
-
-| #         | 待确认项                         | 背景（本主文档怎么写的）                                                                                                                                          | 期望你确认 / 补充                                                                                                                                 |
-| --------- | ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| **AC-RT-1** | **权威租户注入**                   | G2：权威 `tenantId` 由 Gateway 从凭据解析；转发时注入**可信上下文**，不采信 client 自报（§3.4、§4.5.3）。                                                                         | ① runtime 读哪个头 / 信封字段？② 缺省或非法时行为？③ 给出约定名，或书面口径「730 暂不校验、仅透传」。                                                                                |
-| **AC-RT-2** | **流式 HTTP 细节**               | 创建流式：`Accept: text/event-stream`；SSE `event: jsonrpc`；Gateway 桥接 I-06。                                                                                | 与 FEAT-001 是否完全一致；另需哪些请求头；断连时 runtime 侧要求（是否必须 release / 关闭 Task 等）。                                                                         |
-| **AC-RT-3** | **带 `taskId` 的 SendMessage 续跑** | 工具结果 / continueInput：同 Task 续跑；漏 `taskId` 会被 Gateway **当创建**（选路+可能新 Task）。抓包形态见 §5.9.3。                                                              | ① 001 实现是否已支持 `params.message.taskId` 续接？② `taskId` 权威路径是否为 message 内字段？③ 与晓娜抓包（§5.9.3）是否一致？若不一致，给出唯一 JSON Pointer。                              |
-| **AC-RT-4** | **`_interrupt` / INPUT_REQUIRED** | Gateway 对 `clientTools` 与 `_interrupt` **原样透传**；client 已冻结解析 `status.message.metadata._interrupt`（`_interrupt_kind=client_tool`）（§5.9 AC-S3-4）。 | 下行结构是否稳定为该路径；与 001 中 requiresInput / client tool 是否同一条路径；若字段名不同，列出对照表（Gateway 仍透传，但 client/runtime 须一致）。                                      |
-| **AC-RT-5** | **续跑用同步 SendMessage**        | 730：创建可用 SSE；**工具续跑 / continueInput 主路径用 `SendMessage` 单次 JSON**（§5.9「730 流式说明」）。                                                                   | **同意**；或必须也支持续跑 SSE（若必须，说明联调口径与 method）。                                                                                                     |
-| **AC-RT-6** | **关联不可续接时的失败形态**             | S4：过期 / 终态 / 多义由 runtime（及 client 投影）裁决；Gateway **透传失败**，不改成新建成功（§6）。                                                                                | 失败时 HTTP 状态 + A2A error `code` / message 形态；便于 Gateway 有限映射、client 不投影为成功 Task。                                                             |
-| **AC-RT-7** | **GetTask / Cancel / Subscribe** | 011 730 **不**对 client 转发这三类；runtime 能力保留（GW-RT-9）。                                                                                                   | 确认 730 联调**不依赖** Gateway 转发这三类即可。                                                                                                            |
+| #        | 项              | 约定                                                                                                                                 | 主文档锚点              |
+| -------- | -------------- | ---------------------------------------------------------------------------------------------------------------------------------- | ------------------ |
+| GW-RT-1  | 入口               | Gateway 选路后 HTTP 打到 runtime **标准入口** `POST /a2a`；JSON-RPC `method` 为 PascalCase（`SendMessage` / `SendStreamingMessage`），不接受别名     | §4.5.3、§4.9 GW-1   |
+| GW-RT-2  | 创建               | 无非空 `params.message.taskId` 的 `SendMessage` / `SendStreamingMessage`；业务正文原样转发                                                      | §4                 |
+| GW-RT-3  | 流式               | SSE：`event: jsonrpc` + 完整 JSON-RPC `data`；Gateway **逐帧桥接**、不生成、不缓存 token；client 断开则 **release 流连接**，**不**自动 Cancel/关闭 Task         | §4、SC-2、AC-RT-2    |
+| GW-RT-4  | 工具续跑             | `SendMessage` + 原 `params.message.taskId` + 新 `messageId` + TextPart；**本期主路径用同步单次 JSON**（runtime 亦支持流式续跑，见 AC-RT-5）           | §5、§5.9            |
+| GW-RT-5  | continueInput    | **wire 与工具续跑相同**（带原 `taskId`）；业务差量在 client；Gateway 仍走 S3 粘滞透传                                                                       | §6、§6.9            |
+| GW-RT-6  | 粘滞               | 多实例时 Gateway 用内部 `taskId → routeHandle` 打回原实例；runtime 按**同 Task** 续跑即可                                                              | §4.4 P4、§5         |
+| GW-RT-7  | 拓扑清洗             | 对 client 的响应由 Gateway 清洗物理地址 / `routeHandle`                                                                                      | §0.2 OUT-8、§1      |
+| GW-RT-8  | 透传边界             | Gateway **不解析** `clientTools` / `_interrupt` 业务语义；原样转发                                                                             | §5、OUT-7           |
+| GW-RT-9  | GetTask 等        | 本期 **不对 client 交付** GetTask / CancelTask / SubscribeToTask 转发；runtime 能力可保留                                                     | §0.2 IN-9、AC-RT-7  |
+| GW-RT-10 | 权威租户注入          | 转发前写入 **`params.metadata.tenantId`**（权威值）；清洗 client 自报；缺省/空值非法，不回退自报（AC-RT-1）                                                      | §3.4、§4.5.3        |
 
 
-#### 4.10.3 请直接更新 / 输出的产物（便于 AI 执行）
+#### 4.10.2 agent-runtime 侧约定
 
-1. 对 **AC-RT-1～7** 逐行结论（同意 / 改点 / 反提案）。  
-2. 若与 **FEAT-001** 不一致：列出 001 需改点，或「011 改为服从 001」的 Pointer / 章节引用。  
-3. 一页「**Gateway→runtime 最小抓包**」（可与 §5.9.3 Client→Gateway 对照）：  
-   - **创建流式**：Gateway 打到 runtime 的请求头 + 首包 body 摘要（含权威租户注入位置）；  
-   - **一次带 `taskId` 的续跑**：`SendMessage` + 原 `taskId` + TextPart（同步响应即可）。  
-4. （可选）权威租户注入的配置/代码入口路径，便于 Gateway 实现对齐。
 
-#### 4.10.4 不在本节（无需 runtime 在此决策）
+| # | 约定 |
+| --- | --- |
+| **AC-RT-1** | 权威租户使用 **`params.metadata.tenantId`**。Gateway 清洗 client 自报后注入权威值；runtime 不重新解析凭据，只消费该可信字段。缺失或空值按非法参数处理，不回退到 client 自报租户。（runtime 接收该参数；**当前实现可暂不消费、预留**。） |
+| **AC-RT-2** | 流式使用 `SendStreamingMessage`，HTTP 响应为 `text/event-stream`，SSE 为 `event: jsonrpc` + 完整 JSON-RPC `data`。除 `Content-Type`、`Accept` 和部署要求的认证信息外无额外协议头。连接断开只释放流连接，**不**自动取消或关闭 Task；Task 状态继续由 runtime 保存。 |
+| **AC-RT-3** | 支持通过 **`params.message.taskId`** 续接原 Task，该字段是**唯一权威路径**。工具结果和 continueInput 均可按此恢复，不会创建新 Task。 |
+| **AC-RT-4** | 初始请求通过 `params.metadata.clientTools` 声明端侧工具；模型选择端侧工具后，runtime 返回 `INPUT_REQUIRED`。同步路径：`result.task.status.message.metadata._interrupt`；流式路径：`result.statusUpdate.status.message.metadata._interrupt`。`_interrupt.context._interrupt_kind=client_tool`；`toolCallId`、`toolName` 提升到 `_interrupt` 顶层。Gateway **仍只透传**。 |
+| **AC-RT-5** | 带原 `taskId` 的续跑既支持同步 `SendMessage`，也支持流式 `SendStreamingMessage`。FEAT-011 **本期主路径选用同步 `SendMessage`**。 |
+| **AC-RT-6** | 关联失败须明确失败，不转成新建成功。Task 不存在或过期：HTTP **200** + JSON-RPC **-32001** / `Task not found`；Task 已终态：HTTP **200** + **-32004** / terminal state。Gateway **按 JSON-RPC error 判断失败，不能只看 HTTP 状态**。 |
+| **AC-RT-7** | 本期创建和续跑不依赖 Gateway 转发 GetTask、CancelTask、SubscribeToTask；runtime 是否保留这些能力不影响 FEAT-011 主路径。 |
 
-- FEAT-017 / 总线消费（王向刚；挡 012，非 011 直连）  
-- Client SDK / IdP / 联调 Bearer 字符串（见 §4.9 AC-8）  
-- RDC 选路、粘滞索引存储、默认 Agent 配置（Gateway 内部）  
-- 011 对 client 交付 GetTask / Cancel / Subscribe（已明确 730 不交付）
+
+#### 4.10.3 Gateway 实现要点与报文示例
+
+实现要点：
+
+- 出站注入 `params.metadata.tenantId`（权威）
+- 流式：`Accept: text/event-stream`；断开只 release 桥接
+- 续跑权威键：`params.message.taskId`
+- `_interrupt` 原样透传（同步/流式 JSON 路径见 AC-RT-4）
+- 关联失败：识别 JSON-RPC `-32001` / `-32004`（勿仅看 HTTP）
+
+**创建流式（示意）**
+
+```http
+POST /a2a HTTP/1.1
+Content-Type: application/json
+Accept: text/event-stream
+
+{"jsonrpc":"2.0","id":"req-1","method":"SendStreamingMessage","params":{"message":{"role":"ROLE_USER","messageId":"msg-1","contextId":"conv-1","parts":[{"text":"你好"}]},"metadata":{"tenantId":"<权威租户>"}}}
+```
+
+**续跑（同步，示意）**：`method=SendMessage`，`params.message.taskId`=<原 Task>，新 `messageId`，`metadata.tenantId`=<权威租户>。
+
+#### 4.10.4 本节不覆盖
+
+- FEAT-017 / 总线消费
+- Client SDK / IdP / 联调 Bearer（见 §4.9 AC-8）
+- RDC 选路、粘滞索引存储、默认 Agent 配置
+- 本期对 client 交付 GetTask / Cancel / Subscribe（已明确不交付）
 
 ---
 
@@ -1421,7 +1410,7 @@ Accept: text/event-stream
 
 | 阶段         | 名称        | 发生什么                                                                                                                                                                        | Gateway 要点                                                        |
 | ---------- | --------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
-| **A（前置）**  | 创建并等待端侧工具 | Client 创建（可带 `clientTools`）→ runtime 将 Task 置为 `INPUT_REQUIRED`，在 `status.message.metadata._interrupt`（`client_tool`）中下达工具意图 → 经 Gateway **透传**到 client → client **本地执行**工具 | 选路/桥接按 S2；下行原样透传 `_interrupt`；创建成功后写入 `taskId → routeHandle` 粘滞索引 |
+| **A（前置）**  | 创建并等待端侧工具 | Client 创建（可带 `clientTools`）→ runtime 将 Task 置为 `INPUT_REQUIRED`，在 `_interrupt`（`client_tool`）中下达工具意图（同步/流式 JSON 路径见 §4.10 AC-RT-4）→ 经 Gateway **透传**到 client → client **本地执行**工具 | 选路/桥接按 S2；下行原样透传 `_interrupt`；创建成功后写入 `taskId → routeHandle` 粘滞索引 |
 | **B（本场景）** | 结果回传并续跑   | Client 用原 `taskId` + TextPart 发 `SendMessage` → Gateway **粘滞**到原实例并透传 → runtime 续跑同一 Task                                                                                   | 治理后粘滞转发；不按创建重选实例；找不到 owner 明确失败                                   |
 
 
@@ -1523,7 +1512,7 @@ sequenceDiagram
 
 | 方向             | 约定                                                                                |
 | -------------- | --------------------------------------------------------------------------------- |
-| 创建阶段下行（S2 已承责） | `params.metadata.clientTools` 原样到 runtime；响应中 `_interrupt` 原样到 client             |
+| 创建阶段下行（S2 已承责） | `params.metadata.clientTools` 原样到 runtime；`_interrupt` 原样到 client（同步：`result.task.status.message.metadata._interrupt`；流式：`result.statusUpdate.status.message.metadata._interrupt`；§4.10 AC-RT-4） |
 | 本场景上行          | `SendMessage` + 原 `taskId` + TextPart **原样**到原实例；不丢弃、不改写成 Gateway 私有结构、不要求额外结构化字段 |
 | 禁止             | 合并/拆分多个 `_interrupt`；伪造并行 pending                                                 |
 
@@ -1550,8 +1539,8 @@ sequenceDiagram
 | ----- | ---------------------------- |
 | 目标    | 粘滞得到的原实例 endpoint（resolve 后） |
 | 正文    | 与入站 A2A 语义一致，字段不吞不改业务 parts  |
-| 可信上下文 | 注入权威 `tenantId` 等（G2）；头名/字段见 **§4.10 AC-RT-1** |
-| 联调    | 续跑 method/同步口径、与 001 一致性见 **§4.10**（AC-RT-3～5） |
+| 可信上下文 | 转发前写入 **`params.metadata.tenantId`**（权威值，G2；§4.10 AC-RT-1）；清洗 client 自报 |
+| 联调    | 续跑权威键=`params.message.taskId`；730 同步 `SendMessage`（runtime 双开，见 §4.10 AC-RT-3～5） |
 
 
 ### 5.6 判断逻辑
@@ -1559,7 +1548,7 @@ sequenceDiagram
 1. 无非空 `taskId` → 不按本场景处理（G3 已按创建类分流）。
 2. 治理失败 → 同 S1，不转发。
 3. 粘滞索引无该 `taskId`（从未写入、已过期、或进程丢失）或 resolve 失败 → 明确失败，结束；**不得**改走 search 重选。
-4. 转发下游确定错误 → 透传或有限映射；不改为「当新创建」。
+4. 转发下游确定错误 → 透传或有限映射；关联类常见 JSON-RPC **-32001** / **-32004**（§4.10 AC-RT-6）；**不**改为「当新创建」。
 5. 成功 → 回传并保持拓扑隐藏。
 
 ### 5.7 实现要点
@@ -1584,78 +1573,55 @@ sequenceDiagram
 | T-S3-4 | 同 taskId 两次续跑（不同 messageId） | 两次 SendMessage                  | 均粘滞同一 owner（在索引有效期内）        |
 
 
-### 5.9 与 agent-client（晓娜）联调对齐清单（S3 / 场景②）
+### 5.9 Client ↔ Gateway 契约（工具续跑 / S3）
 
-> **用途**：发给 agent-client 负责人（或直接交给其 AI），对照 Feat-Func-007 与 transport，对工具续跑成功路径逐项给出「同意 / 需改 SDK / 反提案」及改动点。  
-> **范围**：仅 Client → Gateway **续跑（带 taskId）** 成功路径契约；创建侧字段见 §4.9；不含 Gateway 粘滞存储、RDC、runtime 内部 pending 实现。  
-> **与 §4.9 关系**：鉴权每次带 Bearer、租户不自报等治理项以 §4.9 为准；本节只冻结 **S3 增量**（含 continueInput 的 wire 续跑，见 §6）。  
-> **状态**：§5.9.2～5.9.3 已由 agent-client（晓娜）于 2026-07-22 回填冻结。
+> **用途**：约定 Client → Gateway **续跑（带 taskId）** 成功路径（对照 agent-client Feat-Func-007）。  
+> **范围**：不含 Gateway 粘滞存储、RDC、runtime 内部 pending 实现。  
+> **与 §4.9 关系**：鉴权每次带 Bearer、租户不自报等治理项以 §4.9 为准；本节只约定 **S3 增量**（含 continueInput 的 wire 续跑，见 §6）。
 
-#### 5.9.1 Gateway 侧已定（请按此对接）
+#### 5.9.1 Gateway 侧约定
 
 
-| #        | 已定项                | 说明                                                                                                                          |
-| -------- | ------------------ | --------------------------------------------------------------------------------------------------------------------------- |
-| GW-S3-1  | 续跑入口               | 与创建同一 A2A facade；方法为 `SendMessage`（730 工具续跑主路径）；**不是**旁路直连 runtime                                                          |
+| #        | 项                | 约定                                                                                                                          |
+| -------- | ---------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| GW-S3-1  | 续跑入口               | 与创建同一 A2A facade；方法为 `SendMessage`（本期工具续跑主路径）；**不是**旁路直连 runtime                                                          |
 | GW-S3-2  | 必带原 `taskId`       | `params.message.taskId` = 创建阶段从响应/SSE 拿到的同一值；缺省会被当成创建类或校验失败，存在误建 Task 风险                                                    |
 | GW-S3-3  | 新 `messageId`      | 本条续跑使用**新的** `params.message.messageId`（≠ 创建键）；不走创建幂等语义                                                                     |
 | GW-S3-4  | 工具结果形态             | 工具执行结果以 **TextPart**（及约定 parts）上送；原样透传，Gateway 不解析业务语义                                                                      |
-| GW-S3-5  | 下行透传               | 创建阶段若带 `clientTools`，下行 `INPUT_REQUIRED` + `metadata._interrupt`（`client_tool`）Gateway **不删不改**；client 本地执行后再发续跑            |
+| GW-S3-5  | 下行透传               | 创建阶段若带 `clientTools`，下行 `INPUT_REQUIRED` + `_interrupt`（`_interrupt_kind=client_tool`）Gateway **不删不改**；JSON 路径见 §4.10 AC-RT-4；client 本地执行后再发续跑 |
 | GW-S3-6  | 鉴权                 | 续跑 HTTP **每次**带 `Authorization: Bearer …`（同 §4.9 GW-3 / AC-3）                                                               |
-| GW-S3-7  | 不必带 `agentId`      | 续跑不强制 `agentId`；若携带，730 **不以**其覆盖粘滞目标                                                                                       |
+| GW-S3-7  | 不必带 `agentId`      | 续跑不强制 `agentId`；若携带，本期 **不以**其覆盖粘滞目标                                                                                       |
 | GW-S3-8  | 粘滞由 Gateway 负责     | 打回原 Task owner 靠 Gateway 内部 `taskId → routeHandle`；client **不**接收、不回填 `routeHandle` / 物理地址                                  |
 | GW-S3-9  | 失败面                | owner 不可定位等 → 明确失败；勿当成「已接受新 Task」；勿静默改成无 `taskId` 的新创建                                                                      |
-| GW-S3-10 | continueInput wire | 用户补充输入（§6）与工具续跑 **同一 wire**：`SendMessage` + 原 `params.message.taskId` + 新 `messageId` + TextPart；Gateway 按本节粘滞转发，对齐 runtime |
+| GW-S3-10 | continueInput wire | 用户补充输入（§6）与工具续跑 **同一 wire**：`SendMessage` + 原 `params.message.taskId` + 新 `messageId` + TextPart；Gateway 按本节粘滞转发 |
 
 
-#### 5.9.2 请 agent-client 确认并回填
+#### 5.9.2 agent-client 侧约定
 
-**agent-client 结论（2026-07-22 冻结）**
 
-| # | 结论 |
+| # | 约定 |
 |---|------|
-| **AC-S3-1** | **同意**：首帧/SSE 获得 `taskId` 后写入 `InvocationState.taskRef`（内部映射）；业务侧通过 `Accepted.diagnosticTaskRef()` 可读；wire 来源 JSON Pointer：`result.task.id` 或等价 status 帧中的 `id`/`taskId`；保存至续跑完成或 Task 终态。 |
-| **AC-S3-2** | **同意**：续跑写出 `params.message.taskId`（`A2aJsonCodec.buildResume`）；路径与 Gateway G3/S3 一致。 |
-| **AC-S3-3** | **同意**：每次续跑生成新 `params.message.messageId`（如 `msg-{uuid}`），不复用创建 `messageId`；不走 G4 创建幂等。 |
-| **AC-S3-4** | **同意**：解析 `status.message.metadata._interrupt`（`_interrupt_kind=client_tool`）；收到 `InputRequired`+`ToolCall` 后 SDK 自动本地执行；**时机**：SSE 下行 `INPUT_REQUIRED` 后（流可关闭），执行完毕再发续跑 HTTP。与 Feat-Func-007 一致。 |
-| **AC-S3-5** | **同意**：工具结果渲染为 observation **TextPart** 上送（`parts[].text`）；730 主路径**不回传** `toolCallId`（仅 client 本地去重键）。无额外结构化 DataPart。 |
-| **AC-S3-6** | **同意**（同 §4.9 AC-3）：续跑 HTTP 每次带 `Authorization: Bearer <token>`。 |
-| **AC-S3-7** | **同意**：续跑不写 `metadata.agentId`（不依赖 agentId 寻路）；若业务层误带，不影响 Gateway 粘滞。 |
-| **AC-S3-8** | **同意**：时序冻结为 ①`SendStreamingMessage` 创建 → 获得 `taskId` → `_interrupt(client_tool)` → 本地执行 → ②`SendMessage`+原 `taskId` 续跑；禁止「续跑当无 taskId 新创建」。 |
+| **AC-S3-1** | 首帧/SSE 获得 `taskId` 后写入会话态（如 `InvocationState.taskRef`）；业务侧可通过诊断 API 可读；wire 来源 JSON Pointer：`result.task.id` 或等价 status 帧中的 `id`/`taskId`；保存至续跑完成或 Task 终态。 |
+| **AC-S3-2** | 续跑写出 `params.message.taskId`；路径与 Gateway G3/S3 一致。 |
+| **AC-S3-3** | 每次续跑生成新 `params.message.messageId`（如 `msg-{uuid}`），不复用创建 `messageId`；不走 G4 创建幂等。 |
+| **AC-S3-4** | 解析 `status.message.metadata._interrupt`（`_interrupt_kind=client_tool`）；收到 `InputRequired`+`ToolCall` 后 SDK 自动本地执行；**时机**：SSE 下行 `INPUT_REQUIRED` 后（流可关闭），执行完毕再发续跑 HTTP。与 Feat-Func-007 一致。 |
+| **AC-S3-5** | 工具结果渲染为 observation **TextPart** 上送（`parts[].text`）；本期主路径**不回传** `toolCallId`（仅 client 本地去重键）。无额外结构化 DataPart。 |
+| **AC-S3-6** | 续跑 HTTP 每次带 `Authorization: Bearer <token>`（同 §4.9 AC-3）。 |
+| **AC-S3-7** | 续跑不写 `metadata.agentId`（不依赖 agentId 寻路）；若业务层误带，不影响 Gateway 粘滞。 |
+| **AC-S3-8** | 时序：步骤 1 `SendStreamingMessage` 创建 → 获得 `taskId` → `_interrupt(client_tool)` → 本地执行 → 步骤 2 `SendMessage`+原 `taskId` 续跑；禁止「续跑当无 taskId 新创建」。 |
 
-<details>
-<summary>原始待确认项（归档）</summary>
 
-请对下列每项回复：**同意** / **不同意（说明原因与反提案）** / **SDK 将修改（说明改哪些）**。
+#### 5.9.3 续跑报文示例
 
-| # | 待确认项 | 背景 | 期望结论 |
-|---|----------|------|----------|
-| AC-S3-1 | **从创建响应/SSE 持久化 `taskId`** | 续跑唯一粘滞键来自 runtime 经 Gateway 回传的 `taskId`。 | 确认 SDK/会话态在获得 `taskId` 后保存，直至续跑完成或任务终态；给出读取路径（JSON Pointer 或 SDK API）。 |
-| AC-S3-2 | **续跑写出 `params.message.taskId`** | Gateway G3/S3 按此判定续跑类并粘滞。 | 确认 wire 路径与示例；若实际用其他路径，给出唯一 Pointer 并说明是否改 Feat-Func-007。 |
-| AC-S3-3 | **续跑使用新 `messageId`** | 与创建幂等分离；同 task 可多次续跑。 | 确认每次续跑生成新键；不复用创建 `messageId`。 |
-| AC-S3-4 | **识别 `_interrupt`（client_tool）并本地执行** | 工具在 client 侧执行；Gateway 只透传。 | 确认解析入口、执行时机（关流后再续跑 vs 其它），与 Feat-Func-007 一致或列出偏差。 |
-| AC-S3-5 | **结果以 TextPart 上送** | 730 不对并行多工具 / 结构化 DataPart 主路径联调。 | 确认组包形态；若需额外 metadata，列出字段表供 Gateway 透传确认。 |
-| AC-S3-6 | **续跑每次带 Bearer** | 同 §4.9 AC-3，续跑单独再确认一次。 | 同意 / SDK 修改点。 |
-| AC-S3-7 | **续跑不依赖再传 `agentId` 寻路** | Gateway 用粘滞，不用 S2 search 重选实例。 | 确认 SDK 不会「为了续跑成功」强制再填 `agentId` 当路由键；若业务层仍带，说明不影响粘滞即可。 |
-| AC-S3-8 | **与创建场景的衔接文档** | 晓娜 730 场景②依赖①已拿到 `taskId`。 | 确认分析文档/时序中：①回传 taskId → 本地工具 → ②带 taskId 续跑；无「续跑当新创建」歧义。 |
+续跑请求检查清单：
 
-</details>
-
-#### 5.9.3 请直接更新 / 输出的产物（便于 AI 执行）
-
-**已完成 / 冻结要点：**
-
-1. §5.9.2 已回填（AC-S3-1～AC-S3-8 均同意）。
-2. Feat-Func-007 待同步：§3.5 续跑示例与下述抓包一致（`taskId` 路径、TextPart、无 wire `toolCallId`）。
-3. transport 组续跑 HTTP 检查清单：
-   - `Authorization: Bearer …`
-   - `method` = **`SendMessage`**（730 工具续跑主路径，对齐 GW-S3-1；创建流式用 `SendStreamingMessage`，续跑用同步 `SendMessage`）
-   - `params.message.taskId` = 创建阶段获得的同一值（必填）
-   - `params.message.messageId` = 本条续跑新键
-   - `params.message.contextId` = 原 `conversationId`（宜带上，对齐 §4.9 AC-5）
-   - `params.message.parts[]` = TextPart（工具 observation 文本）
-   - **不写** `metadata.agentId`；730 不上 wire `toolCallId`
-4. Client→Gateway 工具续跑最小抓包（见下）。
+- `Authorization: Bearer …`
+- `method` = **`SendMessage`**（本期工具续跑主路径；创建流式用 `SendStreamingMessage`）
+- `params.message.taskId` = 创建阶段获得的同一值（必填）
+- `params.message.messageId` = 本条续跑新键
+- `params.message.contextId` = 原 `conversationId`（宜带上，对齐 §4.9 AC-5）
+- `params.message.parts[]` = TextPart（工具 observation 文本）
+- **不写** `metadata.agentId`；本期不上 wire `toolCallId`
 
 **创建阶段：`taskId` 出现位置（SSE 首帧或 status 更新，摘录）**
 
@@ -1676,15 +1642,15 @@ Accept: application/json
 {"jsonrpc":"2.0","id":"req-2","method":"SendMessage","params":{"message":{"role":"ROLE_USER","messageId":"msg-resume-1","taskId":"task-123","contextId":"conv-1","parts":[{"text":"页面正文……（工具 observation 渲染文本）"}]}}}
 ```
 
-**730 流式说明**：创建用 `SendStreamingMessage`（SSE 收 `_interrupt`）；工具结果续跑用 **`SendMessage` 单次 JSON 响应**（非 SSE 续传）。若 runtime 后续支持续跑 SSE，另文冻结；730 联调以 GW-S3-1 为准。
+**流式说明**：创建用 `SendStreamingMessage`（SSE 收 `_interrupt`，路径见 AC-RT-4 流式）；工具结果续跑用 **`SendMessage` 单次 JSON**（非 SSE 续传）。runtime **同步/流式续跑均支持**（§4.10 AC-RT-5）；**本期主路径选同步**，以 GW-S3-1 为准。
 
-#### 5.9.4 不在本次对齐范围（无需 client 决策）
+#### 5.9.4 本节不覆盖
 
-- Gateway `taskId → routeHandle` 存储、TTL、多实例共享  
-- RDC search / 多实例挑选（续跑成功路径不走）  
-- runtime 如何挂起 pending / 如何消费工具结果（尤国庆侧）  
-- 并行多工具、结构化工具结果上 wire（晓娜 V1 / 730 不做）  
-- 粘滞失败用例交付（Gateway 自测；client 成功路径勿误解析即可）
+- Gateway `taskId → routeHandle` 存储、TTL、多实例共享
+- RDC search / 多实例挑选（续跑成功路径不走）
+- runtime 如何挂起 pending / 如何消费工具结果（见 FEAT-001）
+- 并行多工具、结构化工具结果上 wire（本期不做）
+- 粘滞失败用例（Gateway 自测；client 成功路径勿误解析即可）
 
 ---
 
@@ -1700,7 +1666,7 @@ Accept: application/json
 | 调用方语义                 | 同一 invocation 内部恢复（SDK 自动）                                | **新** invocation，关联旧 invocation（业务发起）       |
 | Wire（Gateway/runtime） | `SendMessage` + **原 `taskId`** + 新 `messageId` + TextPart | **同左**（对齐 runtime `SendMessage(taskId)` 续接） |
 | Gateway 选路            | 粘滞原实例（§5）                                                 | **同左**（粘滞原实例，不走 S2 重选）                      |
-| 730                   | 必做（承接晓娜②）                                                 | **可选承接**（仅当晓娜做场景③时联调必验）                     |
+| 730                   | 必做（端侧工具续跑，S3）                                             | **本期交付**（continueInput，S4；与 agent-client 对齐）        |
 
 
 ### 6.1 要做什么
@@ -1719,7 +1685,7 @@ Accept: application/json
 
 **前置：**
 
-1. 晓娜 730 **启用**场景③（否则本场景不进联调必验；Gateway 实现可先具备 S3 续跑能力）。
+1. agent-client 本期交付 continueInput（S4）；Gateway 转发能力复用 S3 粘滞。
 2. 业务侧已感知上一轮进入「等待用户输入」（**非** `client_tool` `_interrupt` 路径）。
 3. 本请求入站：S1（G1～G5）通过；G3 判定为**续跑类**（非空 `taskId`）；**不走** G4 创建去重。
 4. 路径为 **DIRECT**；粘滞失败或选路类失败出口见 S5 / §5.6。
@@ -1801,7 +1767,7 @@ sequenceDiagram
 
 #### 6.5.2 Gateway → runtime
 
-与 S3 相同：粘滞得到的原实例 endpoint；正文与入站 A2A 语义一致；注入权威租户等可信上下文。
+与 S3 相同：粘滞得到的原实例 endpoint；正文与入站 A2A 语义一致；注入权威 `params.metadata.tenantId`（§4.10 AC-RT-1）。
 
 #### 6.5.3 出站错误（关联类）
 
@@ -1809,7 +1775,9 @@ sequenceDiagram
 | 情况                                   | Gateway 行为                            |
 | ------------------------------------ | ------------------------------------- |
 | 粘滞未命中 / owner 不可定位                   | 明确失败（同 §5）；不新建 Task                   |
-| runtime/平台返回关联不可续接（过期、多义、旧 Task 终态等） | 透传或有限映射为明确失败；**不**改为 2xx「已接受无关新 Task」 |
+| Task 不存在 / 过期（runtime）              | HTTP 常 **200** + JSON-RPC **-32001**（`Task not found`）；按 error 判失败，**不能只看 HTTP**（§4.10 AC-RT-6） |
+| Task 已终态（runtime）                   | HTTP 常 **200** + JSON-RPC **-32004**（terminal state）；同上 |
+| runtime/平台返回其它关联不可续接               | 透传或有限映射为明确失败；**不**改为「已接受无关新 Task」成功面 |
 | 治理失败                                 | 同 S1                                  |
 
 
@@ -1819,7 +1787,7 @@ sequenceDiagram
 2. 粘滞未命中 → 明确失败，结束（§5.6）。
 3. 下游关联失败 → 失败回传，结束。
 4. 下游成功 → 回传清洗拓扑。
-5. 730：若晓娜未做场景③，本场景不作为对 client 联调必验项；实现仍不得在「已识别的关联失败」上撒谎成功。
+5. 关联失败路径：实现不得在「已识别的关联失败」上投影为新建成功。
 
 ### 6.7 实现要点
 
@@ -1830,7 +1798,7 @@ sequenceDiagram
 | 关联权威    | Gateway **不**实现 `relatedInvocationRef` 表；不把 client 本地 ref 当路由键 |
 | 差量代码    | 主要在错误映射与观测：关联失败码/文案不被折叠成普通成功创建                                 |
 | 与 S2/S3 | wire 与 S3 相同；**切勿**把 S4 做成「无 `taskId` 的 S2 创建」                 |
-| 可选交付    | 联调开关/验收范围与晓娜场景③对齐（§6.9）                                        |
+| 交付对齐    | 验收范围与 agent-client continueInput 交付一致（§6.9）                          |
 
 
 ### 6.8 验收
@@ -1838,70 +1806,46 @@ sequenceDiagram
 
 | #      | Given                            | When                                     | Then                                  |
 | ------ | -------------------------------- | ---------------------------------------- | ------------------------------------- |
-| T-S4-1 | 晓娜启用③；已有 taskId 粘滞；同 `contextId` | `SendMessage` + 原 `taskId` + 用户 TextPart | 到达原 Task owner；parts 未丢；无拓扑泄漏         |
+| T-S4-1 | agent-client 交付 S4；已有 taskId 粘滞；同 `contextId` | `SendMessage` + 原 `taskId` + 用户 TextPart | 到达原 Task owner；parts 未丢；无拓扑泄漏         |
 | T-S4-2 | 下游返回关联不可续接                       | 同上                                       | client 侧为明确失败；非「已接受无关新 Task」成功面       |
 | T-S4-3 | 报文**无**非空 `taskId`               | continueInput 语义请求                       | 不按 S4 成功路径验收（会走 S2 创建类或校验失败）          |
-| T-S4-4 | 晓娜 730 不做③                       | —                                        | 本场景不对 client 联调必验；Gateway 自测关联失败不撒谎即可 |
+| T-S4-4 | 关联不可续接（过期/终态等）                 | 续跑报文                                   | 明确失败；不得投影为无关新建 Task 成功面                 |
 
 
-### 6.9 与 agent-client（晓娜）联调对齐清单（S4 / 场景③）
+### 6.9 Client ↔ Gateway 契约（continueInput / S4）
 
-> **用途**：仅当 730 做场景③时发给 agent-client 负责人（或 AI）回填。  
-> **范围**：continueInput 成功/关联失败路径；创建缺省 `agentId` 等见 §4.9；工具续跑见 §5.9。  
-> **wire 基线**：与 runtime / Feat-Func-006 §3.5 一致——**带原 `taskId` 的 `SendMessage` 续跑**，Gateway 走 S3 粘滞。  
-> **状态**：§6.9.2～6.9.3 已由 agent-client（晓娜）于 2026-07-22 回填冻结；正文已按该结论改写（业务新 invocation / wire 同 S3）。
+> **用途**：约定 Client → Gateway continueInput 路径（本期交付 S4）。  
+> **范围**：成功/关联失败路径；创建缺省 `agentId` 等见 §4.9；工具续跑见 §5.9。  
+> **wire 基线**：与 runtime / Feat-Func-006 一致——**带原 `taskId` 的 `SendMessage` 续跑**，Gateway 走 S3 粘滞。
 
-#### 6.9.1 Gateway 侧已定（请按此对接）
+#### 6.9.1 Gateway 侧约定
 
 
-| #       | 已定项       | 说明                                                                                            |
+| #       | 项       | 约定                                                                                            |
 | ------- | --------- | --------------------------------------------------------------------------------------------- |
 | GW-S4-1 | 入口        | 与创建同一 facade（`POST /a2a`）；wire 为**续跑类**（非空原 `params.message.taskId`），`method` = `SendMessage` |
 | GW-S4-2 | 与 S3 共用转发 | 用户补充输入与工具续跑 **同一 Gateway 转发路径**（§5 粘滞）；差异仅在 client 业务语义                                       |
 | GW-S4-3 | 选路        | Gateway **粘滞**原 `taskId` owner；**不**按 S2 重选实例                                                 |
 | GW-S4-4 | 会话        | `conversationId` → `message.contextId` 宜与旧轮一致并透传                                              |
-| GW-S4-5 | 关联失败      | 下游明确失败须保持失败语义；Gateway 不静默改成普通新建成功                                                             |
+| GW-S4-5 | 关联失败      | 下游明确失败须保持失败语义；识别 JSON-RPC **-32001** / **-32004**（勿仅看 HTTP）；不静默改成普通新建成功（§4.10 AC-RT-6） |
 | GW-S4-6 | 鉴权        | 每次 HTTP 带 Bearer                                                                              |
-| GW-S4-7 | 可选        | 晓娜不做③ → 730 不对 client 联调必验本场景                                                                 |
+| GW-S4-7 | 交付        | 本期与 agent-client continueInput 一并交付并验收                                                         |
 
 
-#### 6.9.2 请 agent-client 确认并回填
-
-**agent-client 结论（2026-07-22 冻结，与 runtime 对齐）**
+#### 6.9.2 agent-client 侧约定
 
 
-| #           | 结论                                                                                                                                            |
+| #           | 约定                                                                                                                                            |
 | ----------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
-| **AC-S4-1** | **做**（730 交付场景③）。                                                                                                                             |
-| **AC-S4-2** | **同意**：wire 为续跑类，**必须**写 `params.message.taskId`（原 Task）；与 Feat-Func-006 §3.5④、runtime 一致；`relatedInvocationRef` 不上 wire。                     |
-| **AC-S4-3** | **同意**：`continueInput` 稳定写出与旧轮相同的 `params.message.contextId`。                                                                                 |
-| **AC-S4-4** | **同意**：SDK 本地预检 `relatedInvocationRef` 须处于 `INPUT_REQUIRED` 且无 `client_tool`；不可续接 → 明确错误；打到 Gateway 后 runtime 失败按 HTTP/A2A 错误投影，不伪装新 Task 成功。 |
-| **AC-S4-5** | **同意**：`_interrupt=client_tool` 只走 007/S3 自动续跑，业务不调用 `continueInput`。                                                                         |
-| **AC-S4-6** | **同意**：每次 `continueInput` 使用新 `messageId` / `invocationId`，不复用创建 `messageId`；不走 G4 创建幂等。                                                      |
+| **AC-S4-1** | 本期交付 continueInput（S4）。                                                                                                                             |
+| **AC-S4-2** | wire 为续跑类，**必须**写 `params.message.taskId`（原 Task）；与 Feat-Func-006、runtime 一致；`relatedInvocationRef` 不上 wire。                     |
+| **AC-S4-3** | `continueInput` 稳定写出与旧轮相同的 `params.message.contextId`。                                                                                 |
+| **AC-S4-4** | SDK 本地预检 `relatedInvocationRef` 须处于 `INPUT_REQUIRED` 且无 `client_tool`；不可续接 → 明确错误；打到 Gateway 后 runtime 失败按 JSON-RPC 错误投影（常见 **-32001** / **-32004**，§4.10 AC-RT-6），不伪装新 Task 成功。 |
+| **AC-S4-5** | `_interrupt=client_tool` 只走 Feat-Func-007 / S3 自动续跑，业务不调用 `continueInput`。                                                                         |
+| **AC-S4-6** | 每次 `continueInput` 使用新 `messageId` / `invocationId`，不复用创建 `messageId`；不走 G4 创建幂等。                                                      |
 
 
-原始待确认项（归档）
-
-
-| #       | 待确认项                               | 背景                                    | 期望结论                                                        |
-| ------- | ---------------------------------- | ------------------------------------- | ----------------------------------------------------------- |
-| AC-S4-1 | **730 是否交付场景③**                    | 对齐表标可选。                               | **做** / **不做**。不做则 §6 联调关闭，Gateway 仅自测。                     |
-| AC-S4-2 | **wire 是否仅为创建类（无 taskId）**         | Feat-Func-006：新 invocation；关联 ref 本地。 | 确认生产 transport 不把旧 `taskId` 写入续跑位；若必须带关联字段，给出 JSON Pointer。 |
-| AC-S4-3 | `**contextId` 与旧 conversation 一致** | 同会话约束。                                | 确认 `continueInput` 组包稳定写出同一 `contextId`。                    |
-| AC-S4-4 | **关联不可续接由谁先拦**                     | 006：client 明确错误；runtime 控制恢复点。        | 说明：SDK 本地预检范围 + 仍可能打到 Gateway 的失败码如何投影。                     |
-| AC-S4-5 | **与工具路径不混淆**                       | §3.4 两类续跑。                            | 确认 `_interrupt=client_tool` 只走 007/S3，不调用 `continueInput`。  |
-| AC-S4-6 | **新 invocation 幂等键**               | 新 `messageId` / idempotencyKey。       | 确认每次 continueInput 使用新创建键，不复用旧创建 `messageId`。               |
-
-
-
-
-#### 6.9.3 请直接更新 / 输出的产物（便于 AI 执行）
-
-**已完成 / 冻结要点：**
-
-1. §6.9.2 已回填（AC-S4-1 做；AC-S4-2～AC-S4-6 同意；wire 带原 `taskId`）。
-2. Feat-Func-006 待同步：`continueInput` wire 示例为 `SendMessage` + 原 `taskId` + `contextId` + 用户 TextPart（非「无 taskId 创建类」）。
-3. continueInput 最小抓包：
+#### 6.9.3 continueInput 报文示例
 
 ```http
 POST /a2a HTTP/1.1
@@ -1912,16 +1856,13 @@ Accept: application/json
 {"jsonrpc":"2.0","id":"req-3","method":"SendMessage","params":{"message":{"role":"ROLE_USER","messageId":"msg-3","taskId":"task-123","contextId":"conv-1","parts":[{"text":"补充：客户手机号 138xxxx"}]}}}
 ```
 
-关联不可续接时 SDK 对外：`Failed` / 明确异常，**不**投影为无关新 Task 的 `Accepted`。
+关联不可续接时 SDK 对外：明确失败 / 异常，**不**投影为无关新 Task 的成功面。
 
-#### 6.9.4 不在本次对齐范围
+#### 6.9.4 本节不覆盖
 
-- Gateway 内部是否缓存「旧 task 可续接」  
-- RDC 挑选细则（同 S2）  
-- runtime 如何把用户输入挂到旧等待点（尤国庆）  
-- GetTask / Cancel / 重订阅
-
----
+- Gateway 粘滞索引实现细节（见 §5）
+- runtime 如何把用户输入挂到旧等待点（见 FEAT-001）
+- 业务何时调用 `continueInput`（应用层）
 
 ---
 
@@ -1965,7 +1906,7 @@ Accept: application/json
 - 不重做治理细则。  
 - 不在本场景做「跳过 DRAINING 取下一条」等增强挑选（属 S2 可选增强）。  
 - 不把粘滞未命中、关联不可续接并入本场景。  
-- 不对晓娜单独开联调回填表；成功路径误解析约束已在 §4.9 AC-7。
+- 选路失败的 client 侧错误处理约束见 §4.9 AC-7。
 
 ### 7.3 时序图
 
@@ -2081,13 +2022,13 @@ sequenceDiagram
 
 ### 7.9 与 agent-client
 
-无单独回填表。调用方须将选路类错误按失败处理（见 §4.9 AC-7），不得投影为已接受 Task。
+调用方须将选路类错误按失败处理（见 §4.9 AC-7），不得投影为已接受 Task。
 
 ---
 
 ## 8. 场景 S6～S9：创建后操作与恢复（730 版本不交付）
 
-> 本章只做**边界说明**：730 **不实现、不验收**；后续版本再展开设计与交付。郭靖 FEAT 中部分 MUST 若存在，730 对 client **联调缓做**（与晓娜场景裁剪一致）。
+> 本章只做**边界说明**：本期 **不实现、不验收**；后续版本再展开设计与交付。version-scope / FEAT-011 中相关 MUST 若存在，本期对 client **缓做**（与 §0.2 交付边界一致）。
 
 ### 8.1 不交付清单
 
@@ -2096,7 +2037,7 @@ sequenceDiagram
 | --- | ---------- | ------------------------------- | ------- | ---------------------------------------------------- |
 | S6  | 查询 Task    | `GetTask` 转发                    | 不实现、不验收 | 需粘滞或等价 owner 定位 + 透传                                 |
 | S7  | 取消 Task    | `CancelTask` 转发                 | 不实现、不验收 | 同上；取消语义以 runtime 为准                                  |
-| S8  | 重订阅流       | `SubscribeToTask` / resubscribe | 不实现、不验收 | 依赖 runtime/流契约；晓娜 730 不做主路径                          |
+| S8  | 重订阅流       | `SubscribeToTask` / resubscribe | 不实现、不验收 | 依赖 runtime/流契约；agent-client 本期不做主路径                    |
 | S9  | 创建结果不明时的恢复 | UNKNOWN + 同键恢复                  | 不实现、不验收 | 与 G4 幂等、接受面语义联动；有 `taskId` 后不得报 UNKNOWN（成功路径约束仍在 S2） |
 
 
@@ -2106,5 +2047,5 @@ S6～S9 的时序、接口字段与验收用例 **本版不写**。若调用方�
 
 ---
 
-> FEAT-011 直连路径场景正文（S1～S5）与 S6～S9 边界已齐。后续可按需补附录（错误码表、配置项清单）或回填 §1 字段级细节。
+> FEAT-011 直连路径场景正文（S1～S5）与 S6～S9 边界已齐。后续可按需补附录（错误码表、配置项清单）或补充 §1 字段级细节。
 
