@@ -62,7 +62,7 @@ FEAT-017 的代码实施基线和目标代码仓均为 `agent-solution`，预期
 
 | 范围 | `agent-solution` 当前代码事实 | FEAT-017 目标设计 |
 |---|---|---|
-| 代码位置 | 已有 `common/agent-runtime-ext-java` 聚合工程，包含 AgentCore 增强与 Versatile adapter | 在该扩展工程下新增 `agent-service-bus/agent-service-bus-event-consumer` 模块；不把生产代码放入 `spring-ai-ascend` |
+| 代码位置 | 已有 `common/agent-runtime-ext-java` 聚合工程，包含 AgentCore 增强与 Versatile adapter | 在该扩展工程下新增 `agent-service-bus-consumer` 模块；不把生产代码放入 `spring-ai-ascend` |
 | 上游 runtime 依赖 | 通过 0.1.0 依赖消费 `agent-service-spec`、`agent-service-app`、`agent-service-adapters-agentcore` | 复用上游 A2A `RequestHandler`、`TaskStore` 和标准 Task 生命周期；如公开扩展面不足，先形成明确的上游接口诉求，不复制内部实现 |
 | Agent 执行接入 | `JiuwenCoreAgentExtHandler` 继承上游 `JiuwenCoreAgentHandler`；另有 `VersatileAgentHandler` adapter | 总线入口进入同一 Serve/A2A 执行链，保持现有 handler 对事件来源无感知 |
 | Spring 装配 | 已有 `AgentCoreExtAutoConfiguration`、`VersatileAutoConfiguration` 和 AutoConfiguration imports | 新增独立的 bus consumer auto-configuration，按配置和所需端口条件激活，不侵入现有 adapter 装配 |
@@ -215,6 +215,8 @@ public record AgentBusEventEnvelope(
 
 创建事件中的 payload 决定阻塞或流式 send 语义；事件名称不额外复制 A2A method。查询、取消和订阅必须使用目标 runtime 的 `taskId`，不得使用 `clientInvocationId`、父 Task ID、tool call ID 或 remote invocation ID 替代。
 
+payload 使用 A2A JSON-RPC request 时，`method` 必须沿用 FEAT-001 当前标准入口的 PascalCase 名称：`SendMessage`、`SendStreamingMessage`、`GetTask`、`CancelTask` 或 `SubscribeToTask`。`message/send`、`message/stream`、`message/sendStream`、`tasks/get`、`tasks/cancel`、`tasks/resubscribe` 等小写名称不属于本特性协议面，consumer 必须拒绝。payload 直接传递 `MessageSendParams`、`TaskQueryParams`、`CancelTaskParams` 或 `TaskIdParams` 时可以不携带 `method`，由事件类型决定控制操作；创建事件在未携带 `method` 时由 envelope 的流式标记区分阻塞与流式调用。
+
 `CLIENT_INVOCATION_REQUESTED` / `A2A_CALL_REQUESTED` 也可以携带已有 `taskId` 表达标准 A2A continuation。此时 admission 使用该 taskId 建立或核对幂等记录，不分配新 Task；taskId 不存在或 tenant 不匹配时确定失败，禁止把 continuation 降级成新建请求。
 
 ### 3.3 出站投影模型
@@ -321,28 +323,44 @@ public interface RuntimeBusTargetIdentity {
 
 ```java
 public interface BusA2aRequestBridge {
-    BusDispatchResult send(BusRequestContext context, MessageSendParams params, boolean streaming);
-    BusDispatchResult getTask(BusRequestContext context, TaskQueryParams params);
-    BusDispatchResult cancelTask(BusRequestContext context, CancelTaskParams params);
-    BusDispatchResult subscribeTask(BusRequestContext context, TaskIdParams params);
+    BusDispatchResult handle(AgentBusEventEnvelope envelope, byte[] resolvedPayload) throws Exception;
+
+    default Optional<String> requestedTaskId(AgentBusEventEnvelope envelope,
+                                             byte[] resolvedPayload) {
+        return Optional.empty();
+    }
+}
+
+public interface TaskIdAwareBusA2aRequestBridge extends BusA2aRequestBridge {
+    BusDispatchResult handle(AgentBusEventEnvelope envelope,
+                             byte[] resolvedPayload,
+                             String reservedTaskId) throws Exception;
+
+    @Override
+    default BusDispatchResult handle(AgentBusEventEnvelope envelope,
+                                     byte[] resolvedPayload) throws Exception {
+        return handle(envelope, resolvedPayload, null);
+    }
 }
 ```
 
+`resolvedPayload` 是 `BusPayloadResolver` 已经完成 inline/payloadRef 解析后的逻辑 A2A payload，不是 broker 原始消息；bridge 不负责 broker I/O。统一的 `handle` 入口在同一处完成事件类型与 JSON-RPC `method` 的配对校验、参数反序列化和 `RequestHandler` 分发。`requestedTaskId` 只提取 continuation 已携带的 Task ID，供 admission 在调用 A2A 前建立或核对幂等记录。可选的 `TaskIdAwareBusA2aRequestBridge` 仅用于上游支持调用方指定新 Task ID 时注入 admission 预留 ID；默认 `RequestHandlerBusA2aBridge` 不伪造该能力。
+
 默认实现 `RequestHandlerBusA2aBridge`：
 
-1. 构造 `ServerCallContext`，写入 `tenantId`、`correlationId`、`traceId`、source 和 deadline。
+1. 构造 `ServerCallContext`，写入 `tenantId`、`correlationId`、`idempotencyKey`、`traceId`、source、target 和 deadline。
 2. 直接调用 A2A SDK `RequestHandler` 公共方法，不调用本机 `/a2a`，也不把 Task 协议操作降级成 `ServeOrchestrator` 的会话操作。
 3. 把 A2A response / publisher 首个可观察状态规范化为 `BusDispatchResult`。
 4. 不直接调用 `AgentHandler` 或 `ServeOrchestrator`，避免绕过 Task 创建、TaskStore、Task 查询和 Task 取消语义。
-5. 对 subscribe 只完成 Task/stream 可订阅性校验和 streamRef 准备，不订阅、缓存或转发 publisher 中的 SSE frame；真正的流消费发生在调用方持有 SSE 连接时。
+5. 对 subscribe 只调用 `onSubscribeToTask` 完成 Task/stream 可订阅性校验并返回 stream-ready 结果，不订阅、缓存或转发 publisher 中的 SSE frame；后续投影阶段负责生成 streamRef，真正的流消费发生在调用方持有 SSE 连接时。
 
-| Bridge 操作 | A2A SDK 1.0.0.Final `RequestHandler` 映射 | 当前 HTTP `/a2a` 暴露情况 |
-|---|---|---|
-| 非流式 send | `onMessageSend(MessageSendParams, ServerCallContext)` | 已暴露 |
-| 流式 send | `onMessageSendStream(MessageSendParams, ServerCallContext)` | 已暴露 |
-| get task | `onGetTask(TaskQueryParams, ServerCallContext)` | 已暴露 |
-| cancel task | `onCancelTask(CancelTaskParams, ServerCallContext)` | SDK/bean 已具备，当前 controller 未分发 |
-| subscribe task | `onSubscribeToTask(TaskIdParams, ServerCallContext)` | SDK/bean 已具备，当前 controller 未分发 |
+| Bridge 操作 | JSON-RPC `method` | A2A SDK 1.0.0.Final `RequestHandler` 映射 | 当前 HTTP `/a2a` 暴露情况 |
+|---|---|---|---|
+| 非流式 send | `SendMessage` | `onMessageSend(MessageSendParams, ServerCallContext)` | 已暴露 |
+| 流式 send | `SendStreamingMessage` | `onMessageSendStream(MessageSendParams, ServerCallContext)` | 已暴露 |
+| get task | `GetTask` | `onGetTask(TaskQueryParams, ServerCallContext)` | 已暴露 |
+| cancel task | `CancelTask` | `onCancelTask(CancelTaskParams, ServerCallContext)` | SDK/bean 已具备，当前 controller 未分发 |
+| subscribe task | `SubscribeToTask` | `onSubscribeToTask(TaskIdParams, ServerCallContext)` | SDK/bean 已具备，当前 controller 未分发 |
 
 因此本文的“一致性”是与 A2A SDK Task 语义和同一个 `RequestHandler` bean 一致，不表示当前 HTTP controller 已暴露全部五种方法。`ServeOrchestrator.query/streamQuery/cancelActive/resetConversation` 是协议中立的 Agent/会话编排面，不能替代 `GetTask`、`CancelTask` 和 `SubscribeToTask`。
 
@@ -561,7 +579,7 @@ ACCEPTED
 
 ```text
 agent-solution/common/agent-runtime-ext-java/
-└── agent-service-bus/agent-service-bus-event-consumer/
+└── agent-service-bus-consumer/
     └── src/main/java/com/openjiuwen/service/bus/
         ├── AgentBusEventEnvelope.java
         ├── RuntimeBusResponseEvent.java
