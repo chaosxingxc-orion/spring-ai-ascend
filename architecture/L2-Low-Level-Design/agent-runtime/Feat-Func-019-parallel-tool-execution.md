@@ -24,9 +24,9 @@ dependency:
 >
 > 目标仓库：`agent-core-java`、`agent-runtime-java`、`agent-solution`
 >
-> 最后更新：2026-07-21
+> 最后更新：2026-07-22
 >
-> core 源码基线：`agent-core-java` 的 `730` 分支，提交 `0f8b96be`（`feat(tool): 支持工具调用并行执行并统一线程池管理`）。本文第 3 章基于该分支源码核验集成契约。
+> core 源码基线：`agent-core-java` 的本地 `730` 分支。通用 ToolCall 并行能力由提交 `0f8b96be` 引入；本文第 3 章同时按当前 `DeepAgent` 流式 checkpoint 收尾实现核验集成契约。
 
 ---
 
@@ -65,7 +65,7 @@ dependency:
 
 | 仓库 | 当前事实 | 与本特性的差距 |
 |---|---|---|
-| `agent-core-java` | `730` 分支的 `AbilityManager.execute()` 已在多 ToolCall 时使用 `OpenJiuwenExecutors` 并行执行，并按输入顺序汇总；每个 ToolCall 使用独立 `AgentCallbackContext` 和 `extra` 顶层副本，worker 会绑定并恢复 `SessionContextHolder`。ReAct 已聚合同轮多个 `ToolInterruptException`，非流式返回一个含完整 `state` 列表的 interrupt result，流式逐条输出全部 `__interaction__`，恢复支持 `InteractiveInput.userInputs` 按 `toolCallId` 映射。DeepAgent 复用同一个 ReAct/AbilityManager。 | 并行执行、中断聚合和批量恢复已满足；DeepAgent 流式 task-loop 还必须在关闭内部 emitter 前把 request-session 状态复制到 Runner 父 session，保证父 checkpoint 保存完整 `ToolInterruptionState`。跨轮 `toolCallId` 防重仍属于可选 DFX。 |
+| `agent-core-java` | `730` 分支的 `AbilityManager.execute()` 已在多 ToolCall 时使用 `OpenJiuwenExecutors` 并行执行，并按输入顺序汇总；每个 ToolCall 使用独立 `AgentCallbackContext` 和 `extra` 顶层副本，worker 会绑定并恢复 `SessionContextHolder`。ReAct 已聚合同轮多个 `ToolInterruptException`，非流式返回一个含完整 `state` 列表的 interrupt result，流式逐条输出全部 `__interaction__`，恢复支持 `InteractiveInput.userInputs` 按 `toolCallId` 映射。DeepAgent 复用同一个 ReAct/AbilityManager，并已在流式 task-loop 中先把 request-session 状态复制到 Runner 父 session，再关闭内部 emitter。 | 并行执行、中断聚合、批量恢复和 DeepAgent 父 checkpoint 屏障均已满足；跨轮 `toolCallId` 防重仍属于可选 DFX。 |
 | `agent-runtime-java` | `JiuwenCoreAgentHandler` 已统一归一化流式/非流式多中断并构造批量 `InteractiveInput`；`RemoteInvocationBatchCoordinator` 已实现全局有界 FIFO 调度、独立排队超时、批次去重、`_remote_batch` shadow 快照、定向续轮、结果屏障、成员投影、错误分类和取消；A2A adapter/controller 已保留并校验 `TextPart.metadata.toolCallId`。 | 已满足本特性的 Runtime 功能边界；跨实例在途 Future 恢复和同 conversation 多父 Task 并发仍属于明确排除范围。 |
 | `agent-solution` | `RemoteA2aToolInstaller` 可向 ReAct/DeepAgent 安装远端工具；`RemoteA2aInterruptRail` 保持逐 ToolCall 无共享可变状态，并已覆盖同一 Rail 实例并发中断隔离。 | 已满足本特性的 Solution 边界；批次聚合、并发调度和持久化仍只由 Runtime 承担。 |
 
@@ -161,7 +161,7 @@ dependency:
 
 ### 3.1 源码基线与核验结论
 
-本章以 `agent-core-java` 的 `730` 分支、提交 `0f8b96be` 为源码基线，直接核对以下实现：
+本章以 `agent-core-java` 本地 `730` 分支的当前源码为基线。其中通用 ToolCall 并行能力来自提交 `0f8b96be`，DeepAgent 流式 checkpoint 屏障按当前工作区实现核验。直接核对以下实现：
 
 - `AbilityManager`、`OpenJiuwenExecutors`、`SessionContextHolder`。
 - `ReActAgent`、`ToolInterruptionState`、`ToolCallInterruptRequest`、`InteractiveInput`。
@@ -264,7 +264,7 @@ ToolInterruptionState {
 }
 ```
 
-流式 ReAct 的 `writeStreamResult()` 会遍历同一个 `state` 列表，连续写出三个独立 `__interaction__` chunk，不会额外输出一个包含 list 的聚合 chunk。因此 `JiuwenCoreAgentHandler` 必须在本次 core 流结束前收齐所有 interrupt chunk，再形成 runtime 内部批次；当前 orchestrator 的 `AtomicReference` 保留最后一条的实现会丢失 A/B。
+流式 ReAct 的 `writeStreamResult()` 会遍历同一个 `state` 列表，连续写出三个独立 `__interaction__` chunk，不会额外输出一个包含 list 的聚合 chunk。因此 `JiuwenCoreAgentHandler` 在本次 core 流结束前收齐所有 interrupt chunk，再形成一份 runtime 内部批次；orchestrator 的 `AtomicReference` 现在只接收 handler 已聚合的这一份 interrupt，不再面对 A/B/C 三条独立中断，也不会覆盖前序成员。
 
 ### 3.5 core checkpoint 保存时点
 
@@ -300,7 +300,7 @@ streamEmitter.close()       # END_FRAME/EOF 对 consumer 可见
 
 DeepAgent 流式 task-loop 另有一层 request-session。该工作线程必须先执行 `copySessionState(effectiveSession, parentSession)`，再调用 `effectiveSession.postRun()` 关闭内部 emitter。若顺序相反，Runner 会因 EOF 先保存仍为空的父 session；下一轮无法恢复 `ToolInterruptionState`，批量 `InteractiveInput` 会被当作普通用户输入，A/B/C 结果不能形成对应 ToolMessage。这是并行远端工具恢复的功能依赖，不是仅影响极端时序的 DFX 项。
 
-本特性采用最小改动：仅调整 DeepAgent request-session 的状态复制与 emitter 关闭顺序；不改变 `AgentSessionApi.postRun()` 的公共语义，也不要求 Runtime 轮询 Core 私有状态。Core 回归测试必须固定住“内部流准备关闭、父 Runner 准备 checkpoint”的窗口，验证父 session 在 EOF 对 Handler 可见前已经包含完整中断状态。
+本特性采用最小改动：仅调整 DeepAgent request-session 的状态复制与 emitter 关闭顺序；不改变 `AgentSessionApi.postRun()` 的公共语义，也不要求 Runtime 轮询 Core 私有状态。
 
 ### 3.7 core 恢复语义
 
@@ -411,7 +411,7 @@ flowchart TB
 
 约束：
 
-- `batchId` 由 runtime adapter 首次归一化时使用 UUID 生成，在批次生命周期内稳定并具备跨 Runtime 重启的全局唯一性；它只用于内部关联、投影归并、幂等和诊断。
+- 多成员中断由 handler 首次归一化时生成 UUID `batchId`；单成员保持原 map 形态，由 coordinator 解析时补生成 UUID。该 ID 随 shadow 快照保存，在批次生命周期内稳定；它只用于内部关联、投影归并、幂等和诊断。
 - `index` 保存 core 原始顺序，只用于稳定展示、日志和测试；结果关联必须使用 `toolCallId`。
 - 外层不新增 kind 字段；存在 `items` 列表即表示批次。每个 item 原样保留现有 `context._interrupt_kind`，例如 `a2a_delegate`。
 - adapter 在创建远端批次前校验所有 item 的 `context._interrupt_kind` 均为 `a2a_delegate`。同轮同时出现其他中断 kind 时返回 `CORE_INTERRUPT_KIND_MIXED_UNSUPPORTED`，不得静默过滤非 A2A 中断，也不得交给远端 coordinator。
@@ -424,14 +424,15 @@ flowchart TB
 
 | 对象 | 关键字段 |
 |---|---|
-| Batch | `batchId`, `parentTaskId`, `state`, `members` |
+| Batch | `batchId`, `parentTaskId`, `request`, `observer`, `members`, `completion`, `canceled`, `resolved` |
 | Member | `index`, `toolCallId`, `toolName`, `agentName`, `state`, `remoteTaskId`, `result`, `resultCategory`, `inputPrompt`, `projectionSeq`, `queuedAt`, `startedAt`, `completedAt` |
-| Batch state | `RUNNING`, `WAITING_INPUT`, `READY_TO_RESUME`, `CANCELED` |
 | Member state | `QUEUED`, `RUNNING`, `COMPLETED`, `INPUT_REQUIRED`, `FAILED`, `TIMED_OUT`, `CANCELED` |
 
 `batchId` 是 runtime 内部诊断标识，不是客户端续轮参数。客户端使用父 A2A `taskId` 和每个输入 Part 的 `toolCallId`；coordinator 只允许它们命中该父 Task 当前 `_remote_batch` 中处于 `INPUT_REQUIRED` 的成员。
 
-`projectionSeq` 不是独立于投影 `sequence` 的第二套序号。它保存该成员已经成功提交的最大 `sequence`，用于成员从 shadow 恢复后继续严格递增；首次投影前为 0，每成功提交一个成员投影后更新为该投影的 `sequence`。
+当前内存 `Batch` 不保存独立的 batch-state enum。coordinator 通过成员是否仍处于 `QUEUED/RUNNING`、是否存在 `INPUT_REQUIRED` 以及 `canceled/resolved` 标志即时判断屏障；只在写 shadow 快照时生成 `WAITING_INPUT` 或 `READY_TO_RESUME`。取消中的批次直接清理，不额外持久化 `CANCELED` 快照。
+
+`projectionSeq` 不是独立于投影 `sequence` 的第二套序号。它是 coordinator 为每次成员投影分配的递增序号，并随稳定批次快照保存，使成员从 shadow 恢复后继续递增；首次投影前为 0。投影提交异常会使当前活动批次失败收敛，不会以该次失败投影生成新的 shadow 快照。
 
 #### 5.2.1 A2A Client 状态与结果契约
 
@@ -651,16 +652,16 @@ coordinator 产生的内部 chunk 使用 `QueryChunk.TYPE_REMOTE_AGENT_PROGRESS`
 - 每次进入 `QUEUED/RUNNING/INPUT_REQUIRED/COMPLETED/FAILED/TIMED_OUT/CANCELED` 时至少投影一次，流式远端进度可在相同成员下追加。
 - `target` 使用可公开的远端 Agent 名称或 Tool 名称；不得暴露 URL、认证信息、arguments、结果正文、首次 context 或内部 `remoteTaskId`。
 - `GetTask` 通过 Artifact 读取成员快照/事件，`SubscribeToTask` 接收相同状态变化；客户端按 `batchId + toolCallId` 归并历史并按 `sequence` 取当前值，结果归位仍只使用 `toolCallId`。
-- Artifact 不是恢复依据。Artifact/emitter 写入失败沿用现有父 Task 单 writer 的失败处理，不为本特性新增专用错误类别，也不覆盖 shadow 或内存中的成员权威状态。
+- Artifact 不是恢复依据。父 observer/emitter 在成员投影时抛出异常，coordinator 将该活动批次标记为 canceled/resolved，移除其排队成员、取消在途 Future，并 best-effort 取消已知远端 Task，随后以原异常结束批次；已有等待输入 shadow 保持原快照，初始批次不会写出新的可恢复快照。该路径不新增专用错误类别，也不会继续远端调用或恢复 core。
 
 ### 5.5 core 恢复载荷
 
-不新增 `CoreResumePayloadFactory` 文件。`JiuwenCoreAgentHandler` 在现有 `buildInputs()` 附近增加私有 helper：当内部 `ServeRequest.metadata["runtime.remoteToolResults"]` 存在时，将其转换为 core 原生 `InteractiveInput`。该字段只能由 coordinator 在校验当前 parentTaskId、batchId 和完整结果集合后注入；外部 A2A metadata 中的同名字段必须在 adapter 入口删除。该字段只是 orchestrator 到 handler 的单次调用内传输，不写入真实父 Task、shadow Task 或外部 A2A Message。恢复载荷必须是对象，不是普通用户消息：
+不新增 `CoreResumePayloadFactory` 文件或额外私有转换函数。`JiuwenCoreAgentHandler.buildInputs()` 直接识别内部 `ServeRequest.metadata["runtime.remoteToolResults"]`，复制为字符串 key 的结果 map，调用 `InteractiveInput.setUserInputs()` 后放入 `inputs["query"]`，并立即返回该 inputs，避免同时混入普通用户字符串。该字段只能由 coordinator 在校验当前 parentTaskId、batchId 和完整结果集合后注入；外部 A2A metadata 中的同名字段必须在 adapter 入口删除。该字段只是 orchestrator 到 handler 的单次调用内传输，不写入真实父 Task、shadow Task 或外部 A2A Message。恢复载荷必须是对象，不是普通用户消息：
 
 ```text
 ServeRequest.metadata["runtime.remoteToolResults"]
   -> Map<toolCallId, result>
-  -> JiuwenCoreAgentHandler 私有转换方法
+  -> JiuwenCoreAgentHandler.buildInputs()
   -> InteractiveInput
   -> Runner.runAgent(...)
 ```
@@ -791,9 +792,9 @@ members = [A(resultA), B(remoteTaskB), C(remoteTaskC)]
 
 协议归一化只遍历一次 TextPart：
 
-1. `A2aJsonRpcController` 构造 `TextPart(text, metadata)`，不得像当前实现一样丢弃 Part metadata。
+1. `A2aJsonRpcController` 已构造 `TextPart(text, metadata)`，把 Part metadata 完整传给 adapter。
 2. `A2AProtocolAdapter` 对完全无 `toolCallId` 的普通消息继续按现有规则拼接为一个 query。
-3. 存在 `toolCallId` 时，adapter 按 `toolCallId` 分组；同一 ID 的多个 TextPart 按原顺序拼接，不同 ID 永不互相拼接。
+3. 全部 TextPart 都携带 `toolCallId` 时，adapter 按 `toolCallId` 分组；同一 ID 的多个 TextPart 按原顺序拼接，不同 ID 永不互相拼接。带标识和无标识 Part 混用时不生成部分目标 map，由后续多 pending 校验整体拒绝。
 4. adapter 复制外部 params metadata 时，先删除保留控制键 `runtime.parentTaskId`、`runtime.remoteToolInputs`、`runtime.remoteToolResults`、`runtime.idempotencyKey`，再用 `A2AMessageContext.taskId` 写入内部 `runtime.parentTaskId`，并用本次 Part 解析结果写入 `runtime.remoteToolInputs: Map<toolCallId,text>`。外部同名字段不可信且不得生效；`runtime.remoteToolResults` 和 `runtime.idempotencyKey` 只能由 coordinator 在对应内部阶段生成。orchestrator 直接消费该内部 map，不再次解析 TextPart。
 5. coordinator 用父 `taskId + toolCallId` 校验并查找 `_remote_batch.members[]`，再取得内部 `remoteTaskId` 发起对应远端续轮。
 6. 一条请求命中多个成员时并发续轮；只命中 B 时 C 保持 `INPUT_REQUIRED`，不会被隐式广播或按顺序自动续接。
@@ -860,7 +861,7 @@ Batch READY_TO_RESUME
 
 ### 7.1 agent-runtime-java
 
-生产代码只新增一个内部 coordinator 文件，并修改十个现有文件：
+Runtime 生产代码只新增一个内部 coordinator 文件，并修改十个现有文件：
 
 ```text
 service/
@@ -886,13 +887,13 @@ service/
             └── RemoteInvocationBatchCoordinator.java # 新增：批次状态、有界 dispatcher、shadow metadata
 ```
 
-测试侧新增 `RemoteInvocationBatchCoordinatorTest`。Runtime 修改 `JiuwenCoreAgentHandlerTest`、`A2AProtocolAdapterTest`、`A2AAgentExecutorTest`、`A2ARemoteAgentClientExtractTest`、`A2AEnabledServeOrchestratorTest`；Core 修改 `HarnessCompatibilityTest`；solution 修改 `RemoteA2aInterruptRailTest`，相关 demo 修改 `DeepAgentRuntimeApplicationTest` 和 `BToCDelegateRailTest`。`QueryChunk` 常量和投影 type 隔离由 coordinator/executor 测试覆盖，不新增独立 DTO 测试文件。Runtime 主链路生产代码新增 1 个、修改 10 个；另外两个 Runtime A2A demo Rail 删除不再使用的模式标记。没有为 batch DTO、member、store、resume factory 和 executor 分别新建生产文件。
+测试侧新增 `RemoteInvocationBatchCoordinatorTest`。Runtime 修改 `JiuwenCoreAgentHandlerTest`、`A2AProtocolAdapterTest`、`A2AAgentExecutorTest`、`A2ARemoteAgentClientExtractTest`、`A2AEnabledServeOrchestratorTest`；solution 修改 `RemoteA2aInterruptRailTest`。DeepAgent 示例工程同步修改默认 prompt、`application.yml`、remote-versatile skill、README 三轮调用示例和 `DeepAgentRuntimeApplicationTest`，只用于稳定触发并验证“同轮每人一个远端 ToolCall”，不形成框架公共接口。`QueryChunk` 常量和投影 type 隔离由 coordinator/executor 测试覆盖，不新增独立 DTO 测试文件。Runtime 主链路生产代码新增 1 个、修改 10 个；没有为 batch DTO、member、store、resume factory 和 executor 分别新建生产文件。
 
 一个新生产文件是当前最小且可维护的边界：现有 `A2AEnabledServeOrchestrator` 已同时承担流式/非流式入口、单远端调用、INPUT_REQUIRED、shadow Task 和取消逻辑；批次成员状态转换、有界调度、并发汇合、多目标输入校验与快照序列化是一组独立且需要直接单测的职责。dispatcher 的计数和 FIFO 队列作为 coordinator 内部类型实现，不再拆生产文件。`QueryChunk` 只增加一个内部语义常量，不新增 DTO 或字段；Part metadata 保留、Artifact 投影和配置绑定只能在现有 spec/controller/mapper/executor/properties 上定点修改，因此生产代码仍只新增 coordinator 一个文件。
 
-现有类的计划修改：
+现有类的实际代码变更：
 
-| 类 | 当前问题 | 目标修改 |
+| 类 | 改造前问题 | 当前实现 |
 |---|---|---|
 | `QueryChunk` | 只有 `chunk/interrupt/error` 类型常量，普通业务 chunk 与本地成员投影无法可靠区分 | 增加 `TYPE_REMOTE_AGENT_PROGRESS` 常量；不改变字段、构造器或外部 A2A 协议。 |
 | `A2aJsonRpcController` | `extractTextPart()` 使用 `new TextPart(text)`，丢弃输入 Part metadata | 解析并保留 TextPart metadata，使 `toolCallId` 到达 adapter。 |
@@ -902,7 +903,7 @@ service/
 | `A2AProperties` | 只有 endpoint timeout，没有 Runtime 远端调用并发预算 | 新增 `remoteInvocation.maxConcurrency/maxQueueSize/queueTimeoutSeconds`，默认 `16/256/30`。 |
 | `JiuwenCoreAgentHandler` | 非流式保留 `lastInterrupt`；流式逐条直接下发 | 非流式遍历完整 `state`，流式在本轮 Core 流结束前收齐全部 `__interaction__`，两者统一构造一个 batch interrupt；恢复时识别结果 map 并创建 `InteractiveInput`。不新增独立 collector 文件。 |
 | `A2AEnabledServeOrchestrator` | `AtomicReference<QueryChunk>` 只保存一个中断；串行远端调用；一个 shadow member；取消只委托 conversation 级 stream registry | 接收 handler 已聚合的单个 batch interrupt 并委托 coordinator；负责 query/stream 生命周期、结果投射，以及不扩展公共 SPI 的 parentTaskId 精确取消和 conversation 级 lifecycle 取消分流。 |
-| `RemoteInvocationBatchCoordinator`（新增） | 当前不存在 | 解析并校验远端 batch envelope；用内部有界 dispatcher 调用现有 client；串行投递父 observer；投影成员状态；复用 TaskStore 保存 shadow metadata；维护 parentTaskId/conversationId 路由索引；按父 `taskId + toolCallId` 精确续轮，按 parentTaskId 精确取消，并为每个 RemoteCall 构造过滤后的成员级 metadata 和稳定隔离的下游 `contextId`。 |
+| `RemoteInvocationBatchCoordinator`（新增） | orchestrator 内没有多成员状态、屏障和受控并发边界 | 解析并校验远端 batch envelope；用内部有界 dispatcher 调用现有 client；串行投递父 observer；投影成员状态；复用 TaskStore 保存 shadow metadata；维护 parentTaskId/conversationId 路由索引；按父 `taskId + toolCallId` 精确续轮，按 parentTaskId 精确取消，并为每个 RemoteCall 构造过滤后的成员级 metadata 和稳定隔离的下游 `contextId`。 |
 | `A2ARemoteAgentClient` | 远端 Task ID、终态类别和结果需要作为一个调用结果交给 coordinator | 只保留带状态 observer 的 `callStreamingOutcome()` 和结构化 outcome；沿用 `MessageSendParams.metadata` 传递 coordinator 已过滤的成员级 metadata，使取消、远端 Task 关联、幂等键和结果分类可落地。 |
 
 ### 7.2 agent-solution
@@ -925,6 +926,8 @@ solution 约束：
 
 上述实现已满足无共享可变执行状态的基础条件。`RemoteA2aInterruptRail` 只做一项必要生产修改：中断 context 仅保留 `agentName` 和 `_interrupt_kind=a2a_delegate`，删除 Runtime 已不再分支处理和持久化的模式标记；其余 solution 生产结构不变，并补充并发和多中断集成测试。
 
+示例工程对 prompt、skill 和调用说明的调整只负责让真实模型在多人请求中稳定生成同一 assistant turn 的多个独立 ToolCall，并展示多轮定向输入；它们不参与 handler 聚合、coordinator 调度、shadow 持久化或 Core 恢复。
+
 ### 7.3 agent-core-java 依赖点
 
 runtime/solution 不直接实现 core 线程池。以下类型和行为已在 core `730` 分支源码中核验，并已满足本特性的功能依赖：
@@ -941,6 +944,15 @@ InteractiveInput                  # Map<toolCallId,result>
 ```
 
 DeepAgent 流式 task-loop 在内部 emitter 关闭前把 request-session 状态复制回 Runner 父 session，是批量恢复的 Core 功能依赖。跨批次/跨轮 `toolCallId` 防重仍为 Core 可选 DFX 增强，不属于 Runtime/Solution 的落地前置条件。
+
+本特性在 Core 生产代码中的定点修改只有：
+
+```text
+src/main/java/com/openjiuwen/harness/deep_agent/DeepAgent.java
+  # 修改：先 copySessionState(effectiveSession, parentSession)，再 effectiveSession.postRun()
+```
+
+该修改修复 DeepAgent 异步流式 task-loop 的既有 checkpoint 竞态，单工具中断也可能触发；工具并行并不是触发条件，但本特性的多 `toolCallId` 跨轮恢复依赖该顺序保证。
 
 ---
 
@@ -1068,8 +1080,9 @@ C = COMPLETED(resultC)
 | 场景 | 触发条件 | runtime 行为 | 对外结果 |
 |---|---|---|---|
 | 中断缺少 toolCallId | core/adapter 数据不完整 | 拒绝创建批次，记录协议错误 | parent FAILED，`CORE_INTERRUPT_CORRELATION_MISSING` |
-| toolCallId 重复且内容一致 | 同一中断重复投递 | 幂等去重 | 不重复远端调用 |
-| toolCallId 重复但内容冲突 | 同 ID 对应不同工具/参数 | 批次失败 | `CORE_INTERRUPT_CORRELATION_CONFLICT` |
+| 同一 envelope 内 toolCallId 重复 | 一个批次内出现两个同 ID 成员，无论内容是否一致 | 批次失败，不按成员内容猜测去重 | `CORE_INTERRUPT_CORRELATION_CONFLICT` |
+| 整批 envelope 重复且一致 | 相同 `batchId` 和同一组有序成员被重复投递 | 复用活动 completion，或直接返回已有 shadow resolution | 不重复远端调用 |
+| 相同 batchId 的整批内容冲突 | 成员数量、顺序、index、ID、工具或目标不同，或者双方均有非空 message 且内容不同 | 批次失败 | `CORE_INTERRUPT_CORRELATION_CONFLICT` |
 | 混合 interrupt kind | 同轮批次同时存在 A2A delegate 和其他中断 | 不创建远端批次，不过滤任何成员 | parent FAILED，`CORE_INTERRUPT_KIND_MIXED_UNSUPPORTED` |
 | 并发队列已满 | `QUEUED` 数达到 `max-queue-size` | 该成员 `FAILED`，不发起远端调用 | 工具结果 `REMOTE_OVERLOADED` |
 | 排队超时 | 等待配额超过 `queue-timeout-seconds` | 从 FIFO 移除，成员 `FAILED` | 工具结果 `REMOTE_OVERLOADED` |
@@ -1086,6 +1099,7 @@ C = COMPLETED(resultC)
 | 多 pending 时带标识和无标识 Part 混用 | 无标识 Part 无法确定目标 | 拒绝整个续轮，不做部分发送 | `REMOTE_TOOL_INPUT_TARGET_REQUIRED` |
 | 活动批次冲突 | 前一批未结束又产生新批 | 不覆盖 shadow Task | parent FAILED，`REMOTE_BATCH_ALREADY_ACTIVE` |
 | shadow Task 保存失败 | Redis/TaskStore 不可用 | 不暴露 READY/INPUT_REQUIRED，不恢复 core | parent FAILED 或保持 WORKING 后失败收敛 |
+| 成员投影写入失败 | 父 observer/emitter 抛出异常 | 取消当前活动批次、移除其 queued member、取消在途 Future，并 best-effort 取消已知远端 Task；不恢复 core | parent FAILED；已有等待 shadow 保持原快照 |
 | 父 Task 取消 | CancelTask | 级联取消并拒绝 late result | parent CANCELED |
 
 成员错误回灌格式必须稳定且可被 LLM 识别，例如：
@@ -1120,7 +1134,7 @@ C = COMPLETED(resultC)
 - metadata：`_remote_batch`；
 - 成员：`_remote_batch.members[]`。
 
-Runtime 不读取其他 shadow key，不读取或写入顶层单成员镜像字段，也不引入结构版本字段或其他结构的读取分支。找不到上述结构时按没有可恢复批次处理；带定向输入却找不到批次时返回 `REMOTE_BATCH_NOT_FOUND`。
+Runtime 不读取其他 shadow key，不读取或写入顶层单成员镜像字段，也不引入结构版本字段或其他结构的读取分支。找不到上述结构时按没有可恢复批次处理；请求已携带定向输入却找不到对应父 Task shadow 时，当前实现返回 `REMOTE_BATCH_PARENT_MISMATCH`，避免把跨 Task 或陈旧输入当成新一轮普通请求。
 
 ### 11.3 中断 envelope 识别
 
@@ -1198,7 +1212,7 @@ runtime.idempotencyKey = <parentTaskId>:<batchId>:<toolCallId>
 | 预留槽后取消 | 成员已预留并发槽但尚未调用 client 时取消，不发起远端调用，释放配额并继续调度其他批次。 |
 | parentTaskId 路由隔离 | 同一 conversation 的父 Task A 完成后再执行父 Task B；A 的陈旧输入或取消不能命中 B 的 shadow/batch，coordinator 不依赖 active member 或成员顺序。 |
 | shadow 唯一结构 | 只读写 parentTaskId key 下的 `_remote_batch`；缺少该结构时不回退到顶层单成员字段。 |
-| 重复中断 | 相同 toolCallId 幂等，不重复 A2A。 |
+| 重复批次 | 相同 batchId 和相同有序成员复用活动 completion 或已有 shadow resolution，不重复 A2A；单个 envelope 内重复 toolCallId 直接拒绝。 |
 | stale resume | 父 taskId 或 toolCallId 与当前批次不匹配时被拒绝。 |
 | store 失败 | 不会在状态未持久化时恢复 core。 |
 | 父 Task Artifact 投影 | 每次成员状态变化写出正确 `batchId/toolCallId/sequence/target/phase/resultCategory`，不包含远端 URL、arguments、结果正文或 `remoteTaskId`。 |
@@ -1291,7 +1305,7 @@ Feat-Func-019 不改变 L0 模块边界，也不新增 L1 公共 SPI/API。上�
 
 ---
 
-## 14. 限制、依赖与落地顺序
+## 14. 限制、依赖与实现组成
 
 ### 14.1 当前限制
 
@@ -1309,11 +1323,11 @@ Feat-Func-019 不改变 L0 模块边界，也不新增 L1 公共 SPI/API。上�
 |---|---|---|
 | 跨批次/跨轮 `toolCallId` 防重 | Core 直接使用模型生成的 `ToolCall.id`，不维护父 Task 生命周期已用 ID 集合。 | 本特性只要求同一活动批次内唯一，并且只路由当前 `_remote_batch`。生命周期级防重可作为额外的旧输入重放防护，但不是功能依赖。 |
 
-### 14.3 落地顺序
+### 14.3 实现组成
 
-1. `JiuwenCoreAgentHandler` 完成流式/非流式多中断聚合和批量 resume payload，orchestrator 每轮只接收一个完整 batch interrupt。
-2. runtime 新增一个内部 coordinator，复用现有 TaskStore/shadow Task，以 `activeCount + FIFO` 有界调度 A2A 调用，并建立 parentTaskId/conversationId 路由索引；同 conversation 多父 Task 并发保持为显式非承诺边界。
+1. `JiuwenCoreAgentHandler` 负责流式/非流式多中断聚合和批量 resume payload，orchestrator 每轮只接收一个完整 batch interrupt。
+2. runtime 使用一个内部 coordinator 复用现有 TaskStore/shadow Task，以 `activeCount + FIFO` 有界调度 A2A 调用，并维护 parentTaskId/conversationId 路由索引；同 conversation 多父 Task 并发保持为显式非承诺边界。
 3. coordinator 串行投递父 observer；runtime 通过 `ChunkMapper/A2AAgentExecutor` 把成员状态按 `toolCallId` 投影到父 Task Artifact，非流式入口聚合普通 chunk 并只收尾一次。
 4. runtime 保留 TextPart metadata，删除外部伪造的内部控制键，按父 `taskId + toolCallId` 精确推进一个或多个 INPUT_REQUIRED，并按 parentTaskId 精确取消；coordinator 为每个下游调用构造过滤后的成员级 metadata；现有父 Task `_interrupt` 继续原样保存和续轮透传。
-5. solution 补充 Rail 并发安全和 ReAct/DeepAgent 集成验证。
-6. 完成流式/非流式、Redis/InMemory、有界调度、成员投影和故障场景 E2E 验证。
+5. solution 的 Rail 保持逐 ToolCall 无共享执行状态，并只输出 `agentName` 与 `_interrupt_kind=a2a_delegate` 作为远端路由 context。
+6. Core 的 DeepAgent 流式 task-loop 在关闭 request-session emitter 前完成父 session 状态复制，保证 Runtime 观察到 EOF 时父 checkpoint 已包含中断状态。
