@@ -40,8 +40,7 @@ FEAT-008 自身只定义这些能力组合起来后的交互式中断处理语�
 | 单等待点推进 | MUST | 在 FEAT-001 入口、任务状态缓存和 FEAT-005 远端编排的既有幂等机制排除重复提交后，同一 Task 的一次 `INPUT_REQUIRED` 等待点只应被一条合法续接消息推进一次。后续消息按其到达时的 Task 状态交给对应特性的并发或追加语义处理。 |
 | 多轮交互 | MUST | 同一 Task 必须支持顺序发生多轮 `WORKING -> INPUT_REQUIRED -> WORKING`。每一轮是否再次等待由智能体执行结果决定。 |
 | 长时挂起 | MUST | `INPUT_REQUIRED` 是非终态，Task 可以长时间等待客户端续接、查询、订阅或取消。FEAT-008 不设置 TTL，不定义自动过期。 |
-| 等待期间查询与订阅 | MUST | `GetTask` 和 `SubscribeToTask` 必须能按 FEAT-001 语义观察处于 `INPUT_REQUIRED` 的 Task 及其后续状态变化。 |
-| 等待期间取消 | MUST | 处于 `INPUT_REQUIRED` 的 Task 必须能通过 FEAT-001 的 `CancelTask` 取消；取消后 Task 进入 `CANCELED`，该等待点失效。 |
+| 等待期间查询与订阅 | MUST | `GetTask` 必须能按 FEAT-001 语义观察处于 `INPUT_REQUIRED` 的 Task 及其后续状态变化。 |
 | 当前实例内恢复 | MUST | 在当前 runtime 实例拥有 Task、等待点绑定和恢复上下文的期间，合法续接消息必须能够恢复到正确执行链路。跨实例、重启和长生命周期恢复由任务状态缓存特性承接。 |
 | 明确运行时失败 | MUST | Task 不存在或不可访问、Task 状态不允许续接、恢复上下文不可用、本地恢复失败、远端续接失败等运行时事实必须映射为可区分的标准 Task/error 表面。 |
 | 可观测与审计 | SHOULD | runtime 应记录中断建立、Task 状态变化、客户端续接、恢复、再次中断、取消和失败等观察事实，并关联 tenant、caller、user、Task/context、request、trace 和耗时；具体脱敏规则遵守 DFX-001。 |
@@ -57,8 +56,6 @@ FEAT-008 不拥有独立外部 API 或 SPI 定义权。下游设计与实现必�
 | `SendMessage` | 客户端创建 Task 或续接已有 Task 的统一入口。Task 处于 `INPUT_REQUIRED` 且请求关联同一 Task/context 时，该消息作为交互式中断的续接输入。消息体格式完全遵守 FEAT-001。 |
 | `SendStreamingMessage` | 执行进入 `INPUT_REQUIRED` 时，按 FEAT-001 的 interrupted stream 语义推送 Task 状态并结束本次发送流。 |
 | `GetTask` | 返回 Task 当前状态；当状态为 `INPUT_REQUIRED` 时，调用方可观察到等待客户端输入的状态和提示信息。 |
-| `SubscribeToTask` | 订阅已有 Task 的后续事件，观察等待、续接后的 `WORKING`、再次中断或终态。 |
-| `CancelTask` | 取消等待中的 Task；取消后当前交互式等待点失效。 |
 
 如果未来需要统一结构化表单、候选项、审批控件或专用响应 Part，这些客户端可见 wire 契约必须先由 FEAT-001 或新的服务入口特性声明，FEAT-008 只能引用。
 
@@ -83,7 +80,7 @@ FEAT-008 承认 `INPUT_REQUIRED` 可以长时挂起，但不定义 Task 状态�
 | 同 Task 发送业务语义不匹配的续接消息 | Task 处于 `INPUT_REQUIRED`，客户端使用同一 Task 发送格式合法的 A2A 消息，但内容没有满足此前提示的业务期待 | 客户端提交该消息 | runtime 不做业务语义拒绝，仍恢复智能体；智能体判断该输入无效时，可以再次中断、失败或按自身逻辑继续。 |
 | 非当前 Task 发起新任务 | 旧 Task 处于 `INPUT_REQUIRED`，客户端选择放弃或暂不处理它 | 客户端发起不关联旧 Task 的新 `SendMessage` | 新请求按 FEAT-001 创建或推进新 Task；旧 Task 保持自身 `INPUT_REQUIRED` 状态，直到被续接、取消或由状态缓存/生命周期治理处理。 |
 | 长时挂起后续接 | Task 处于 `INPUT_REQUIRED`，客户端或业务应用需要等待人工审批、外部流程或较长时间后再响应 | 客户端稍后查询、订阅或使用同一 Task 续接 | Task 等待期间不因 FEAT-008 自身 TTL 自动过期；在任务状态缓存和恢复上下文可用时，续接仍恢复同一 Task 执行链路。 |
-| 等待期间取消 | Task 处于 `INPUT_REQUIRED`，用户或业务应用决定停止当前执行 | 客户端调用 `CancelTask` | runtime 将 Task 推进到 `CANCELED`，当前等待点失效；后续对该 Task 的续接按终态 Task 处理。 |
+| 等待期间取消 | Task 处于 `INPUT_REQUIRED`，用户或业务应用决定停止当前执行 | 客户端通过 Gateway 请求取消 | runtime 将 Task 推进到 `CANCELED`，当前等待点失效；后续对该 Task 的续接按终态 Task 处理。 |
 | 多轮客户端交互 | 智能体在一次续接后仍需要更多客户端信息 | 智能体再次产生交互式中断 | runtime 再次将同一 Task 推进到 `INPUT_REQUIRED`；客户端继续使用同一 Task 续接，直到智能体完成、失败或取消。 |
 
 ## 5. 行为语义与边界

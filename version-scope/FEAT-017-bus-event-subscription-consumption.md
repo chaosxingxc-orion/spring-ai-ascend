@@ -17,7 +17,7 @@ FEAT-017 定义 `agent-runtime` 当前版本作为目标智能体服务端时，
 
 当前版本选择 `agent-runtime` 边界内的嵌入式订阅消费能力，不新增 sidecar、独立 worker 或外部 consumer 实体作为特性事实主体。实现可以通过 host application、auto-configuration 或内部端口接入事件总线，但对外事实是 runtime 自己消费事件、进入自身 Task 控制面并发布响应事件。物理 broker、relay、receiver、ack 通道和 retry 机制仍属于 `agent-bus` 或 L2 运行态实现，不反向定义 runtime 领域模型。
 
-本特性要求 runtime 消费事件后复用 `FEAT-001` 的标准 A2A 服务入口语义，但不要求通过本机 HTTP `/a2a` 回环调用实现。实现可以使用内部 bridge 直达与 `SendMessage`、`SendStreamingMessage`、`GetTask`、`CancelTask` 和 `SubscribeToTask` 等价的 RequestHandler / Task 控制面语义；无论物理实现如何，外部可观察行为必须与标准入口保持一致。
+本特性要求 runtime 消费事件后复用 `FEAT-001` 的标准 A2A 服务入口语义，但不要求通过本机 HTTP `/a2a` 回环调用实现。实现可以使用内部 bridge 直达与 `SendMessage`、`SendStreamingMessage`、`GetTask` 等价的 RequestHandler / Task 控制面语义；无论物理实现如何，外部可观察行为必须与标准入口保持一致。
 
 本特性面向以下角色：
 
