@@ -189,7 +189,7 @@ agent-core 按 toolCallId 写入 ToolMessage，并触发一次 DeepAgent 后续�
 - L2 必须验证 `toolCallId` 在中断、runtime 回灌和 ToolMessage 写入之间保持稳定关联。
 - L2 必须验证 runtime 批量回灌后 core 只触发一次 DeepAgent 后续推理。
 - L2 必须与 FEAT-004 对齐：凡涉及 child Task、A2A wire、远端状态、用户定向续接、取消、超时、部分失败和实时投射的内容，应在 FEAT-004 或其详细设计中落地。
-- FEAT-026 已合并进 FEAT-019，不再作为独立 version-scope 事实源；历史并行工具治理内容不得作为当前 FEAT-019 的范围依据。
+- L2 详细设计统一使用 Feat-Func-019 编号，并以本特性和 FEAT-004 的责任边界作为事实依据。
 
 ## 7. 关联文档
 
@@ -201,4 +201,4 @@ agent-core 按 toolCallId 写入 ToolMessage，并触发一次 DeepAgent 后续�
 - `architecture/L1-High-Level-Design/agent-core/logical.md`
 - `architecture/L1-High-Level-Design/agent-runtime/logical.md`
 - `architecture/L2-Low-Level-Design/agent-runtime/Feat-Func-004-remote-agent-orchestration.md`
-- `architecture/L2-Low-Level-Design/agent-runtime/Feat-Func-026-parallel-tool-execution.md`
+- `architecture/L2-Low-Level-Design/agent-runtime/Feat-Func-019-parallel-tool-execution.md`

@@ -194,4 +194,4 @@ runtime 按 toolCallId 回填成功结果和结构化失败
 - `architecture/L1-High-Level-Design/agent-runtime/logical.md`
 - `architecture/L1-High-Level-Design/agent-runtime/process.md`
 - `architecture/L2-Low-Level-Design/agent-runtime/Feat-Func-004-remote-agent-orchestration.md`
-- `architecture/L2-Low-Level-Design/agent-runtime/Feat-Func-026-parallel-tool-execution.md`
+- `architecture/L2-Low-Level-Design/agent-runtime/Feat-Func-019-parallel-tool-execution.md`

@@ -50,7 +50,7 @@ L2 特性文档按功能特性和非功能特性分组命名：
 | Feat-Func-002 | [异构 Agent 框架兼容](Feat-Func-002-heterogeneous-agent-framework-compatibility.md) | `AgentRuntimeHandler` 适配模型、核心 SPI 与状态边界、OpenJiuwen ReAct/Workflow/DeepAgent、AgentScope、Versatile adapter 接入。 | 框架中立执行 SPI、状态归属原则与具体 adapter 协作；adapter 不治理框架 cache/checkpointer、hook、rail、tool、skill。 |
 | Feat-Func-003 | [智能体任务状态缓存](Feat-Func-003-agent-task-state-cache.md) | 标准化 Redis 缓存 SPI、原生 Redis 单机/集群策略、客户封装 Redis 适配、A2A Task 与 checkpoints 缓存复用。 | 任务状态缓存、Redis 连接池复用、客户适配扩展点、日志脱敏和内部验收边界。 |
 | Feat-Func-004 | [远程 Agent 编排](Feat-Func-004-remote-agent-orchestration.md) | 远程 Agent Card 拉取、Tool 注入、中断-续接、远程调用结果回灌。 | runtime 作为 A2A client 编排其他 Agent。 |
-| Feat-Func-026 | [支持工具并行执行（agent runtime java）](Feat-Func-026-parallel-tool-execution.md) | core 同轮多 ToolCall 中断适配、远端 A2A 并发调用、批次屏障、批次状态持久化和完整结果回灌。 | 设计已接受、代码待落地；core 并行逻辑以外部参考设计和最终合入契约为准。 |
+| Feat-Func-019 | [支持工具并行执行（agent runtime java）](Feat-Func-019-parallel-tool-execution.md) | core 同轮多 ToolCall 中断适配、远端 A2A 有界并发调用、批次屏障、批次状态持久化、父 Task 成员投影和完整结果回灌。 | 设计已接受、代码待落地；core 并行逻辑以已合入源码契约为准。 |
 
 ## 非功能特性清单
 
