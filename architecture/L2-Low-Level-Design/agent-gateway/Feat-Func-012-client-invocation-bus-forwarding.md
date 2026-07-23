@@ -1056,6 +1056,7 @@ sequenceDiagram
 > **性质**：确认表（默认不新开开发）。  
 > **范围**：工具续跑（S3）与 continueInput（S4）共用同一出站事件族；请一次确认、结论含 S4。  
 > **请 AI / 人工对照**：FEAT-013 合入 L2 中 `AgentBusEventType` 枚举、信封封装、`IngressRequestType`（含 `RUN_RESUME`）映射；`agent-bus` as-built。  
+> **状态**：**部分冻结** — AC-S3-013-2/3 已合入；**AC-S3-013-1 待澄清**。  
 > **Gateway 将采用的断言（请逐条表态）：**
 
 | # | Gateway 断言 | 依据（012 理解） |
