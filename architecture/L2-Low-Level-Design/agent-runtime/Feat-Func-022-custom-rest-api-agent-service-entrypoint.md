@@ -7,7 +7,7 @@ status: active
 dependency:
   - ../../../version-scope/FEAT-022-custom-rest-api-agent-service-entrypoint.md
   - ../../L1-High-Level-Design/agent-runtime/api-appendix.md
-  - Feat-Func-001-standardized-agent-service-entrypoint.md
+  - FEAT-001-standardized-agent-service-entrypoint.md
 ---
 
 # Custom REST API 到 A2A Task 执行入口适配 SPI 设计说明
