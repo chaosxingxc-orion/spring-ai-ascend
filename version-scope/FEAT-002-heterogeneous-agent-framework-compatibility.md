@@ -26,6 +26,17 @@ FEAT-002 定义 `agent-runtime` 当前版本接入异构 Agent 框架的事实�
 
 本特性定义 runtime 对异构 Agent 实现的接入与归一化要求，也定义 adapter 层必须依赖的核心 SPI、执行上下文、结果模型、state key 和单 Agent runtime 边界。标准 northbound A2A 服务入口由 `FEAT-001` 约束；智能体任务状态缓存由 `FEAT-003` 约束；远程 Agent 发现、工具安装和中断续接编排由 `FEAT-004` 约束；智能体中间件请求代理由 `FEAT-005` 约束。
 
+在通用 Versatile REST 代理能力基础上，本特性同时支持独立部署的 Versatile 意图识别工作流接入 runtime。该类工作流仍使用同一套 `VersatileAgentHandler` 和标准 Agent 服务入口，但需要补充统一的结构化输入、结构化结果、显式用户交互中断及原工作流续接适配要求。
+
+一层和二层意图识别工作流分别由独立 runtime 实例接入；同一个 Versatile adapter 实现通过不同实例的配置适配不同工作流，每个 runtime 实例仍只服务当前配置的一个 Agent。Adapter 负责请求转换、结果归一和原生用户交互信号转换，不承担工作流之间的业务编排、目标选择或跨 runtime 转发。
+
+Versatile 意图识别工作流适配还面向以下角色：
+
+- Versatile 意图工作流开发者：按照本特性约定提供工作流输入、正常结果和显式用户交互信号。
+- Runtime 集成方：为独立工作流配置现有 Versatile adapter，并通过标准 Agent 服务入口发布能力。
+
+Versatile 意图识别工作流的原生交互信号转换和续接请求适配归属本特性；Task 进入 `INPUT_REQUIRED`、同 Task 续接和多轮交互状态由 FEAT-008 约束；正常结果中的 `agent_id` 对应 FEAT-015 定义的 Agent Card 逻辑身份，目标发现与后续调用由相应特性负责。
+
 ## 2. 当前版本能力要求
 
 | 能力 | 要求级别 | 事实要求 |
@@ -51,6 +62,16 @@ FEAT-002 定义 `agent-runtime` 当前版本接入异构 Agent 框架的事实�
 | Python / Node.js sidecar 原生 adapter | OUT | 当前版本不承诺直接以 sidecar SDK 方式接入 Python / Node.js Agent。跨语言 Agent 应通过 Versatile REST 代理或独立远端 Agent 方式接入。 |
 | 同实例多 Agent 路由 | OUT | 当前版本不承诺一个 runtime 实例内按 agent id 路由多个 Handler。多 Agent 部署应使用多个 runtime 实例或上层路由。 |
 | AgentScope Memory / Checkpoint | OUT | 当前版本不承诺 AgentScope adapter 原生接入 runtime Memory 或 Checkpoint 中间件。 |
+| Versatile 意图工作流适配 | MUST | 当前版本必须支持使用既有 `VersatileAgentHandler` 接入独立部署的 Versatile 意图识别工作流；一层和二层工作流复用同一 adapter 实现，并由不同 runtime 实例分别配置和发布。 |
+| Versatile 意图工作流三字段输入 | MUST | Adapter 必须使用 `query`、`intents` 和 `messages` 调用当前工作流；`query` 为字符串，`intents` 为包含 `id`、`name` 字符串字段的 JSON 数组，`messages` 为包含 `role`、`content` 字符串字段的 JSON 数组。 |
+| 当前主输入与消息映射 | MUST | Adapter 必须从 `ServeRequest` 的当前调用输入取得用户本轮原始输入并映射为 `query`，从 `messages` 映射会话消息数组。在正常两层识别旅程中，一层和二层使用同一份用户本轮原始输入；一层 `response_content` 作为补充的 `assistant` 消息进入二层消息序列，不替代二层 `query`。 |
+| 意图候选配置传递 | MUST | `intents` 必须来自当前 runtime 实例的开发者或部署配置，至少包含一个候选项。Adapter 负责数组结构、`id`、`name` 的技术校验和透传，不从 Agent Card 或用户输入推导候选意图。 |
+| Versatile 意图工作流三字段结果 | MUST | 工作流正常完成时，Adapter 必须提取并以机器可读形式保留 `response_content`、`intent_id` 和 `agent_id`；三个字段必须为字符串，`intent_id`、`agent_id` 必须为非空值。 |
+| 唯一下一跳 Agent 身份 | MUST | 一次正常结果必须只包含一个非空 `agent_id`，并表达当前 tenant 下可与 FEAT-015 Agent Card 逻辑 `agentId` 对应的目标身份；多目标或无法确定唯一值时必须形成可诊断失败。 |
+| 正常业务结果一致转换 | MUST | Versatile 意图识别工作流以完整三字段表达匹配成功、未匹配或需要澄清时，Adapter 必须按相同技术流程转换并映射为 `COMPLETED`；Adapter 不解释业务含义，也不执行候选目标选择。 |
+| Versatile 显式用户交互适配 | MUST | 意图识别工作流显式请求用户输入并提供用户提示和原执行续接关联时，Adapter 必须映射为 `QueryChunk(TYPE_INTERRUPT)`；同一 Task 的后续用户输入重新进入原 adapter 后，Adapter 必须使用稳定会话标识和工作流公开的续接信息组装原工作流续接请求。 |
+| Versatile 多轮交互适配 | MUST | 工作流续接后再次请求用户输入时，Adapter 必须继续映射为中断；工作流完成或失败时分别映射为标准完成或失败语义。Task 等待状态、同 Task 续接和交互轮次由 FEAT-008 约束。 |
+| Versatile 意图工作流结构化失败 | MUST | 输入或配置缺失、数组结构非法、正常结果字段缺失或类型错误、目标不唯一、远端调用失败、结果解析失败以及续接失败必须形成可诊断的标准失败；异常断流不得误报为完成或虚构用户交互问题。 |
 
 ## 3. 外部接口与入口要求
 
@@ -66,6 +87,7 @@ FEAT-002 定义 `agent-runtime` 当前版本接入异构 Agent 框架的事实�
 | `GET /.well-known/agent-card.json` | HTTP endpoint | 不属于 adapter 私有入口；任何 adapter 挂载出的 Agent 都必须通过 FEAT-001 的 Agent Card 发现表面暴露能力。 |
 | `POST /a2a` | HTTP endpoint | 不属于 adapter 私有入口；任何 adapter 挂载出的 Agent 都必须通过 FEAT-001 的标准 A2A JSON-RPC/SSE 表面被调用。 |
 
+
 ## 4. 场景与用户旅程
 
 | 场景 | 前置条件 | 用户/系统动作 | 期望行为 |
@@ -76,6 +98,14 @@ FEAT-002 定义 `agent-runtime` 当前版本接入异构 Agent 框架的事实�
 | Agent 等待用户输入 | JiuwenCore Agent 或 Versatile 远端服务产生中断语义 | 调用方收到 `INPUT_REQUIRED` 后用同 task/context 续接 | adapter 必须使用同一 `conversationId`、task/context 或远端 continuation 信息发起续接调用；内部恢复上下文由框架或远端服务自治，adapter 不直接读写缓存 payload。 |
 | 调用方取消任务 | A2A client 调用标准 cancel | runtime 通过 `QueryStreamObserver.isCancelled()` 轮询通知 handler | adapter 在流式循环中检测到取消后停止结果消费并让 Task 表面进入取消语义；底层是否立即停止由 adapter 轮询窗口和框架能力决定。 |
 | 多 Handler 被同时注册 | Spring 容器中存在多个 `AgentHandler` Bean | runtime 启动并选择执行 Handler | 当前实现无多 Handler 检测、无 `@Order` 选择、无 WARN 日志；通过 `ObjectProvider.getIfAvailable()` 获取 Handler，多 Handler 场景行为未定义。不得对外承诺同实例多 Agent 路由。 |
+| 调用一层意图识别工作流 | 一层 Versatile 工作流已独立部署，并由一个 runtime 实例通过 `VersatileAgentHandler` 接入 | 调用方通过标准 Agent 服务入口提交用户本轮原始输入 | Adapter 将当前主输入映射为 `query`，结合当前实例的 `intents` 和消息上下文调用一层工作流；工作流正常完成后返回机器可读的三字段结果。 |
+| 调用二层意图识别工作流 | 二层 Versatile 工作流已独立部署，并由另一个 runtime 实例通过相同 adapter 实现接入 | 调用方将同一份用户本轮原始输入作为二层主输入，并在消息序列中携带一层 `response_content` 作为补充的 `assistant` 消息 | Adapter 将用户原始输入映射为二层 `query`，将当前实例配置映射为 `intents`，将已有消息序列映射为 `messages`；一层结果不替代二层 `query`，Adapter 不负责跨 runtime 转发。 |
+| 分类错误后重新调用一层工作流 | 调用方已形成新的调用主输入并重新调用一层 Agent | runtime 将本次请求交给一层 Adapter | Adapter 按普通调用规则重新映射输入并调用当前配置的工作流；重新分类原因不改变 Adapter 行为。 |
+| 意图工作流返回正常结果 | 当前一层或二层工作流按照接入契约返回完整三字段结果 | Adapter 提取工作流结果 | Adapter 以机器可读形式保留 `response_content`、`intent_id`、唯一 `agent_id` 并映射为 `COMPLETED`；匹配成功、未匹配和需要澄清使用相同技术流程。 |
+| 意图工作流请求用户交互 | 当前工作流显式请求用户补充、确认或选择，并提供用户提示与原执行续接关联 | Adapter 识别工作流原生交互信号 | Adapter 映射为 `QueryChunk(TYPE_INTERRUPT)`；FEAT-008 将 Task 推进到 `INPUT_REQUIRED`，调用方通过 FEAT-001 标准入口使用同一 Task 续接。 |
+| 意图工作流多轮用户交互 | 同一 Task 的合法续接输入已经重新进入原 Adapter，且原工作流恢复后再次请求用户输入 | Adapter 消费恢复后的工作流结果 | Adapter 再次映射为中断；每轮 Task 状态和交互关联由 FEAT-008 管理。 |
+| 意图工作流续接失败 | 原工作流的续接信息缺失、失效或远端续接请求失败 | runtime 使用现有 Handler 入口重新调用原 Adapter | Adapter 返回可区分续接阶段的标准失败，不把续接失败映射为正常完成，也不创建新的工作流执行代替原执行。 |
+| 意图工作流输入或结果不满足契约 | 必填输入、配置或正常结果字段缺失、类型错误，或者 `agent_id` 不是唯一值 | Adapter 组装请求或提取结果 | Adapter 在对应阶段返回可诊断失败，不输出可被误认为完整正常结果的部分数据。 |
 
 ## 5. 行为语义与边界
 
@@ -127,6 +157,72 @@ FEAT-002 定义 `agent-runtime` 当前版本接入异构 Agent 框架的事实�
 - result extraction 通过 `resultNodeName` 匹配 `node_name` 且 `node_type == "QA"` 的事件提取 `text`；只能影响 completed payload 的组装，不能改变 terminal 状态语义。
 - Versatile adapter 和 A2A 扩展位于 `agent-solution` 项目（扩展/示例性质），不在 `agent-runtime-java` 核心模块中。仅引入 `agent-runtime-java` 依赖时 Versatile REST 代理能力不可用。
 
+##### Versatile 意图识别工作流专项适配语义
+
+上述通用 Versatile 语义继续适用于普通远端 REST/SSE Agent 服务。接入符合以下专项契约的意图识别工作流时，`VersatileAgentHandler` 还必须完成本节定义的结构化输入输出和显式用户交互适配。
+
+**部署与执行语义**
+
+- 一层和二层意图识别工作流必须分别独立部署，并由不同 runtime 实例通过同一个 Versatile adapter 实现接入；一个 runtime 实例只调用当前实例配置的一个工作流。
+- 工作流层级差异通过部署配置表达，不形成两套公开 Adapter 类或执行函数。
+- 每次 Handler 执行只调用当前实例配置的工作流。工作流结束或中断后，Adapter 返回标准结果；一层到二层、业务工作流到一层的调用关系由调用方负责。
+
+**输入契约**
+
+所有 Versatile 意图识别工作流使用相同的三字段输入契约：
+
+| 字段 | 要求 | 输入来源 | 事实语义 |
+|---|---|---|---|
+| `query` | MUST | `ServeRequest` 当前调用消息中的主输入 | 当前工作流需要处理的主要内容。正常的一层和二层调用均使用用户本轮原始输入，Adapter 原样映射，不解释其业务来源。 |
+| `intents` | MUST | 当前 runtime 实例的开发者或部署配置 | 当前工作流可识别的候选意图 JSON 数组；必须至少包含一个元素。 |
+| `intents[].id` | MUST | `intents` 配置项 | 候选意图标识，必须为非空字符串。 |
+| `intents[].name` | MUST | `intents` 配置项 | 候选意图名称，必须为非空字符串；Adapter 不解释其业务含义。 |
+| `messages` | MUST | `ServeRequest.messages` | 当前工作流可使用的会话消息 JSON 数组；必须至少包含一条消息，Adapter 按消息顺序映射 `role`、`content`。 |
+| `messages[].role` | MUST | `ServeRequest` 消息项 | 当前消息角色，必须为非空字符串；Adapter 不推断或改写角色。 |
+| `messages[].content` | MUST | `ServeRequest` 消息项 | 当前消息内容，必须为非空字符串；Adapter 不生成、总结或改写内容。 |
+
+输入处理遵守以下语义：
+
+- 正常两层识别旅程中，一层和二层使用同一份用户本轮原始输入作为各自的 `query`。一层 `response_content` 作为补充的 `assistant` 消息加入二层调用的 `messages`，不替代二层 `query`。
+- 重新分类旅程中，调用方可以把业务工作流形成的重分类上下文作为新一层调用的当前主输入；Adapter 仍按普通调用执行相同映射，不识别重新分类原因。
+- Adapter 从当前执行输入映射已有消息，不调用模型生成字段，不推断消息角色，不拼接、总结或改写会话内容。
+- Adapter 只校验 `query`、`intents`、`messages` 的必填性、数组结构、元素字段类型和配置完整性，不判断候选意图或消息内容在业务上是否正确。
+- 任一必填输入无法取得、数组为空或数组元素缺少必填字符串字段时，Adapter 必须在发起远端调用前形成可诊断的输入错误。
+
+**正常结果契约与转换语义**
+
+Versatile 意图识别工作流每次正常完成必须返回以下三字段结果：
+
+| 字段 | 类型 | 要求 | 事实语义 |
+|---|---|---|---|
+| `response_content` | `string` | MUST | 当前工作流返回给调用方后续处理的主要业务内容；字段必须存在，是否允许空字符串由工作流自身的结果契约决定。 |
+| `intent_id` | `string` | MUST | 低码平台生成的下一跳工作流标识，用于业务关联、透传和审计；必须为非空字符串，不作为 Agent Card 查询条件。 |
+| `agent_id` | `string` | MUST | 当前 tenant 下与 FEAT-015 逻辑 `agentId` 对应的唯一下一跳目标标识；必须为单个非空字符串。 |
+
+结果处理遵守以下语义：
+
+- Adapter 必须使用既有 Versatile 结果提取机制取得三个字段，并在既有 `QueryChunk` 结果表面中以机器可读形式完整保留，不得要求调用方从自然语言中推导目标。
+- 本专项适配不新增结果类；三个字段在 `QueryChunk` 数据中的具体承载结构由 L2 设计明确。
+- 一个 `intent_id` 可以在工作流内部对应多个候选 `agent_id`，但工作流必须完成本次选择并只返回一个 `agent_id`。Adapter 不执行第二次业务选择。
+- Adapter 只校验 `agent_id` 的存在性、字符串类型和唯一性，不查询注册中心验证目标是否存在或可路由。
+- 匹配成功、未匹配和需要澄清均属于正常业务结果。工作流通过预定义的 `intent_id`、唯一 `agent_id` 和 `response_content` 表达结果，Adapter 执行相同技术转换并映射为 `COMPLETED`。
+
+**用户交互中断与续接语义**
+
+- 意图识别工作流只有在显式返回用户交互信号，并提供足以表达用户提示和关联原执行的信息时，Adapter 才能将其映射为 `QueryChunk(TYPE_INTERRUPT)`。
+- 通用 Versatile 的“无 terminal event 连接关闭”检测仍用于防止误报完成；仅有连接关闭而没有完整显式交互信息时，Adapter 不得虚构用户问题、输入要求或可恢复的业务中断。
+- Task 进入 `INPUT_REQUIRED`、同 Task 续接、交互轮次和等待点推进由 FEAT-008 约束；客户端续接消息格式、访问校验和标准入口由 FEAT-001 约束。
+- 同一 Task 的合法续接消息重新进入原 Handler 后，Adapter 必须从 `ServeRequest` 取得本轮用户输入，并结合稳定的 `conversationId` 和工作流公开的续接信息组装原工作流续接请求。
+- 用户响应的业务有效性由恢复后的 Versatile 工作流判断。工作流可以完成、失败或再次请求用户交互，Adapter 必须重新映射为相应的标准结果。
+- Adapter 只传递 runtime 拥有的稳定会话标识、工作流公开的续接信息和本轮用户输入，不定义或治理远端工作流的 checkpoint、执行快照和持久化策略。
+
+**失败、取消与可观测语义**
+
+- Adapter 不把远端技术失败转换为正常 `intent_id`，也不生成匹配、澄清或未匹配的业务兜底结果。
+- 输入配置缺失、请求组装失败、正常结果字段缺失或类型错误、`agent_id` 不唯一、远端调用失败、解析失败和续接失败必须形成可诊断的失败表面。
+- 取消继续遵守 `QueryStreamObserver.isCancelled()` 的协作式取消语义；Adapter 停止消费本次结果，并在远端协议支持时尽力通知工作流终止对应执行。
+- 工作流调用、结果、中断、续接和失败必须关联 runtime 可提供的 tenant、conversation、request、trace 和 correlation 语义；日志和错误信息不得无控制地记录完整用户输入、`messages`、工作流响应或用户交互响应。
+
 #### 5.1.6 错误、取消与可观测性结果
 
 | 场景 | 事实要求 |
@@ -140,6 +236,10 @@ FEAT-002 定义 `agent-runtime` 当前版本接入异构 Agent 框架的事实�
 | 流关闭但无 terminal event | 必须映射为 `INTERRUPTED` 或失败，不能映射为 completed。 |
 | cancel requested | 必须停止 runtime 对该执行流的继续消费，并尽力通知底层框架或远端请求。 |
 | trajectory fields | Adapter 发出的轨迹必须带有 runtime stamped context/task/agent/correlation 语义；敏感字段遵守 DFX 掩码规则。 |
+| 意图工作流输入或配置非法 | 必须在远端调用前形成可诊断失败，并指出失败发生在配置读取或请求组装阶段。 |
+| 意图工作流正常结果字段非法 | 字段缺失、类型错误或 `agent_id` 不唯一时必须失败，不得输出可被误认为完整结果的部分数据。 |
+| 意图工作流交互信息不完整 | 工作流表示需要用户输入但未提供用户提示或原执行续接关联时，必须形成可诊断失败或通用技术中断，不得虚构业务问题。 |
+| 意图工作流续接失败 | 续接信息缺失、失效或远端续接请求失败时必须保留可区分的续接失败阶段，不得以新执行替代原执行。 |
 
 ### 5.2 显式边界与不承诺项
 
@@ -156,6 +256,12 @@ FEAT-002 定义 `agent-runtime` 当前版本接入异构 Agent 框架的事实�
 | Python / Node.js 原生 sidecar | 不承诺直接通过进程内 SDK 或 sidecar 协议接入非 Java Agent；应使用 Versatile 或远程 A2A Agent。 |
 | MCP 作为 Agent adapter | MCP 是工具服务协议，不是本特性的异构智能体框架 adapter。若智能体框架自身具备调用模型或调用 MCP 服务的能力，该能力由框架或智能体开发者自治，agent-runtime 异构适配不做显式承诺。 |
 | 客户端 facade 替代 Versatile | FEAT-006 的标准 agent-client facade 面向业务应用侧客户端调用；Versatile adapter 面向代理远端 Agent 服务，二者不得互相替代事实边界。 |
+| 意图工作流部署与发布 | 一层、二层工作流的独立部署、runtime 实例配置、标准服务入口和 Agent Card 由部署与集成流程完成；同一 adapter 实现只适配当前实例配置的一个工作流。 |
+| 意图工作流输入输出职责 | 调用方按照三字段输入契约提供请求，Versatile 意图识别工作流按照三字段正常结果和显式用户交互信号契约返回执行事实；未匹配、需要澄清、匹配成功及候选目标选择由工作流表达，Adapter 只校验、转换和归一工作流已经返回的事实。 |
+| 意图工作流业务匹配与兜底 | Adapter 不负责解释意图、选择候选 `agent_id` 或生成业务失败兜底；相关判断由意图识别工作流或其调用方完成。 |
+| 结构化结果后续消费 | Adapter 返回机器可读的 `response_content`、`intent_id` 和唯一 `agent_id`；Agent Card 查询、实例路由及下游 Agent 调用由对应注册发现、路由和远程调用特性负责。 |
+| 意图工作流用户交互职责 | Adapter 负责原生交互信号转换和 Versatile 续接请求适配；Task 状态、同 Task 续接和交互轮次由 FEAT-008 约束，客户端消息格式和访问校验由 FEAT-001 约束，用户响应的业务有效性由产生交互信号的工作流判断。 |
+| Versatile 意图工作流原生协议 | 原生交互事件、字段路径、恢复请求格式和具体配置项由 L2 设计在既有 `openjiuwen.service.versatile.*` 体系内明确，并满足本特性行为契约。 |
 
 ## 6. 对下游设计与实现的约束
 
@@ -167,7 +273,24 @@ FEAT-002 定义 `agent-runtime` 当前版本接入异构 Agent 框架的事实�
 - AgentScope adapter 必须覆盖本地 ReAct/Harness 的正常完成、失败终态、无业务终态断流、暂停恢复和取消边界；当前本地 API 没有稳定原生错误 code 时不要求 code 保留测试。远程 SSE、PROGRESS、Memory/Checkpoint 不得在未实现前写入 guide 作为当前承诺能力。
 - 多 Handler 注册只能作为兼容降级路径处理；任何同实例多 Agent 路由设计必须先更新本特性或新增 version-scope 特性。
 - 若未来要支持 Python/Node sidecar、AgentScope Workflow、AgentScope 远程 SSE/PROGRESS、强制取消、多 Agent 路由，或由 runtime 统一治理框架 hook/tool/skill/cache，必须先更新当前版本事实要求，再进入 L2 和实现。
+- Versatile 意图识别工作流的 L2 设计必须复用 `VersatileAgentHandler`、`AgentHandler`、`ServeRequest`、`QueryChunk` 和既有 `openjiuwen.service.versatile.*` 配置体系，不得另建职责重复的公开 Handler、执行函数、结果类型或中断类型。
+- L2 设计必须明确 `query`、`intents`、`messages` 的组装规则，以及 `messages` 从 `ServeRequest.messages` 提取 `role`、`content` 的映射规则；开发者指南必须说明消息权限、最大条数、长度、编码、截断和敏感信息处理。
+- L2 设计必须明确三字段正常结果在既有 `QueryChunk` 数据中的机器可读承载方式、显式用户交互信号识别规则和原工作流续接请求映射；具体原生字段路径和配置项名称不得上升为新的公开 Runtime SPI。
+- 意图工作流输入输出测试必须覆盖一层和二层使用同一份用户本轮原始输入、一层 `response_content` 作为补充 `assistant` 消息进入二层 `messages` 且不替代二层 `query`、重新分类调用、数组读取与序列化、空数组、非法元素、完整三字段结果、未匹配、需要澄清、字段缺失、类型错误和多目标 `agent_id`。
+- 意图工作流中断续接测试必须覆盖显式交互信号到 `QueryChunk(TYPE_INTERRUPT)` 的转换、同 Task 用户输入到 Versatile 续接请求的映射、续接后再次中断、续接信息不可用、远端续接失败，以及无 terminal event 的异常断流不得伪造用户交互请求；Task 投影和交互轮次按照 FEAT-008 验证。
+- 意图工作流失败与可观测测试必须覆盖远端 HTTP/SSE 错误、超时、输入组装失败、结果解析失败、协作式取消、敏感字段保护及调用、中断、续接的 trace/correlation 关联。
 
 ## 7. 关联文档
 
 - `architecture/L2-Low-Level-Design/agent-runtime/FEAT-002-heterogeneous-agent-framework-compatibility.md`
+- `../spring-ai-ascend/architecture/L0-Top-Level-Design/boundaries.md`
+- `../spring-ai-ascend/architecture/L0-Top-Level-Design/glossary.md`
+- `../spring-ai-ascend/architecture/L1-High-Level-Design/agent-runtime/README.md`
+- `../spring-ai-ascend/architecture/L1-High-Level-Design/agent-runtime/logical.md`
+- `../spring-ai-ascend/architecture/L1-High-Level-Design/agent-runtime/process.md`
+- `../spring-ai-ascend/architecture/L1-High-Level-Design/agent-runtime/scenarios.md`
+- `../spring-ai-ascend/architecture/L1-High-Level-Design/agent-runtime/spi-appendix.md`
+- `../spring-ai-ascend/version-scope/FEAT-001-standardized-agent-service-entrypoint.md`
+- `../spring-ai-ascend/version-scope/FEAT-008-user-interaction-interrupt-and-response.md`
+- `../spring-ai-ascend/version-scope/Feat-015-agent-card-registration-and-discovery.md`
+- `../spring-ai-ascend/version-scope/DFX-001-trajectory-observability.md`
