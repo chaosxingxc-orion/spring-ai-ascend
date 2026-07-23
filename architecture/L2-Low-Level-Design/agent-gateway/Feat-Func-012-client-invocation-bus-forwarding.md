@@ -855,10 +855,28 @@ client 联调主路径配合：与 011 相同的 A2A 创建组包；总线关联
 | --- | --- | --- |
 | AC-013-1 | **同意** | 2026-07-23 / 丁勇 |
 | AC-013-2 | **同意**（信封权威必填与失败码以 FEAT-013 合入 L2 为准） | 2026-07-23 / 丁勇 |
-| AC-013-3 | **待对齐**：回填原文「同意 = client 关联键」；与 §4.10 **已冻策略 B**（Gateway 自生成、client 不上送）冲突。正式口径待与丁勇确认后定稿（倾向：Gateway 自生成，可对齐内部 `requestId`） | 待确认 |
+| AC-013-3 | **待对齐（请丁勇再确认）**：回填原文「同意 = client 关联键」；与 §4.10 **已冻策略 B** 冲突。详见下方澄清说明 | 待确认 |
 | AC-013-4 | **小载荷走 `payload`（inline），大载荷走 `payloadRef`**（回填用语 `inlinePayload` 对齐本文 `payload`） | 2026-07-23 / 丁勇 |
 | AC-013-5 | **同意** | 2026-07-23 / 丁勇 |
 | AC-013-6 | **确认**（本表不要求新开功能） | 2026-07-23 / 丁勇 |
+
+#### 4.11.3 AC-013-3 澄清说明（发丁勇再确认）
+
+**业务场景：** path=bus 创建时，Gateway 发布 `CLIENT_INVOCATION_REQUESTED` 后须在接受/响应窗口内匹配回程投影并折成五态。请求–投影配对靠信封 `correlationId`。该键 **不是** G4 创建幂等键（`params.message.messageId`），也 **不是** Bus 投递去重 `messageId`（如 `gw-`+UUID）。
+
+**各方现状：**
+
+| 来源 | 结论 |
+| --- | --- |
+| 丁勇回填（2026-07-23） | 「同意 = **client 关联键**」 |
+| §4.10（晓娜已冻） | **策略 B**：client **不上送**关联键；Gateway **自生成** `correlationId` 写入信封与等待窗口；对 client 不可见 |
+| FEAT-013 as-built 时序 | `correlationId = requestId`（Gateway 侧），与策略 B 更接近 |
+| 本文倾向定稿 | 按策略 B；待丁勇书面同意后改「待对齐」为冻结 |
+
+**请丁勇确认（同意 / 不同意+反提案）：**
+
+> 正式 Gateway 路径：`correlationId` 由 **Gateway 自生成**（可等于内部 `requestId`）；**不要求** client 上送关联键；投影侧 **原样回传**该字段即可。  
+> 若同意，上次「client 关联键」按问卷旧默认处理，正式稿 AC-013-3 改为策略 B。
 
 ---
 
@@ -1079,11 +1097,37 @@ sequenceDiagram
 
 | # | 结论 | 日期 / 回填人 |
 | --- | --- | --- |
-| AC-S3-013-1 | **待澄清**：回填提及新增 `A2A_CALL_INPUT_REQUIRED` / `INVOCATION_INPUT_REQUIRED`；未写明是否「含 S4」、是否仍承认 G-S3-013-1～5（尤其出站仍为 `CLIENT_INVOCATION_REQUESTED`、是否因 S4 新增出站枚举）。合入前须确认：二者为**入站投影**还是改出站；枚举合入状态 / PR | 待确认 |
+| AC-S3-013-1 | **待澄清（请丁勇再确认）**：回填提及新增 `A2A_CALL_INPUT_REQUIRED` / `INVOCATION_INPUT_REQUIRED`；未答完 G-S3-013-1～5 /「含 S4」。详见下方澄清说明 | 待确认 |
 | AC-S3-013-2 | **同意**：续跑 `correlationId` 可与当次请求 id 相同；**不得**替代 payload 内 `taskId` | 2026-07-23 / 丁勇 |
 | AC-S3-013-3 | **同意**（默认否：不为续跑 / continueInput **单独**增出站事件枚举） | 2026-07-23 / 丁勇 |
 
-> **注：** AC-S3-013-3 与 AC-S3-013-1 待澄清项不矛盾的前提是：`*_INPUT_REQUIRED` 若落地，属**投影/入站**补全，而非「为续跑另开出站枚举」。
+#### 5.9.1.1 AC-S3-013-1 澄清说明（发丁勇再确认）
+
+**问卷原问（G-S3-013-1～5，须含 S4）：**
+
+1. 工具续跑（S3）与 continueInput（S4）**出站**均为 `eventType = CLIENT_INVOCATION_REQUESTED`（不另开 Cancel/Query/Subscribe/RESUME）
+2. 测具 `RUN_RESUME` 映射到上述事件族，与正式路径一致
+3. 续跑正文在 `payload`/`payloadRef`，**`taskId` 在业务 payload 内**，不用 `correlationId` 替代
+4. 两跳 produce/consume SPI 与 S2 创建相同
+5. **不要求**因续跑/S4 再为**出站**新增事件类型
+
+期望输出：写「同意（含 S4）」或指出差异（附 L2 节/枚举名）。
+
+**丁勇回填原文：**「新增了 `A2A_CALL_INPUT_REQUIRED` 和 `INVOCATION_INPUT_REQUIRED`」——句子未完，未写「含 S4」，未逐条表态 G-1～5。
+
+**012 侧临时理解（供核对，非正式定论）：**
+
+- 两事件名更像 **入站投影**（runtime→Gateway，表达 Task 进入 `INPUT_REQUIRED`），属创建回程「等待输入」，以便后续 S3/S4；**不等于**把续跑出站改成新事件
+- 已同意的 AC-S3-013-3（不为续跑单独增出站枚举）与「仅入站补 `*_INPUT_REQUIRED`」可并存
+- 当前 `AgentBusEventType` as-built **尚未见**上述两枚举名；本文对 `INPUT_REQUIRED` 仍保留「若有 / 若 017 产出」口子（§4.5 / §4.6）
+
+**请丁勇逐条回复：**
+
+1. `INVOCATION_INPUT_REQUIRED` / `A2A_CALL_INPUT_REQUIRED` 是否仅为 **入站投影**（不是续跑出站）？枚举是否已合入 / 在哪个 PR 或分支？
+2. S3 + **S4（continueInput）** 出站是否仍固定 **`CLIENT_INVOCATION_REQUESTED`**？
+3. G-S3-013-1～5 是否整体 **同意（请写明「含 S4」）**？若有差异请单列。
+
+> **注：** AC-S3-013-3 与本条不矛盾的前提是：`*_INPUT_REQUIRED` 若落地，属**投影/入站**补全，而非「为续跑另开出站枚举」。
 
 ---
 
