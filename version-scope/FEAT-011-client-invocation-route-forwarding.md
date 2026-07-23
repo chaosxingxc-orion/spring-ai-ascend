@@ -1,12 +1,13 @@
 ---
-version: 0715
+scope: v0730
 module: agent-bus
 feature_type: functional
 feature_id: FEAT-011
 status: active
+updated: 2026-07-21
 ---
 
-# agent-gateway 组件客户端调用路由转发特性文档
+# 网关组件客户端调用路由转发
 
 ## 1. 特性定位
 
@@ -34,7 +35,7 @@ FEAT-011 定义 `agent-gateway` 当前版本作为客户端统一 A2A 调用路�
 | 客户端入口治理 | MUST | Gateway 必须处理认证鉴权、租户解析、基础参数校验、幂等和审计。 |
 | agentId 路由 | MUST | Gateway 必须支持按明确 agentId 查找 routeHandle 并转发。 |
 | routeHandle 抽象 | MUST | routeHandle 必须是受治理路由引用，不得向客户端暴露物理 endpoint。 |
-| 统一 A2A 封装转发 | MUST | Gateway 必须以统一 A2A 兼容请求表面承接 `SendMessage`、`SendStreamingMessage`、`GetTask`、`CancelTask` 和 `SubscribeToTask` 等语义，并按 `FEAT-001` 的标准 Agent 服务入口语义转发；不得把 invoke 与 stream 作为互相独立的客户端入口协议。 |
+| 统一 A2A 封装转发 | MUST | Gateway 必须以统一 A2A 兼容请求表面承接 `SendMessage`、`SendStreamingMessage`、`GetTask` 等语义，并按 `FEAT-001` 的标准 Agent 服务入口语义转发；不得把 invoke 与 stream 作为互相独立的客户端入口协议。 |
 | SSE 桥接 | MUST | Gateway 必须支持对目标服务 A2A SSE 的桥接，但不得生成 Agent token 内容，不得缓存 token 流，也不得把流式观察变成独立于 A2A Task 的第二套接口。 |
 | 查询转发 | MUST | 查询长任务由 Client 与 runtime 配合完成：Client 必须携带服务端 `taskId` 发起查询，Gateway 只定位 Task owner 并转发到 runtime 标准查询语义；`clientInvocationId` 不得替代 `taskId`。 |
 | 取消转发 | MUST | 取消任务由 Client 与 runtime 配合完成：Client 必须携带服务端 `taskId` 发起取消，Gateway 只把取消请求映射到 runtime 标准取消语义，Task 状态由 runtime 决定。 |
@@ -55,8 +56,6 @@ FEAT-011 定义 `agent-gateway` 当前版本作为客户端统一 A2A 调用路�
 | 阻塞调用入口 | client -> Gateway | `SendMessage` 语义；Gateway 基于认证主体和策略解析 tenant，并归一 trace、correlation、幂等键和请求上下文。 | 返回已完成响应、已接受 Task 引用/快照、明确失败，或未确认创建时的 `UNKNOWN`。 | Gateway 已获得 runtime `taskId` 后不得再把该调用报告为 `UNKNOWN`。 |
 | 流式调用入口 | client -> Gateway | `SendStreamingMessage` 语义；client 通过同一 Gateway A2A facade 建立 SSE 连接。 | Gateway 桥接标准服务流，直到 Task 终态、中断、下游流错误或 client 连接关闭。 | Gateway 不生成 token、不缓存 token 流、不定义第二套 stream 协议。 |
 | Task 查询入口 | client -> Gateway | `GetTask` 语义；必须基于 runtime 生成的 `taskId`。 | 返回 A2A 兼容 Task 快照或确定错误。 | `clientInvocationId` 不得替代 `taskId`。 |
-| Task 取消入口 | client -> Gateway | `CancelTask` 语义；必须基于 runtime 生成的 `taskId`。 | 返回取消请求结果、Task 快照或确定错误。 | Gateway 不承诺强制中断底层模型调用。 |
-| Task 重订阅入口 | client -> Gateway | `SubscribeToTask` 语义；必须基于 runtime 生成的 `taskId`。 | Gateway 重新桥接该 Task 的标准 SSE 流。 | 找不到 Task 时不得隐式创建新 Task。 |
 | UNKNOWN 恢复入口 | client -> Gateway | client 使用同一 `clientInvocationId`、同一 `idempotencyKey` 重试原始创建类调用。 | 若原 Task 已创建，返回同一 `taskId` 或当前 Task 快照；若未创建，则按新投递或明确拒绝处理。 | 当前版本不新增 `ResolveInvocation` 之类 Gateway 私有查询接口。 |
 
 ## 4. 场景与用户旅程
@@ -66,7 +65,6 @@ FEAT-011 定义 `agent-gateway` 当前版本作为客户端统一 A2A 调用路�
 | 按 agentId 调用 Agent | 目标 Agent 已注册并可访问 | client 提交 agentId 调用 | Gateway 校验权限，选择 routeHandle，并按 `FEAT-001` 标准 Agent 服务入口语义转发到目标 runtime。 |
 | 流式调用桥接 | 目标支持 A2A SSE / streaming，client 连接仍保持 | client 通过同一 A2A facade 发起 `SendStreamingMessage` | Gateway 转发调用并在目标返回可订阅流后桥接 A2A SSE；实时 token 内容由目标服务产生，Gateway 不生成、不缓存 token 流。 |
 | 查询长任务 | client 已从同步退化、流式接受或重试恢复中获得服务端 `taskId` | client 通过 Gateway facade 发起 `GetTask(taskId)`；runtime 作为 Task owner 提供任务快照 | Gateway 校验租户与调用关联，定位 Task owner，并把查询转发到 runtime；runtime 返回 A2A 兼容 Task 快照。 |
-| 取消任务 | client 已获得服务端 `taskId`，且业务允许请求取消 | client 通过 Gateway facade 发起 `CancelTask(taskId)`；runtime 作为 Task owner 判断是否可取消 | Gateway 校验租户与调用关联，定位 Task owner，并把取消请求转发到 runtime；runtime 按自身 Task 生命周期决定取消结果并返回。 |
 | UNKNOWN 后恢复 | Gateway 无法确认 runtime 是否已创建 Task，且 client 尚未获得服务端 `taskId` | client 使用同一 `clientInvocationId` 和同一 `idempotencyKey` 重试原始创建类调用 | Gateway 尽力恢复或复用原投递结果；若 runtime 已创建 Task，则代理返回同一 `taskId` 或当前 Task 快照；若未创建，则按新投递或明确拒绝处理。 |
 | 路由失败 | 无权限、无 routeHandle、目标不可用或下游返回确定错误 | client 发起调用、查询、取消或流式请求 | Gateway 按失败类型给出相应返回或透传下游错误即可；Gateway 只是路由转发模块，不伪造 Task，也不作为失败结果的最终控制模块。 |
 
@@ -90,9 +88,9 @@ FEAT-011 定义 `agent-gateway` 当前版本作为客户端统一 A2A 调用路�
 #### 5.1.2 转发与桥接语义
 
 - Gateway 转发必须遵守 `FEAT-001` 定义的 runtime 标准 Agent 服务入口语义；受控部署 facade 只能作为适配或代理，不得形成私有执行协议。
-- 阻塞调用、流式调用、查询、取消和重订阅都必须是同一 A2A 兼容 facade 下的语义分支，不得拆成互相独立、状态可能漂移的客户端入口协议。
-- SSE bridge 只能在 client 连接存活期间桥接服务端流，不生成 Agent token、不缓存 token 流、不修改 Task 终态；client 断开后 Gateway 应释放桥接连接，后续恢复通过 `SubscribeToTask(taskId)` 或 UNKNOWN 恢复语义完成。
-- 查询、取消和重订阅必须由 client 基于服务端 `taskId` 发起，并由 runtime 按 Task 生命周期处理；Gateway facade 只承接入口校验、定位和转发。
+- 阻塞调用、流式调用、查询都必须是同一 A2A 兼容 facade 下的语义分支，不得拆成互相独立、状态可能漂移的客户端入口协议。
+- SSE bridge 只能在 client 连接存活期间桥接服务端流，不生成 Agent token、不缓存 token 流、不修改 Task 终态；client 断开后 Gateway 应释放桥接连接，后续恢复通过 UNKNOWN 恢复语义完成。
+- 查询必须由 client 基于服务端 `taskId` 发起，并由 runtime 按 Task 生命周期处理；Gateway facade 只承接入口校验、定位和转发。
 - `clientInvocationId` 是 client 产生并发送给 Gateway 的弱关联句柄，只在 `UNKNOWN` 且 client 尚未获得 `taskId` 时用于恢复关联；一旦 Gateway 已向 client 返回 runtime `taskId`，后续 Task 操作必须直接使用 `taskId`。
 
 #### 5.1.3 错误、状态与可观测结果
@@ -133,6 +131,6 @@ FEAT-011 定义 `agent-gateway` 当前版本作为客户端统一 A2A 调用路�
 ## 7. 关联文档
 
 - `agent-sdk/Docs/agent-gateway组件客户端调用路由转发特性设计.md`
-- `Docs/FEAT_Design/FEAT-006-agent-client-standard-agent-service-invocation.md`
-- `JAVA local working/version-scope/FEAT-013-client-invocation-event-forwarding.md`
-- `Docs/FEAT_Design/FEAT-001-standardized-agent-service-entrypoint.md`
+- `version-scope/FEAT-006-standard-agent-client-invocation.md`
+- `version-scope/FEAT-013-client-invocation-event-forwarding.md`
+- `version-scope/FEAT-001-standardized-agent-service-entrypoint.md`
