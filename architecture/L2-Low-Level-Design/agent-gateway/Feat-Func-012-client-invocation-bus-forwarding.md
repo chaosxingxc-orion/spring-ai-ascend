@@ -81,11 +81,11 @@ BUS 与 DIRECT **并行**：同一 A2A 入口，**不同投递面**。DIRECT 经
 
 730 按与 FEAT-011 **同一公式**收口：
 
-1. **对齐 agent-client**：创建（S2）；端侧工具续跑（S3）；continueInput（S4，可选——client 不做则不对 client 联调必验）。  
+1. **对齐 agent-client**：创建（S2）；端侧工具续跑（S3）；continueInput（S4，可选——client 不交付则不对 client 必验）。  
 2. **Gateway 自做**：入口治理、选路（含失败不入队）、控制事件生产与投影折叠 / `STREAM_READY` 后 SSE。  
 3. **730 不交付**：GetTask / CancelTask / SubscribeToTask / UNKNOWN 同键恢复（与 011 一致；入口若可达则禁止假成功）。
 
-对 client 联调主轴：S2/S3（及可选 S4）。端到端 Bus 另依赖 FEAT-013 / FEAT-017——**FEAT-017 未就绪前不得宣称「总线端到端联调完成」**。  
+对 client 验收主轴：S2/S3（及可选 S4）。端到端 Bus 另依赖 FEAT-013 / FEAT-017——**FEAT-017 未就绪前不得宣称 BUS 路径端到端可用**。  
 **730 交付** = IN-1～IN-9；**730 不交付** = IN-10、IN-11。本文不展开：Agent 执行与 Task 权威；013 底座实现细节；014 服务间 A2A。
 
 #### 0.4.2 做范围内（In Scope）
@@ -98,7 +98,7 @@ BUS 与 DIRECT **并行**：同一 A2A 入口，**不同投递面**。DIRECT 经
 | IN-4 | 流式 · 总线控制面 + 点对点 SSE（对齐 client 创建 / S2） | 是 | 控制面走 Bus；`STREAM_READY` 后桥接；**token 不进 Bus** |
 | IN-5 | 选路失败时明确失败且不入队 | 是 | 不伪造成功投递、不 publish 创建类控制事件 |
 | IN-6 | 端侧工具结果续跑（对齐 client / S3） | 是 | wire 仍带原 `taskId`；控制/投影经 Bus；Gateway 不执行工具 |
-| IN-7 | continueInput（对齐 client / S4） | 是（可选承接） | wire 对齐续跑；client 不交付则不对 client 联调必验 |
+| IN-7 | continueInput（对齐 client / S4） | 是（可选承接） | wire 对齐续跑；client 不交付则不对 client 必验 |
 | IN-8 | 统一 A2A 入口形态 | 是 | 与 011 同一 facade；路径切换对 client 不可见 |
 | IN-9 | 控制事件生产与投影消费（Gateway 侧） | 是 | 信封对齐 FEAT-013；**回投影由 FEAT-017 生产，Gateway 消费** |
 | IN-10 | 查询 / 取消 / 重订阅 · 经总线 | **否** | 长期可属本特性；**730 不实现、不验收** |
@@ -148,8 +148,8 @@ BUS 与 DIRECT **并行**：同一 A2A 入口，**不同投递面**。DIRECT 经
 | 首包 `agentId` | **对齐 FEAT-011**：可缺省 → 默认 Agent；显式则指定（与 version-scope 字面冲突时，以 FEAT-011 口径 + 本文为准） |
 | 创建关联键 | 总线路径须有 `correlationId`（§4.10：Gateway 自生成）；非 011 直连所强依赖；client **不上送** |
 | 事件名与信封 | 对齐 FEAT-013；正式实现不依赖临时 gateway 测具 |
-| FEAT-017 | 回投影生产在对端；**未就绪前不得宣称总线端到端联调完成**（软阻塞） |
-| Broker | 不拍死唯一 MQ；可配置；联调拓扑与 013 一致即可 |
+| FEAT-017 | 回投影生产在对端；**未就绪前不得宣称 BUS 路径端到端可用**（软阻塞） |
+| Broker | 不拍死唯一 MQ；可配置；部署拓扑与 FEAT-013 一致即可 |
 | 已有 `taskId` 后 | **禁止**再向 client 报告创建类「未知」 |
 | 等待窗口存储 | 730 默认同进程内存（类比 011 粘滞/幂等）；Gateway **重启后窗口丢失**，进行中调用可能对 client 表现为未知/失败，**不**做跨实例共享等待表（多实例属后续） |
 | 投影消费就绪 | Gateway **须在 I-04 入站消费者就绪后**才接受会触发 publish 的创建/续跑；否则明确失败或拒绝服务，避免「已入队却无人匹配投影」 |
@@ -165,7 +165,7 @@ BUS 与 DIRECT **并行**：同一 A2A 入口，**不同投递面**。DIRECT 经
 | SC-5 | 工具续跑 / continueInput 在同 Task 语义下经总线透传；关联失败明确报错（不改成新建成功） |
 | SC-6 | Gateway / Bus 不拥有 Task 权威终态；不执行 Agent；不做注册上架 |
 | SC-7 | 对 client 仍为统一 A2A；不感知 DIRECT / BUS |
-| SC-8 | 宣称「总线路径联调完成」前，FEAT-017 消费与投影路径须就绪（或书面豁免） |
+| SC-8 | 宣称 BUS 路径端到端可用前，FEAT-017 消费与投影路径须就绪（或书面豁免） |
 | SC-9 | 730 不交付的 Get / Cancel / Subscribe / UNKNOWN 恢复：不作为本版本验收项；若入口可达则禁止假成功 |
 | SC-10 | 配置与部署约束（§1.5）满足：path-mode 对 client 不可见；I-04 双窗口语义正确；入站必启；SSE release 不可关；正式 Gateway 不绑测具（详见 AC-CFG / **T-CFG-***） |
 | SC-11 | 投影消费幂等与终态闭合：重复投影不二次回传 client；迟到投影不降级已折叠终态（§4.6） |
@@ -317,7 +317,7 @@ agent-gateway/
 
 本节固定 **Gateway 侧可交付、可验收**的配置语义与部署边界（不是「可改可不改的猜测」）。Broker / topic / outbox / Relay 进程键名以 **FEAT-013** 为准，本文不重复拍死；runtime 消费与回投影生产配置归 **FEAT-017**。
 
-**不新增独立场景编号：** 与 FEAT-011 的 S1～S9 对齐；本节为**横切验收**——约束见下，用例为 **T-CFG-***，可在 S1～S5 联调中一并覆盖。行为细节仍落在各场景章。
+**不新增独立场景编号：** 与 FEAT-011 的 S1～S9 对齐；本节为**横切验收**——约束见下，用例为 **T-CFG-***，可在 S1～S5 验收中一并覆盖。行为细节仍落在各场景章。
 
 #### 1.5.1 配置约束
 
@@ -344,7 +344,7 @@ openjiuwen.gateway:
 | response-wait-window | **I-04 入站（已接受之后）**：等最终响应 / 终态 / `STREAM_READY`；超时且已有 `taskId` → 「已接受」，**禁止**再报创建「未知」 |
 | I-04 入站订阅 | 必须启用投影消费（与 FEAT-013 响应消费口对齐）；仅配置出站不足以跑通同步/流式 |
 | SSE release | client 断开必须释放 I-06 桥接；该语义不因配置关闭 |
-| Broker / topic / Relay | **不**在本文拍死；联调拓扑与 FEAT-013 一致（含两跳转发）；Gateway 经 SDK produce/consume，**不**要求 Gateway→Relay 的 HTTP 边 |
+| Broker / topic / Relay | **不**在本文拍死；部署拓扑与 FEAT-013 一致（含两跳转发）；Gateway 经 SDK produce/consume，**不**要求 Gateway→Relay 的 HTTP 边 |
 
 #### 1.5.2 部署依赖与边界
 
@@ -354,7 +354,7 @@ openjiuwen.gateway:
 | 进程形态 | 按可独立部署设计；允许同进程或分进程；实际副本数由部署决定（非 client / 业务报文选择） |
 | 网络（Gateway） | 须能访问 **RDC**（I-02）与 **Broker**（I-04 出站 produce + 入站 consume）；流式时尚须能访问目标 **runtime SSE**（I-06）。Event Bus Relay 为对端进程，不要求 Gateway 直连其管理口 |
 | Event Bus / Broker | 本路径运行**依赖** Broker 与 Event Bus 转发能力（FEAT-013）；缺则 BUS 路径不可用 |
-| FEAT-017（I-05） | 端到端联调依赖对端消费与回投影就绪（§0.6 软阻塞）；Gateway 配置不替代 017 |
+| FEAT-017（I-05） | 端到端可用依赖对端消费与回投影就绪（§0.6 软阻塞）；Gateway 配置不替代 017 |
 | Task 权威 | 仍在 runtime；Gateway / Bus 不写 Task 权威库 |
 | 投影消费者就绪 | 入站订阅就绪前，不接受会 I-04 出站的业务调用（或明确失败）；见 §0.6 |
 | 等待窗口持久性 | 730 单机内存；重启丢失；**不**要求跨 Gateway 副本共享（见 §0.6） |
@@ -372,7 +372,7 @@ openjiuwen.gateway:
 | AC-CFG-5 | I-04 入站必启 | 仅出站、无投影消费时同步路径不可假成功；须能消费投影 | S2、§1.4 |
 | AC-CFG-6 | SSE release 不可关 | client 断开后释放 I-06；配置不得关闭该语义 | S2 流式、SC-2 |
 | AC-CFG-7 | 正式 Gateway 独立于测具 | 交付制品不绑死 Event Bus `gateway` profile 临时实现 | §1.5.2、SC-8 |
-| AC-CFG-8 | 网络边界可达 | 联调环境 Gateway 可达 RDC、Broker；流式可达 runtime SSE | S2 流式 |
+| AC-CFG-8 | 网络边界可达 | 验收环境 Gateway 可达 RDC、Broker；流式可达 runtime SSE | S2 流式 |
 | AC-CFG-9 | 投影消费者就绪 | 入站未就绪时不得伪造成功入队；须失败或不可用 | §0.6、S2 |
 | AC-CFG-10 | 等待窗口单机限制 | 文档/运行说明标明 730 内存窗口、重启丢失 | §0.6 |
 
@@ -388,10 +388,10 @@ openjiuwen.gateway:
 | T-CFG-5b | path=bus；出站+入站均启用；017 或投影桩可用 | 同步创建 | 可折叠为五态之一 | AC-CFG-5 |
 | T-CFG-6 | path=bus；流式已建 I-06 | client 断开 SSE | 桥接 release；配置无法关闭该语义 | AC-CFG-6 |
 | T-CFG-7 | 对照交付制品与 Event Bus 测具 | 检查模块边界 | 正式 Gateway **不**绑死 `gateway` profile 临时实现 | AC-CFG-7 |
-| T-CFG-8 | 联调拓扑 | Gateway 访问 RDC、Broker；流式再访问 runtime SSE | 可达；不可达时失败明确，不伪造成功 | AC-CFG-8 |
+| T-CFG-8 | 部署拓扑 | Gateway 访问 RDC、Broker；流式再访问 runtime SSE | 可达；不可达时失败明确，不伪造成功 | AC-CFG-8 |
 | T-CFG-9 | path=bus；I-04 入站未就绪 | 同步创建 | 明确失败/不可用；不得报已入队成功 | AC-CFG-9 |
 
-**边界提醒：** Broker / topic / 两跳键名以 FEAT-013 为准；投影生产归 FEAT-017；S6～S9 事件若底座已有，**012 730 不验收**。端到端宣称完成前 FEAT-017（I-05）须就绪或书面豁免（SC-8）。
+**边界提醒：** Broker / topic / 两跳键名以 FEAT-013 为准；投影生产归 FEAT-017；S6～S9 事件若底座已有，**012 730 不验收**。宣称 BUS 路径端到端可用前，FEAT-017（I-05）须就绪或书面豁免（SC-8）。
 
 SC-10 = AC-CFG-1～10 / T-CFG-1～9 均满足（本环境不验流式时可豁免 T-CFG-6 并注明原因；AC-CFG-10 以说明文档勾选即可）。
 
@@ -408,7 +408,7 @@ SC-10 = AC-CFG-1～10 / T-CFG-1～9 均满足（本环境不验流式时可豁�
 | S1 | 入口治理 | 730 交付（Gateway 自做） | 细则回链 011 §3；**附加：拒绝则禁止 I-04 出站（及后续入站）** |
 | S2 | 创建调用 | 730 交付（对齐 client 创建） | 同步：I-04 出站入队 + I-04 入站投影五态；流式：入站 `STREAM_READY` 后 I-06；**correlationId 由 Gateway 自生成**（§4.10）；端到端依赖 I-05（017） |
 | S3 | 端侧工具结果续跑 | 730 交付（对齐 client 续跑） | wire 仍带原 `taskId`；I-04 双向经 Bus；Gateway 不执行工具 |
-| S4 | continueInput | 730 交付（可选承接） | wire 对齐续跑；业务差量在 client；client 不交付则不对 client 联调必验 |
+| S4 | continueInput | 730 交付（可选承接） | wire 对齐续跑；业务差量在 client；client 不交付则不对 client 必验 |
 | S5 | 选路失败 | 730 交付（Gateway 自做） | 明确失败且 **无 I-04**（出站与入站皆无） |
 | S6 | 查询 Task | **730 不交付** | 经总线 GetTask；本版本不实现、不验收 |
 | S7 | 取消 Task | **730 不交付** | 经总线 Cancel；同上 |
@@ -448,10 +448,10 @@ SC-10 = AC-CFG-1～10 / T-CFG-1～9 均满足（本环境不验流式时可豁�
 1. FEAT-011 §0～§1、§3（治理）— 共享前提  
 2. 本文 §0～§1 — 总线差量骨架  
 3. §3（S1 附加）→ §4（S2 主路径）→ §5 / §6（续跑）→ §7（S5）→ §8（S6～S9 边界）  
-4. §4.9～§4.12、§5.9 — 跨特性联调契约（含 S4）  
+4. §4.9～§4.12、§5.9 — 跨特性契约（含 S4）  
 5. §1.5.3 — 横切 T-CFG-*（可与 S2 一并覆盖）  
 
-**推荐实现依赖顺序：** S1 拒绝不入队 → S2 同步五态 → S2 流式 `STREAM_READY`+SSE → S5 → S3/S4。配置与部署按 **§1.5.3 T-CFG-*** 验收（SC-10）。宣称总线路径端到端完成前，FEAT-017（I-05）须就绪或书面豁免；Gateway 单侧可用 013 底座 + 投影桩先验 I-04 与五态。
+**推荐实现依赖顺序：** S1 拒绝不入队 → S2 同步五态 → S2 流式 `STREAM_READY`+SSE → S5 → S3/S4。配置与部署按 **§1.5.3 T-CFG-*** 验收（SC-10）。宣称 BUS 路径端到端可用前，FEAT-017（I-05）须就绪或书面豁免；Gateway 单侧可用 013 底座 + 投影桩先验 I-04 与五态。
 
 ---
 
@@ -639,7 +639,7 @@ sequenceDiagram
 | I-06 | 仅流式且已 `STREAM_READY`；token 不经 I-04 |
 | I-03 | 本场景主路径**不用** |
 
-信封必填语义（字段名以 FEAT-013 为准，联调冻结）：`tenantId`、`eventType`、`messageId`、`correlationId`、`sourceServiceId`、`targetServiceId` / 路由引用、`payload` 或 `payloadRef`。权威租户来自治理可信上下文，**不采信** client 自报。
+信封必填语义（字段名以 FEAT-013 为准）：`tenantId`、`eventType`、`messageId`、`correlationId`、`sourceServiceId`、`targetServiceId` / 路由引用、`payload` 或 `payloadRef`。权威租户来自治理可信上下文，**不采信** client 自报。
 
 ### 4.6 判断逻辑
 
@@ -753,7 +753,7 @@ Event Bus 投递为 **at-least-once**。折叠表不得按「每个投影只到�
 | T-S2-B13 | 同步等待投影中 client 断开 HTTP | 创建 | 释放窗口；无 CANCEL 出站；G4 abort；无完整结果面强回传 |
 | T-S2-B14 | 已 complete 的成功创建 | 同键同文重试 | REPLAY；I-04 出站 **0** 次 |
 
-client 联调主路径配合：与 011 相同的 A2A 创建组包；总线关联键见 §4.10。端到端绿依赖 FEAT-017（或书面豁免 + 投影桩）。跨特性契约见 §4.9～§4.12。
+client 验收主路径：与 FEAT-011 相同的 A2A 创建组包；总线关联键见 §4.10。端到端可用依赖 FEAT-017（或书面豁免 + 投影桩）。跨特性契约见 §4.9～§4.12。
 
 ### 4.9 跨特性契约索引（创建路径）
 
@@ -840,7 +840,7 @@ client 联调主路径配合：与 011 相同的 A2A 创建组包；总线关联
 
 > **用途**：创建路径投影与消费映射；事件名以 FEAT-017 枚举为准。  
 > **前提**：FEAT-017 L2 + 本文 §4.3～§4.6。  
-> **就绪边界**：模块内存与真实 RocketMQ 中间链路已就绪；完整两跳 / payloadRef / `INPUT_REQUIRED` 端到端仍须跨特性联调（见 AC-017-6）。**不得**在 017 未就绪时宣称 BUS 端到端完成；Gateway 可用投影桩先行实现 I-04。
+> **依赖边界**：Gateway **不**实现 I-05；回投影由 FEAT-017 生产。**不得**在 017 未就绪时宣称 BUS 路径端到端可用；Gateway 可用投影桩先行实现 I-04 入站折叠。
 
 #### 4.12.1 Gateway 侧约定
 
@@ -860,10 +860,10 @@ client 联调主路径配合：与 011 相同的 A2A 创建组包；总线关联
 | --- | --- |
 | **AC-017-1** | 按 `SendMessage → onMessageSend`、`SendStreamingMessage → onMessageSendStream` 判别；只接受 FEAT-001 PascalCase method（见 §4.12.3 / FEAT-017 L2 §3.2、§4.2）。 |
 | **AC-017-2** | 事件名、taskId 与公共关联字段按 §4.12.3 表执行；`correlationId` 原样回传。 |
-| **AC-017-3** | 采用标准 A2A SSE：`streamRef` 是不透明的内部授权/定位引用，不是新 URL；I-06 物理解析装配在联调期闭合。 |
-| **AC-017-4** | `INPUT_REQUIRED`、`TERMINAL` 均按 Task 持久状态 revision 产生，730 应消费；agent-bus 已补齐 `INPUT_REQUIRED` 枚举、relay 与状态分类。 |
+| **AC-017-3** | 采用标准 A2A SSE：`streamRef` 是不透明的内部授权/定位引用，不是新 URL；Gateway 用 `taskId + streamRef` 完成内部定位后经 I-06 建标准 SSE。 |
+| **AC-017-4** | `INPUT_REQUIRED`、`TERMINAL` 均按 Task 持久状态 revision 产生，730 应消费；agent-bus 须具备对应枚举、relay 与状态分类。 |
 | **AC-017-5** | payloadRef 失败：确定非法 → REJECTED；正文非法 → FAILED；瞬时不可用 → RETRY（见 §4.12.3）。 |
-| **AC-017-6** | FEAT-017 模块内存与真实 RocketMQ 中间链路已就绪；完整两跳、payloadRef、`INPUT_REQUIRED` 仍须 FEAT-013/014 联调验证。 |
+| **AC-017-6** | 端到端 BUS 可用要求 FEAT-013 两跳转发与 FEAT-017 投影路径均就绪；Gateway 单侧可用投影桩先验 I-04。 |
 
 #### 4.12.3 创建映射与投影字段
 
@@ -878,15 +878,15 @@ client 联调主路径配合：与 011 相同的 A2A 创建组包；总线关联
 
 FEAT-017 对客户端来源请求产生如下逻辑投影；所有投影都原样携带请求的 `correlationId`，并交换 source/target 使其返回 Gateway：
 
-| 投影事件 | `taskId` | 关键字段/内容 | 实现边界 |
+| 投影事件 | `taskId` | 关键字段/内容 | 约束 |
 | --- | --- | --- | --- |
-| `INVOCATION_ACCEPTED` | 必填，必须是 runtime 创建或复用的真实 Task ID | `idempotencyResult=CREATED/REUSED` | 已实现 |
-| `INVOCATION_REJECTED` | 不得伪造 | `reason`、`retryable=false` | 已实现 |
-| `INVOCATION_FAILED` | 已知时携带，否则可空 | `errorCode`、`retryable` | 已实现 |
-| `INVOCATION_RESPONSE` | 必填 | 标准 A2A response 或 Task snapshot | 内部投影已实现；完整复杂对象经 agent-bus `payloadRef` 返回尚待跨特性联调闭合 |
-| `INVOCATION_STREAM_READY` | 必填 | `streamRef` | 已实现签发；Gateway 到标准 SSE 入口的解析/装配尚待 I-06 联调 |
-| `INVOCATION_INPUT_REQUIRED` | 必填 | `taskState`、持久 revision、Task snapshot/输入上下文 | FEAT-017 已产生逻辑投影；agent-bus 已补齐事件枚举、response relay 集合与 `InvocationResponseStatus.INPUT_REQUIRED` 映射 |
-| `INVOCATION_TERMINAL` | 必填 | terminal state、持久 revision、Task snapshot/结果 | 已实现逻辑投影和 agent-bus 事件类型 |
+| `INVOCATION_ACCEPTED` | 必填，必须是 runtime 创建或复用的真实 Task ID | `idempotencyResult=CREATED/REUSED` | — |
+| `INVOCATION_REJECTED` | 不得伪造 | `reason`、`retryable=false` | — |
+| `INVOCATION_FAILED` | 已知时携带，否则可空 | `errorCode`、`retryable` | — |
+| `INVOCATION_RESPONSE` | 必填 | 标准 A2A response 或 Task snapshot | 大正文可经 `payloadRef` |
+| `INVOCATION_STREAM_READY` | 必填 | `streamRef` | Gateway 凭此开 I-06；`streamRef` 非 URL |
+| `INVOCATION_INPUT_REQUIRED` | 必填 | `taskState`、持久 revision、Task snapshot/输入上下文 | agent-bus 须映射 `InvocationResponseStatus.INPUT_REQUIRED` |
+| `INVOCATION_TERMINAL` | 必填 | terminal state、持久 revision、Task snapshot/结果 | — |
 
 `streamRef` 不是 URL，也不编码 host、port、topic 或 partition。Gateway 应先用 `taskId + streamRef` 完成内部流定位/授权，再通过 I-06 建立标准 A2A SSE；SSE method 和帧格式不新增 FEAT-017 私有协议，继续复用 FEAT-011。FEAT-017 提供不透明引用的签发与校验，不另行定义专用 HTTP URL。
 
@@ -898,7 +898,7 @@ payloadRef 失败按是否已经形成确定结论分类：
 | 引用可取但正文无法解析或 method 不匹配 | `INVOCATION_FAILED(PAYLOAD_INVALID,retryable=false)` |
 | 引用服务暂时不可用、超时等瞬时故障 | `RETRY`，在形成稳定投影前不 ACK，也不伪造确定失败 |
 
-最低联调模块为 `common/agent-bus/{agent-bus-spi,agent-bus-sdk,agent-bus-testkit}` 与 `common/agent-runtime-ext-java/agent-service-bus-consumer`。启用前缀为 `openjiuwen.service.bus.consumer`，至少需要 `enabled=true`、target/consumer service identity、consumer tenant、request consumer、response outbox publisher、A2A `RequestHandler` 与 `TaskStore`；流式还需要 `stream-ref-secret`。执行方法见 `common/agent-runtime-ext-java/doc/agent-service-bus-consumer-integration-test-guide.md`。模块侧已通过内存联调和真实 RocketMQ 的 `*_deliver → FEAT-017 → *_resp_in` 往返测试。agent-bus 已闭合 `INPUT_REQUIRED` 的枚举与 relay/classify 静态契约；`*_req → *_deliver`、`*_resp_in → *_resp_out`、完整响应 payloadRef 以及 `INPUT_REQUIRED` 的完整两跳行为仍须跨特性联调验证。
+FEAT-017 消费与回投影依赖 agent-bus SPI/SDK（produce/consume、信封、投影分类）及 runtime 侧总线消费者配置；配置键名与装配细节以 FEAT-013 / FEAT-017 L2 为准，本文不展开。
 
 ---
 
@@ -955,7 +955,7 @@ sequenceDiagram
     GW-->>C: 明确失败（不 publish）
   else 可出站
     GW->>Bus: I-04 出站 eventType=CLIENT_INVOCATION_REQUESTED<br/>payload/MessageSendParams 含原 taskId<br/>信封带创建时路由引用（若有）
-    Note over Bus,RT: I-05 FEAT-017：continuation<br/>核对该 taskId，禁止降级新建
+    Note over Bus,RT: I-05 FEAT-017：continuation<br/>校验该 taskId，禁止降级新建
     RT-->>Bus: INVOCATION_* 投影
     Bus-->>GW: I-04 入站
     GW->>GW: 五态折叠（已有 taskId 不得报创建未知）
@@ -1056,7 +1056,7 @@ sequenceDiagram
 | # | 约定 |
 | --- | --- |
 | G-S3-013-1 | 续跑类出站（工具续跑 **与** continueInput）均为 **`eventType = CLIENT_INVOCATION_REQUESTED`**，**不**使用 Cancel/Query/Subscribe 事件 |
-| G-S3-013-2 | 测具若把 `RUN_RESUME` 映射到上述事件族，与正式 Gateway 一致 |
+| G-S3-013-2 | 正式出站事件与 FEAT-013 `RUN_RESUME` 语义对齐为 `CLIENT_INVOCATION_REQUESTED`（不得另开续跑出站枚举） |
 | G-S3-013-3 | A2A 续跑正文经 `payload`/`payloadRef` 携带；**`taskId` 在业务 payload 内**，不得用 `correlationId` 代替 |
 | G-S3-013-4 | 两跳 produce/consume SPI 与 S2 创建相同 |
 | G-S3-013-5 | **不要求** FEAT-013 新增事件类型或功能（含因 S4） |
@@ -1096,11 +1096,11 @@ sequenceDiagram
 | continuation 场景 | FEAT-017 投影 | `taskId` | `retryable` | Gateway 识别方式 |
 | --- | --- | --- | ---: | --- |
 | 原 Task 存在且可继续 | `INVOCATION_ACCEPTED`，随后可有 `INVOCATION_RESPONSE` / `INVOCATION_INPUT_REQUIRED` / `INVOCATION_TERMINAL` | 必须仍为原 taskId | — | 按 `correlationId` 关联，并校验返回 taskId 等于请求 taskId |
-| Task 不存在，或 payload tenant 与 envelope tenant 不同 | `INVOCATION_FAILED`，`errorCode=TASK_NOT_FOUND` | 当前实现不回显，禁止伪造 | false | 按 `INVOCATION_FAILED + errorCode` 折成明确失败 |
-| Task 已处于终态、不能继续 | `INVOCATION_FAILED` | 当前实现不回显，禁止新建 | false | 标准 `RequestHandler` 拒绝；当前 bridge 暂映射为 `STREAM_NOT_AVAILABLE`，Gateway 应按确定失败处理，错误码后续可专门化 |
-| Task 实际归属其他 tenant | 设计要求与不存在使用同一 `TASK_NOT_FOUND` 外部表面 | 不回显 | false | 当前 bridge 已校验 payload/envelope tenant；TaskStore 自身的 tenant-scoped 查询仍须 runtime host 联调确认 |
+| Task 不存在，或 payload tenant 与 envelope tenant 不同 | `INVOCATION_FAILED`，`errorCode=TASK_NOT_FOUND` | 不回显，禁止伪造 | false | 按 `INVOCATION_FAILED + errorCode` 折成明确失败 |
+| Task 已处于终态、不能继续 | `INVOCATION_FAILED` | 不回显，禁止新建 | false | 按确定失败处理（错误码可专门化，如终态不可续） |
+| Task 实际归属其他 tenant | 与「不存在」使用同一 `TASK_NOT_FOUND` 外部表面 | 不回显 | false | 须校验 payload/envelope tenant 一致；不得泄漏跨租户事实 |
 
-同一 Task 续跑后再次进入 `INPUT_REQUIRED` 时，仍产生与首次相同形态的 `INVOCATION_INPUT_REQUIRED`，以新的持久 revision 区分轮次；**不**引入「再次等待输入」专用事件。FEAT-017 内部投影已实现该行为；agent-bus 已补齐 `INVOCATION_INPUT_REQUIRED` / `A2A_CALL_INPUT_REQUIRED` 枚举、response relay 与状态分类；完整两跳联调验证仍须跨特性闭合。
+同一 Task 续跑后再次进入 `INPUT_REQUIRED` 时，仍产生与首次相同形态的 `INVOCATION_INPUT_REQUIRED`，以新的持久 revision 区分轮次；**不**引入「再次等待输入」专用事件。agent-bus 须具备 `INVOCATION_INPUT_REQUIRED` / `A2A_CALL_INPUT_REQUIRED` 枚举、response relay 与状态分类映射。
 
 经 Bus 时不透传 HTTP 状态码。FEAT-017 将 `RequestHandler` 的确定性异常转换为 `INVOCATION_FAILED(errorCode,retryable=false)`，Gateway 再按 FEAT-011 AC-RT-6 折回对 client 的标准 JSON-RPC error；由此保持外部语义一致，同时不要求本机 HTTP `/a2a` 回环。
 
@@ -1111,7 +1111,7 @@ sequenceDiagram
 | **AC-S3-017-1** | 已有 taskId 必须位于 `params.message.taskId`；admission 另以 `(tenantId,idempotencyKey)` 幂等；**含 S4**。 |
 | **AC-S3-017-2** | Task 不存在/跨 tenant → `INVOCATION_FAILED(TASK_NOT_FOUND,false)`；终态不可续同样为确定失败（错误码映射可后续专门化）。 |
 | **AC-S3-017-3** | 工具续跑与 continueInput 均 **禁止降级新建**，无例外。 |
-| **AC-S3-017-4** | 再次等待输入仍发同形 `INVOCATION_INPUT_REQUIRED`，以 taskId + revision 区分轮次；agent-bus 已补齐枚举与 relay/classify 映射。 |
+| **AC-S3-017-4** | 再次等待输入仍发同形 `INVOCATION_INPUT_REQUIRED`，以 taskId + revision 区分轮次；agent-bus 须具备枚举与 relay/classify 映射。 |
 | **AC-S3-017-5** | 语义对齐 FEAT-001/011；Bus 用 `INVOCATION_FAILED` 携带 errorCode/retryable，由 Gateway 转为标准 JSON-RPC error。 |
 
 ---
@@ -1122,7 +1122,7 @@ sequenceDiagram
 
 对 Gateway 而言：**wire 与投递栈与 §5 S3 相同**——`SendMessage` + 原 `taskId` + 新 `messageId` + TextPart；path=BUS 时出站仍为 **`CLIENT_INVOCATION_REQUESTED`** + payload 含原 `taskId`；017 按 continuation 处理，**禁止降级新建**。  
 
-业务差量（何时调 `continueInput`、`relatedInvocationRef` 不上 wire 等）在 **client**，以 FEAT-011 §6 / §6.9 为准；本文 **无** BUS wire 增量。client 若不交付 continueInput，则 **不对 client 联调必验**（可选承接）。
+业务差量（何时调 `continueInput`、`relatedInvocationRef` 不上 wire 等）在 **client**，以 FEAT-011 §6 / §6.9 为准；本文 **无** BUS wire 增量。client 若不交付 continueInput，则 **不对 client 必验**（可选承接）。
 
 | | S3 工具续跑 | S4 continueInput |
 | --- | --- | --- |
@@ -1205,7 +1205,7 @@ sequenceDiagram
 | --- | --- |
 | 代码路径 | **与 S3 共用**续跑 BUS 实现；勿复制第二套 continueInput 总线分支 |
 | 观测 | 审计可记 method/续跑；不必区分业务来源 |
-| 联调 | 沿用 §5.9.1 / §5.9.2；无 013/017 增量 |
+| 契约 | 复用 §5.9.1 / §5.9.2；无 013/017 增量 |
 
 ### 6.8 验收
 
@@ -1352,7 +1352,7 @@ sequenceDiagram
 | 错误分层 | 选路失败 ≠ 治理失败 ≠ 入队/投影失败 ≠ 粘滞失败 ≠「仅缺 endpoint」 |
 | 拓扑隐藏 | 日志可留内部细节；对 client 必须清洗 |
 | 观测 | 失败原因计入审计/指标；可另计「选路失败且 I-04 零调用」断言 |
-| 联调 | Gateway 自测为主；**无** 013/017 契约增量 |
+| 契约 | Gateway 单侧可验；**无** 013/017 契约增量 |
 
 ### 7.8 验收
 
