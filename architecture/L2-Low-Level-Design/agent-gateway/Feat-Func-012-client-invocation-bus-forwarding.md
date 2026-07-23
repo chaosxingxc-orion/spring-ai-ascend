@@ -11,19 +11,21 @@ status: in-review
 
 ### 0.1 问题与目标
 
-部分部署希望客户端调用在统一入口治理之后，先进入 **Event Bus**：以**控制事件**送达下游，再由**投影**把接受、响应、流准备、等待输入与终态反馈给调用方。目标不是改写 client 的请求—响应语义，而是在**同一 A2A 入口**下提供控制面经总线的投递能力——client 不感知 broker、topic、worker 或 runtime 物理地址。
+业务应用已通过 **agent-gateway** 统一入口调用智能体（见 FEAT-011）。部分部署在治理与选路之后，还需要控制面经 **Event Bus** 投递：削峰缓冲、控制事件统一分发、以及异构/存量接入与多消费者协同。直连 HTTP/SSE 无法（或不适合）承担这类控制面分发。
 
-本文定义 FEAT-012 的 **BUS** 路径（相对 FEAT-011 直连的差量）：
+平台仍以同一 A2A 入口对外：调用方只提交逻辑目标与业务报文，不感知 broker、topic、worker 或 runtime 物理地址。Gateway 完成入口治理与选路后，将调用以**控制事件**入队；下游消费后回传**投影**，Gateway 再折叠为对 client 的结果面。流式数据面仍走点对点 SSE（须先收到流可订阅投影）。
+
+本文定义 FEAT-012 的这条路径：
 
 **入口治理 → 按逻辑目标选路 → 控制事件入队 → 同步：投影折叠为五态 / 流式：`STREAM_READY` 后点对点 SSE**。
 
-A2A 业务报文作为控制事件的 `payload` 或 `payloadRef`；**不**经总线传 token、SSE 帧或大正文。
-
-Gateway 负责：接入、治理、选路、控制事件生产、投影消费与折叠、流式桥接。Gateway **不**执行 Agent，**不**拥有 Task 权威状态，**不**做注册上架，**不**实现 runtime 侧总线消费与回投影生产（FEAT-017）。直连 HTTP/SSE 主路径见 **FEAT-011**；对 client 与 011 共用同一 A2A facade。
+Gateway 负责接入、治理、选路、控制事件生产、投影消费与折叠、流式桥接；不执行 Agent，不拥有 Task 权威状态，不做注册上架，不实现 runtime 侧总线消费与回投影生产（FEAT-017）。直连 HTTP/SSE 主路径见 **FEAT-011**；对 client 与 011 共用同一 A2A facade。
 
 ### 0.2 路径定位（相对 FEAT-011）
 
-BUS 是与 DIRECT 并行的**控制面支路**，用于控制事件分发、平台侧缓冲与协同扩展，**不**替代体验面主链（DIRECT）。对 client 仍是「一次请求、等一个结果」：Gateway 在同步等待窗口内等候匹配投影，再折叠为五态回传——**不是**「提交即返回」的纯异步 Job。
+BUS 与 DIRECT **并行**：同一 A2A 入口，**不同投递面**。DIRECT 经 HTTP/SSE 直达 runtime；BUS 把控制意图发进 Event Bus，再等投影回来——用于削峰、控制事件统一分发与协同扩展，**不**取代 DIRECT。
+
+对 client 不变：发一次请求、等到一个结果。Gateway 在同步窗口内匹配投影并折叠回传；**不是**「提交即返回」的异步 Job。
 
 | 维度 | DIRECT（FEAT-011） | BUS（FEAT-012） |
 | --- | --- | --- |
@@ -39,8 +41,6 @@ BUS 是与 DIRECT 并行的**控制面支路**，用于控制事件分发、平�
 - **不是**：把用户请求改成纯异步 Job  
 - **不是**：承载 token、SSE 帧或大正文的数据通道  
 - **不是**：业务能力开关（创建/续跑等不因 path 有无而增减）
-
-**与实例选路：** path 只改投递面（HTTP vs 控制事件入队）；落到哪个 Agent / runtime 仍由 `agentId` / 默认 Agent → RDC 决定（细则见 §1.1 / §1.2）。**先选路、后入队**；选路失败禁止 publish。path（通道）与 RDC（目标）正交，不可混为一谈。
 
 #### path-mode 决策（730）
 
@@ -133,7 +133,7 @@ BUS 是与 DIRECT 并行的**控制面支路**，用于控制事件分发、平�
 | **五态** | 同步等待窗口内对 client 的折叠结果：完成响应 / 已接受 Task / 拒绝 / 失败 / 未知 |
 | **STREAM_READY** | 「流可订阅」投影（或等价）；与「已接受 Task」**必须可分离**；缺则不得建 SSE 桥 |
 | **payloadRef** | 大正文不进总线事件体，只放引用 |
-| **correlationId** | BUS 投影关联键（§4.10 **策略 B**：Gateway 自生成，对 client 不可见）；**不得**替代 `taskId`，**不得**与 G4 `messageId` 混用。历史名 `clientInvocationId` 仅指未采纳的策略 A |
+| **correlationId** | BUS 投影关联键（§4.10：Gateway 自生成，对 client 不可见）；**不得**替代 `taskId`，**不得**与 G4 `messageId` 混用。`clientInvocationId` **不**出现在 730 wire |
 | **FEAT-013** | Event Bus 客户端调用事件转发契约与底座 |
 | **FEAT-017** | runtime 嵌入式总线消费与回投影（对端） |
 
@@ -145,8 +145,8 @@ BUS 是与 DIRECT 并行的**控制面支路**，用于控制事件分发、平�
 
 | 项 | 假设 / 状态 |
 | --- | --- |
-| 首包 `agentId` | **跟 011**：可缺省 → 默认 Agent；显式则指定（与 version-scope 字面冲突时，以 011 已冻口径 + 本文为准） |
-| 创建关联键 | 总线路径须有 `correlationId`（§4.10 **已冻策略 B**：Gateway 自生成）；非 011 直连所强依赖；client **不上送** |
+| 首包 `agentId` | **对齐 FEAT-011**：可缺省 → 默认 Agent；显式则指定（与 version-scope 字面冲突时，以 FEAT-011 口径 + 本文为准） |
+| 创建关联键 | 总线路径须有 `correlationId`（§4.10：Gateway 自生成）；非 011 直连所强依赖；client **不上送** |
 | 事件名与信封 | 对齐 FEAT-013；正式实现不依赖临时 gateway 测具 |
 | FEAT-017 | 回投影生产在对端；**未就绪前不得宣称总线端到端联调完成**（软阻塞） |
 | Broker | 不拍死唯一 MQ；可配置；联调拓扑与 013 一致即可 |
@@ -406,7 +406,7 @@ SC-10 = AC-CFG-1～10 / T-CFG-1～9 均满足（本环境不验流式时可豁�
 | 编号 | 场景 | 交付口径 | 说明（相对 011 的差量要点） |
 | --- | --- | --- | --- |
 | S1 | 入口治理 | 730 交付（Gateway 自做） | 细则回链 011 §3；**附加：拒绝则禁止 I-04 出站（及后续入站）** |
-| S2 | 创建调用 | 730 交付（对齐 client 创建） | 同步：I-04 出站入队 + I-04 入站投影五态；流式：入站 `STREAM_READY` 后 I-06；**correlationId 由 Gateway 自生成**（§4.10 策略 B）；端到端依赖 I-05（017） |
+| S2 | 创建调用 | 730 交付（对齐 client 创建） | 同步：I-04 出站入队 + I-04 入站投影五态；流式：入站 `STREAM_READY` 后 I-06；**correlationId 由 Gateway 自生成**（§4.10）；端到端依赖 I-05（017） |
 | S3 | 端侧工具结果续跑 | 730 交付（对齐 client 续跑） | wire 仍带原 `taskId`；I-04 双向经 Bus；Gateway 不执行工具 |
 | S4 | continueInput | 730 交付（可选承接） | wire 对齐续跑；业务差量在 client；client 不交付则不对 client 联调必验 |
 | S5 | 选路失败 | 730 交付（Gateway 自做） | 明确失败且 **无 I-04**（出站与入站皆无） |
@@ -530,7 +530,7 @@ G1～G5 行为验收回链 **FEAT-011 §3.8**。本章只验收 BUS 附加：
 1. S1（G1～G5）已通过；可信上下文至少含 `principalId`、`tenantId`、`method`（创建类）。
 2. **path-mode = bus**（§0.2 / §1.5）。
 3. G3 已判定为创建类（无非空 `taskId`）；G4 已处理创建幂等（短路则不再进入本章选路 / 入队）。
-4. 总线关联键见 **§4.10（已冻策略 B）**：Gateway 在 publish 前**自生成** `correlationId` 并写入信封与等待窗口；client **不上送**关联键。**不得**用关联键替代 `taskId`；**不得**与 G4 `messageId` 混用。
+4. 总线关联键见 **§4.10**：Gateway 在 publish 前**自生成** `correlationId` 并写入信封与等待窗口；client **不上送**关联键。**不得**用关联键替代 `taskId`；**不得**与 G4 `messageId` 混用。
 
 **边界：**
 
@@ -540,14 +540,14 @@ G1～G5 行为验收回链 **FEAT-011 §3.8**。本章只验收 BUS 附加：
 - 已观察到 `taskId`（已接受）后，**禁止**再向 client 报告创建类「未知」。
 - A2A 业务报文只作信封 `payload` / `payloadRef`；**禁止**经 Bus 传 token / SSE 帧 / 大正文。
 
-**关联键约定（§4.10 已冻）：**
+**关联键约定（§4.10）：**
 
 | 字段 | 约定 |
 | --- | --- |
-| `correlationId`（FEAT-013 信封） | **Gateway 自生成**（策略 B）；对 client 不可见；投影须原样回传以匹配等待窗口 |
+| `correlationId`（FEAT-013 信封） | **Gateway 自生成**；对 client 不可见；投影须原样回传以匹配等待窗口 |
 | `messageId`（Bus 投递去重） | Gateway 生成（如 `gw-`+UUID）；**不得**与 G4 业务幂等键混用 |
 | `idempotencyKey` / 创建 `messageId`（G4） | 仍按 011 创建幂等（client 上送）；与 Bus `messageId` / `correlationId` 正交 |
-| `clientInvocationId` | **730 不使用**（未采纳策略 A） |
+| `clientInvocationId` | **730 不使用**（client 不上送；关联键由 Gateway 自生成） |
 
 ### 4.3 时序图
 
@@ -685,11 +685,11 @@ Event Bus 投递为 **at-least-once**。折叠表不得按「每个投影只到�
 | 迟到投影 | 可丢弃 / 仅记 trace；**不得**再向已断开的 client 完整回传 |
 | G4 | **abort**（释放 IN_FLIGHT），使同键可重试；与「不自动 Cancel Task」正交——重试可能二次 publish，由 runtime/017 侧创建幂等约束（若有） |
 
-精神对齐 FEAT-011：client 断开 **不**自动 Cancel Task；BUS 额外明确「释放窗口 + 结果可丢弃」。
+与 FEAT-011 一致：client 断开不自动 Cancel Task。BUS 同步等待另须释放窗口，迟到投影可丢弃。
 
 #### 4.6.3 G4 `complete` / `abort` 与投影终态（精确接线）
 
-创建类请求在进入本章前已由 G4 `check` 登记（NEW）。**禁止**使用「若适用」模糊收尾；按下表接线（与 011 复审结论一致：成功须可 REPLAY，失败须可释放 IN_FLIGHT）。
+创建类请求在进入本章前已由 G4 `check` 登记（NEW）。按下表接线（成功须可 REPLAY，失败须可释放 IN_FLIGHT；与 FEAT-011 同口径）。
 
 | 条件 | G4 动作 | 同键重试期望 |
 | --- | --- | --- |
@@ -742,7 +742,7 @@ Event Bus 投递为 **at-least-once**。折叠表不得按「每个投影只到�
 | T-S2-B2 | 同 T-S2-B1；不传 `agentId`；默认 Agent 有效 | 创建 | 落到默认 Agent；其余同成功总线创建 |
 | T-S2-B3 | 同 T-S2-B1；SendStreamingMessage | 流式创建 | 先 `STREAM_READY` 再 I-06；Bus 侧无 token；断开 release |
 | T-S2-B4 | RDC 空列表 | 创建 | **S5**；I-04 出站 **0** 次 |
-| T-S2-B5 | ~~缺 `clientInvocationId`~~ | 创建 | **作废**（§4.10 已冻策略 B：client 不上送关联键；Gateway 自生成 `correlationId`） |
+| T-S2-B5 | path=bus 创建成功入队 | 创建 | 出站信封含 Gateway 自生成的 `correlationId`；client 请求体**无**关联键字段 |
 | T-S2-B6 | 投影 `REJECTED` | 创建 | 拒绝面；无伪造 `taskId`；G4 complete；同键重试不二次 publish |
 | T-S2-B7 | accept 窗口内无接受类投影 | 创建 | 五态「未知」；非已接受；G4 abort |
 | T-S2-B8 | 已 ACCEPTED 后 response 超时 | 创建 | 「已接受」+ `taskId`；**不得**未知；G4 complete |
@@ -753,160 +753,121 @@ Event Bus 投递为 **at-least-once**。折叠表不得按「每个投影只到�
 | T-S2-B13 | 同步等待投影中 client 断开 HTTP | 创建 | 释放窗口；无 CANCEL 出站；G4 abort；无完整结果面强回传 |
 | T-S2-B14 | 已 complete 的成功创建 | 同键同文重试 | REPLAY；I-04 出站 **0** 次 |
 
-client 联调主路径配合：与 011 相同的 A2A 创建组包；总线关联键见 §4.10。端到端绿依赖 FEAT-017（或书面豁免 + 投影桩）。联调对象与回填优先级见下节。
+client 联调主路径配合：与 011 相同的 A2A 创建组包；总线关联键见 §4.10。端到端绿依赖 FEAT-017（或书面豁免 + 投影桩）。跨特性契约见 §4.9～§4.12。
 
-### 4.9 联调对应人总表（三人）
+### 4.9 跨特性契约索引（创建路径）
 
-> **用途**：S2 总线路径需确认的契约入口。  
-> **主问卷**：王向刚（§4.12）。丁勇为已上库确认；晓娜为条件增量。  
+> **用途**：S2 总线路径的契约入口索引。  
 > **范围外**：I-03 属 FEAT-011；I-06 SSE 纪律复用 FEAT-011 §4.10 AC-RT-2。若 `streamRef` 非标准 SSE 入口，由 **§4.12 AC-017-3** 写明专用入口。
 
-| 对应人 | 优先级 | 本文 | 要做什么 | 发包时请附带 |
-| --- | --- | --- | --- | --- |
-| **王向刚** | **P0（已冻结）** | §4.12 | 投影 / 消费映射 / `streamRef` / 联调就绪 | 本文 §4.12 + **其 FEAT-017 L2（及代码若有）** |
-| **丁勇** | **P1（已冻结）** | §4.11 / §5.9.1 | 核对 012 用法与已合入 013；含 S3/S4 投递；**默认不新开开发** | 本文 §4.11 + §5.9.1 + **FEAT-013 合入 L2** |
-| **晓娜** | **P2（已冻结）** | §4.10 | 仅 BUS 关联键是否上送 → **策略 B** | 本文 §4.10 + **FEAT-011 §4.9 已冻结论** |
+| 对端 | 本文 | 约定内容 |
+| --- | --- | --- |
+| **agent-client** | §4.10 | BUS 关联键：client 不上送；Gateway 自生成 `correlationId`；wire 相对 FEAT-011 §4.9 **零增量** |
+| **FEAT-013（agent-bus）** | §4.11 / §5.9.1 | 出站/入站 SPI、信封、`correlationId`、payload / payloadRef；含 S3/S4 投递 |
+| **FEAT-017** | §4.12 / §5.9.2 | 创建→A2A 映射、投影集合、`streamRef`、continuation；含 S3/S4 |
 
-**责任边界：** 投递层以 FEAT-013 已上库为准；投影生产以 FEAT-017 为准；对 client 入口以 FEAT-011 §4.9 + 本文 §4.10 为准；SSE 数据面纪律复用 FEAT-011 §4.10 AC-RT-2（不另开 FEAT-001 问卷）。
+**责任边界：** 投递层以 FEAT-013 已上库为准；投影生产以 FEAT-017 为准；对 client 入口以 FEAT-011 §4.9 + 本文 §4.10 为准；SSE 数据面纪律复用 FEAT-011 §4.10 AC-RT-2（FEAT-001 语义由 017 对齐，Gateway 不另立入口契约）。
 
 ---
 
-### 4.10 与 agent-client（晓娜）— BUS 条件增量
+### 4.10 Client ↔ Gateway 契约（BUS 差量）
 
-> **发给**：晓娜 / agent-client（需要确认 BUS 关联键时）。  
-> **范围**：相对 011 §4.9 已冻结论的 **BUS 差量**。  
-> **请 AI / 人工先读**：FEAT-011 §4.9（尤其 AC-4：`invocationId`/`idempotencyKey` → `params.message.messageId`）。  
-> **状态**：**已冻结（P2 完成）** — 2026-07-23 / 晓娜回填；**采纳策略 B**。
+> **用途**：相对 FEAT-011 §4.9 的 **BUS 差量**。  
+> **前提**：FEAT-011 §4.9（尤其 AC-4：`invocationId`/`idempotencyKey` → `params.message.messageId`）。  
+> **结论**：client **不上送** BUS 关联键；Gateway **自生成** `correlationId`；对 agent-client wire / API **零增量**。
 
-#### 4.10.1 字段消歧（必读，防与 011 混淆）
+#### 4.10.1 字段消歧
 
-| 字段 | 谁生成 | wire（已冻） | 用途 | 与另一字段 |
+| 字段 | 谁生成 | wire | 用途 | 与另一字段 |
 | --- | --- | --- | --- | --- |
-| `params.message.messageId` | client | 011 AC-4 已冻：可由 `invocationId`/`idempotencyKey` 映射 | **G4 创建幂等** | **不是** Bus 投影关联键 |
-| `correlationId`（FEAT-013 信封） | Gateway（策略 B） | **不出现在 client wire** | **BUS 等待投影**关联 | **不得**用 `messageId` 代替；**不得**代替 `taskId` |
-| `clientInvocationId` | — | **730 不使用** | 历史名（未采纳的策略 A） | — |
+| `params.message.messageId` | client | FEAT-011 AC-4：可由 `invocationId`/`idempotencyKey` 映射 | **G4 创建幂等** | **不是** Bus 投影关联键 |
+| `correlationId`（FEAT-013 信封） | Gateway | **不出现在 client wire** | **BUS 等待投影**关联 | **不得**用 `messageId` 代替；**不得**代替 `taskId` |
+| `clientInvocationId` | — | **730 不使用** | — | — |
 
-011 里的 `invocationId` **只服务幂等（→ messageId）**；**不**承担 BUS 投影关联。BUS `correlationId` 由 Gateway 内部生成，对 client 不可见。
+`invocationId` **只服务幂等（→ messageId）**；**不**承担 BUS 投影关联。BUS `correlationId` 由 Gateway 内部生成，对 client 不可见。
 
-#### 4.10.2 Gateway 侧策略（已冻）
+#### 4.10.2 Gateway 侧约定
 
-| # | 已定项 | 说明 |
+| # | 项 | 约定 |
 | --- | --- | --- |
-| GW-B-1 | 入口不变 | 仍 `POST /a2a`；client **不**感知 / **不**选择 path-mode |
-| GW-B-2 | ~~策略 A~~ | **未采纳**（见 AC-B-1） |
-| GW-B-3 | **策略 B（已冻）** | client 不上送关联键；Gateway **自生成** `correlationId` 并写入信封与等待窗口；**T-S2-B5 作废** |
-| GW-B-4 | path-mode | SDK 无 path 选择 API |
+| GW-B-1 | 入口 | 仍 `POST /a2a`；client **不**感知 / **不**选择 path-mode |
+| GW-B-2 | 关联键 | client 不上送；Gateway 在 publish 前 **自生成** `correlationId`，写入信封与等待窗口 |
+| GW-B-3 | path-mode | SDK 无 path 选择 API；不新增 path / 通道相关公共字段 |
 
-#### 4.10.3 确认项与结论
+#### 4.10.3 agent-client 侧约定
 
-| # | 待确认项 | 期望结论 |
-| --- | --- | --- |
-| AC-B-1 | 选 A 还是 B | **(A)** 上送独立关联键；**(B)** Gateway 自生成 |
-| AC-B-2 | 若选 A：wire 路径 | `metadata.clientInvocationId` / 或其他路径（写明）；**确认不是** `message.messageId` |
-| AC-B-3 | 若选 A：与 011 `invocationId` 关系 | 二者独立 / 或 SDK 如何同时满足幂等与 BUS 关联 |
-| AC-B-4 | 若选 A：重试是否复用同一关联键 | 同意 / 说明与 `messageId` 分工 |
-| AC-B-5 | path-mode | 确认 SDK **无** path 选择 API |
+| # | 约定 |
+| --- | --- |
+| **AC-B-1** | client **不上送** BUS 关联键；Gateway 自生成 `correlationId`。关联键**不得**复用 `messageId`；对 agent-client **零改动**，wire 与 FEAT-011 完全一致。 |
+| **AC-B-2** | client **不**上送 `clientInvocationId`；730 wire **无**该字段路径。 |
+| **AC-B-3** | `invocationId`/`idempotencyKey` → `message.messageId` 仅服务 G4 创建幂等（FEAT-011 AC-4）；**不**承担 BUS 投影关联；`correlationId` 对 client 不可见。 |
+| **AC-B-4** | 重试时 G4 按 `messageId` 去重（FEAT-011 AC-4）。若上次 abort（publish 失败 / accept 窗口超时 / client 断开），Gateway 可再次 NEW→publish 并自生成**新** `correlationId`，与上次已释放的等待窗口无关。 |
+| **AC-B-5** | SDK **无** path 选择 API；`path-mode` 对 client 不可见（§0.2 / AC-CFG-1）；不新增任何 path / 通道相关公共字段。 |
 
-**结论（2026-07-23 冻结 / 晓娜回填）：**
-
-| # | 结论 | 日期 / 回填人 |
-| --- | --- | --- |
-| AC-B-1 | **选 B**：client 不上送关联键；Gateway 自生成 `correlationId`。理由：①§0.2 核心原则——client 不感知 path-mode，选 A 要求 client 在 BUS 场景额外带字段但 client 无法知道当前 path；②§4.10.1 禁止复用 `messageId`，选 A 须独立生成第 3 个 ID，增加 SDK 无谓复杂度；③选 B 对 agent-client **零改动**，wire 与 011 完全一致。 | 2026-07-23 / 晓娜 |
-| AC-B-2 | **N/A**（选 B）：client 不上送 `clientInvocationId`，无 wire 路径。 | 2026-07-23 / 晓娜 |
-| AC-B-3 | **N/A**（选 B）。补充消歧：`invocationId`/`idempotencyKey` → `message.messageId` 仅服务 G4 创建幂等（011 AC-4 已冻），**不**承担 BUS 投影关联；BUS `correlationId` 由 Gateway 内部生成，对 client 不可见。 | 2026-07-23 / 晓娜 |
-| AC-B-4 | **N/A**（选 B）。补充：重试时 G4 按 `messageId` 去重（011 AC-4）；若上次 abort（publish 失败 / accept 窗口超时 / client 断开），Gateway 可再次 NEW→publish 并自生成新 `correlationId`，与上次已释放的等待窗口无关。 | 2026-07-23 / 晓娜 |
-| AC-B-5 | **同意**：SDK 无 path 选择 API；`path-mode` 对 client 不可见（§0.2 / AC-CFG-1）。SDK 不新增任何 path / 通道相关公共字段。 | 2026-07-23 / 晓娜 |
-
-> **采纳策略 B 的影响：** T-S2-B5（缺 `clientInvocationId` 校验失败）**作废**；Gateway 须在 publish 前自生成 `correlationId` 并写入信封。对 agent-client 的 wire / API **零增量**——创建、续跑、continueInput 均与 FEAT-011 已冻结论完全一致。BUS 路径新增错误码（`ENQUEUE_FAILED` / `PROJECTION_TIMEOUT_UNKNOWN` 等）按 HTTP 治理错误处理（同 011 AC-7 口径），不投影为成功 Task。
+创建、续跑、continueInput 的 wire 均与 FEAT-011 一致。BUS 路径新增错误码（`ENQUEUE_FAILED` / `PROJECTION_TIMEOUT_UNKNOWN` 等）按 HTTP 治理错误处理（同 FEAT-011 AC-7），不投影为成功 Task。
 
 ---
 
-### 4.11 与 FEAT-013（丁勇）— 已上库契约确认
+### 4.11 Gateway ↔ FEAT-013 契约（投递层）
 
-> **发给**：丁勇 / agent-bus（FEAT-013）。  
-> **性质**：**确认表**，不是新需求清单。默认按已合入实现装配正式 Gateway。  
-> **请 AI / 人工对照**：FEAT-013 合入 L2（如 `feat-013-client-invocation-event-forwarding.md`）+ `agent-solution` `common/agent-bus/` as-built。  
-> **仅当**与 as-built 冲突时再开 013 变更。  
-> **状态**：**已冻结** — 2026-07-23 / 丁勇回填（含第二轮确认 AC-013-3）。
+> **用途**：正式 Gateway 按已合入 FEAT-013 装配；权威见 FEAT-013 L2 与 `common/agent-bus/` as-built。  
+> **前提**：FEAT-013 合入 L2（如 `feat-013-client-invocation-event-forwarding.md`）。
 
-#### 4.11.1 Gateway 将按此使用（请核对）
+#### 4.11.1 Gateway 侧约定
 
-| # | 项 | 012 用法 | 请对照 013 |
+| # | 项 | 约定 | 对照 FEAT-013 |
 | --- | --- | --- | --- |
 | GW-013-1 | 出站 | `CLIENT_INVOCATION_REQUESTED` → outbox → `BrokerForwardingRelayPort.produce` | 事件枚举 / produce SPI |
 | GW-013-2 | 入站 | `BrokerForwardingConsumerPort` 消费投影（`resp_out` 或等价） | responseConsumer |
-| GW-013-3 | 关联 | `correlationId` = **Gateway 自生成**（§4.10 已冻策略 B）；对 client 不可见 | 测具若用 `requestId`，请说明正式路径是否须对齐 Gateway 生成的 `correlationId` |
+| GW-013-3 | 关联 | `correlationId` = Gateway 自生成（§4.10）；可等于内部 `requestId`；对 client 不可见；投影原样回传 | 正式路径以 Gateway 生成的 `correlationId` 配对 |
 | GW-013-4 | 观测态 | `InvocationResponseStatus`；ACCEPTED ≠ STREAM_READY | 013 §2.3.3 / classify |
-| GW-013-5 | 制品 | 依赖 `agent-bus-spi`/`sdk`；不绑临时 gateway 测具 | de-gateway-ification 结论 |
+| GW-013-5 | 制品 | 依赖 `agent-bus-spi`/`sdk`；不绑 Event Bus 测具 / `gateway` profile 临时进程 | 正式制品边界 |
 
-#### 4.11.2 请确认（同意即可；冲突才写反提案 + 是否改代码）
+#### 4.11.2 FEAT-013 侧约定
 
-| # | 确认项 | 期望 |
-| --- | --- | --- |
-| AC-013-1 | GW-013-1～5 与当前合入实现一致 | 同意 / 指出差异（附 L2 节或类名） |
-| AC-013-2 | 信封权威必填与失败码 | **链到 013 已有章节**即可，不必重抄 |
-| AC-013-3 | `correlationId` 取值策略 | 同意 = **Gateway 自生成**（§4.10 B）；或写明必须 = requestId 等（冲突才改） |
-| AC-013-4 | 730 默认 payload vs payloadRef | 一句话 + 文档锚点 |
-| AC-013-5 | 正式 Gateway 最小依赖 / 装配 | 链 README 或 L2；同意即可 |
-| AC-013-6 | 本表 **不要求**新开功能 | 确认；若必须改代码请单列变更项（默认无） |
-
-**结论（2026-07-23 / 丁勇回填；已冻结）：**
-
-| # | 结论 | 日期 / 回填人 |
-| --- | --- | --- |
-| AC-013-1 | **同意** | 2026-07-23 / 丁勇 |
-| AC-013-2 | **同意**（信封权威必填与失败码以 FEAT-013 合入 L2 为准） | 2026-07-23 / 丁勇 |
-| AC-013-3 | **同意 §4.10 策略 B**：`correlationId` 由 Gateway 自生成（可等于内部 `requestId`）；client 不上送；投影原样回传。首轮「client 关联键」按问卷旧默认作废 | 2026-07-23 / 丁勇（第二轮） |
-| AC-013-4 | **小载荷走 `payload`（inline），大载荷走 `payloadRef`**（回填用语 `inlinePayload` 对齐本文 `payload`） | 2026-07-23 / 丁勇 |
-| AC-013-5 | **同意** | 2026-07-23 / 丁勇 |
-| AC-013-6 | **确认**（本表不要求新开功能） | 2026-07-23 / 丁勇 |
-
-#### 4.11.3 AC-013-3 澄清记录（已确认）
-
-**业务场景：** path=bus 创建时，Gateway 发布 `CLIENT_INVOCATION_REQUESTED` 后须在接受/响应窗口内匹配回程投影并折成五态。请求–投影配对靠信封 `correlationId`。该键 **不是** G4 创建幂等键（`params.message.messageId`），也 **不是** Bus 投递去重 `messageId`（如 `gw-`+UUID）。
-
-| 来源 | 结论 |
+| # | 约定 |
 | --- | --- |
-| 丁勇首轮 | 「同意 = client 关联键」（旧问卷默认） |
-| §4.10（晓娜） | 策略 B：Gateway 自生成 |
-| 丁勇第二轮 | **同意**正式路径按策略 B（Gateway 自生成 / 可对齐 `requestId`；client 不上送；投影原样回传） |
+| **AC-013-1** | GW-013-1～5 与当前合入实现一致。 |
+| **AC-013-2** | 信封权威必填与失败码以 FEAT-013 合入 L2 为准。 |
+| **AC-013-3** | `correlationId` 由 Gateway 自生成（可等于内部 `requestId`）；client 不上送；投影原样回传。该键用于请求–投影配对，**不是** G4 创建幂等键（`params.message.messageId`），也 **不是** Bus 投递去重 `messageId`（如 `gw-`+UUID）。 |
+| **AC-013-4** | 小载荷走 `payload`（inline），大载荷走 `payloadRef`（与本文 `payload` 同义）。 |
+| **AC-013-5** | 正式 Gateway 最小依赖与装配以 FEAT-013 README / L2 为准。 |
+| **AC-013-6** | 本契约 **不要求** FEAT-013 为本特性新开功能；冲突时按 as-built 修订本文或走 013 变更。 |
 
 ---
 
-### 4.12 与 FEAT-017（王向刚）— 主回填表
+### 4.12 Gateway ↔ FEAT-017 契约（投影 / 消费）
 
-> **发给**：王向刚 / FEAT-017。  
-> **性质**：**P0 主契约**。答案以 **017 自家 L2/实现** 为准；本文只列 Gateway 期望，便于逐条对照回填。  
-> **请 AI / 人工对照**：FEAT-017 设计文档（及代码 PR/补丁若有）+ 本文 §4.3～§4.6。  
-> **事件名权威**：以 017 枚举为准；若与本文用词不一致，回填时给出**映射表**即可。  
-> **状态**：**已冻结（契约口径）** — 2026-07-23 / 王向刚回填；**端到端两跳就绪见 AC-017-6（未宣称完整闭合）**。
+> **用途**：创建路径投影与消费映射；事件名以 FEAT-017 枚举为准。  
+> **前提**：FEAT-017 L2 + 本文 §4.3～§4.6。  
+> **就绪边界**：模块内存与真实 RocketMQ 中间链路已就绪；完整两跳 / payloadRef / `INPUT_REQUIRED` 端到端仍须跨特性联调（见 AC-017-6）。**不得**在 017 未就绪时宣称 BUS 端到端完成；Gateway 可用投影桩先行实现 I-04。
 
-#### 4.12.1 Gateway 侧期望（请逐条表态）
+#### 4.12.1 Gateway 侧约定
 
-| # | 期望 | 说明 |
+| # | 项 | 约定 |
 | --- | --- | --- |
-| GW-017-1 | 不实现 I-05 | 消费与回投影在 017 |
+| GW-017-1 | I-05 | Gateway **不**实现 I-05；消费与回投影在 FEAT-017 |
 | GW-017-2 | 创建映射 | `CLIENT_INVOCATION_REQUESTED` → `SendMessage` / `SendStreamingMessage`（PascalCase，对齐 FEAT-001） |
-| GW-017-3 | 投影集合 | ACCEPTED / RESPONSE / REJECTED / FAILED / STREAM_READY / TERMINAL /（INPUT_REQUIRED）— 名称以你方为准 |
+| GW-017-3 | 投影集合 | ACCEPTED / RESPONSE / REJECTED / FAILED / STREAM_READY / TERMINAL / INPUT_REQUIRED（名称以 017 枚举为准） |
 | GW-017-4 | `taskId` / `streamRef` | ACCEPTED 必带真实 taskId；STREAM_READY 必带 streamRef；拒绝不伪造 taskId |
 | GW-017-5 | `correlationId` | 响应投影 **原样回传**，供 Gateway 匹配等待窗口 |
-| GW-017-6 | token | 不进 Bus；SSE 纪律复用 FEAT-011 AC-RT-2 |
-| GW-017-7 | FEAT-001 | 映射进标准入口的语义由 **017 对齐 001**；Gateway 不另开 001 问卷 |
+| GW-017-6 | token / SSE | token 不进 Bus；SSE 纪律复用 FEAT-011 AC-RT-2 |
+| GW-017-7 | FEAT-001 | 映射进标准入口的语义由 **017 对齐 001** |
 
-#### 4.12.2 请确认并回填（建议 AI 按 017 文档逐条摘录）
+#### 4.12.2 FEAT-017 侧约定
 
-| # | 待确认项 | 期望输出形态 |
-| --- | --- | --- |
-| AC-017-1 | 创建事件 → A2A method 判别规则 | 短规则 + 指向 017 章节 |
-| AC-017-2 | 投影事件名 + 必填字段表 | 表（可复制自 017）；含 correlationId 是否原样回传 |
-| AC-017-3 | `streamRef` → Gateway I-06 | **(标准)** 仍落 runtime 标准 SSE 入口；或 **(专用)** 写明 URL/method/帧差量（Gateway 按此实现；SSE 纪律复用 FEAT-011 AC-RT-2） |
-| AC-017-4 | `INPUT_REQUIRED` / `TERMINAL` | 730 是否必产；子态如何编码 |
-| AC-017-5 | payloadRef 取正文失败 | REJECTED 还是 FAILED |
-| AC-017-6 | 联调就绪标准 | 最低模块 / 开关 / 文档或 commit |
+| # | 约定 |
+| --- | --- |
+| **AC-017-1** | 按 `SendMessage → onMessageSend`、`SendStreamingMessage → onMessageSendStream` 判别；只接受 FEAT-001 PascalCase method（见 §4.12.3 / FEAT-017 L2 §3.2、§4.2）。 |
+| **AC-017-2** | 事件名、taskId 与公共关联字段按 §4.12.3 表执行；`correlationId` 原样回传。 |
+| **AC-017-3** | 采用标准 A2A SSE：`streamRef` 是不透明的内部授权/定位引用，不是新 URL；I-06 物理解析装配在联调期闭合。 |
+| **AC-017-4** | `INPUT_REQUIRED`、`TERMINAL` 均按 Task 持久状态 revision 产生，730 应消费；agent-bus 已补齐 `INPUT_REQUIRED` 枚举、relay 与状态分类。 |
+| **AC-017-5** | payloadRef 失败：确定非法 → REJECTED；正文非法 → FAILED；瞬时不可用 → RETRY（见 §4.12.3）。 |
+| **AC-017-6** | FEAT-017 模块内存与真实 RocketMQ 中间链路已就绪；完整两跳、payloadRef、`INPUT_REQUIRED` 仍须 FEAT-013/014 联调验证。 |
 
-#### 4.12.3 FEAT-017 回填口径
+#### 4.12.3 创建映射与投影字段
 
-创建请求仍使用统一的 `CLIENT_INVOCATION_REQUESTED` 事件，具体调用方式由 A2A payload 的 PascalCase `method` 决定：
+创建请求使用统一的 `CLIENT_INVOCATION_REQUESTED` 事件，具体调用方式由 A2A payload 的 PascalCase `method` 决定：
 
 | Bus 事件 | A2A payload `method` | FEAT-017 bridge 调用 | 说明 |
 | --- | --- | --- | --- |
@@ -917,17 +878,17 @@ client 联调主路径配合：与 011 相同的 A2A 创建组包；总线关联
 
 FEAT-017 对客户端来源请求产生如下逻辑投影；所有投影都原样携带请求的 `correlationId`，并交换 source/target 使其返回 Gateway：
 
-| 投影事件 | `taskId` | 关键字段/内容 | 当前实现情况 |
+| 投影事件 | `taskId` | 关键字段/内容 | 实现边界 |
 | --- | --- | --- | --- |
 | `INVOCATION_ACCEPTED` | 必填，必须是 runtime 创建或复用的真实 Task ID | `idempotencyResult=CREATED/REUSED` | 已实现 |
 | `INVOCATION_REJECTED` | 不得伪造 | `reason`、`retryable=false` | 已实现 |
 | `INVOCATION_FAILED` | 已知时携带，否则可空 | `errorCode`、`retryable` | 已实现 |
 | `INVOCATION_RESPONSE` | 必填 | 标准 A2A response 或 Task snapshot | 内部投影已实现；完整复杂对象经 agent-bus `payloadRef` 返回尚待跨特性联调闭合 |
 | `INVOCATION_STREAM_READY` | 必填 | `streamRef` | 已实现签发；Gateway 到标准 SSE 入口的解析/装配尚待 I-06 联调 |
-| `INVOCATION_INPUT_REQUIRED` | 必填 | `taskState`、持久 revision、Task snapshot/输入上下文 | FEAT-017 已产生逻辑投影；agent-bus PR 96 已补齐事件枚举、response relay 集合与 `InvocationResponseStatus.INPUT_REQUIRED` 映射 |
+| `INVOCATION_INPUT_REQUIRED` | 必填 | `taskState`、持久 revision、Task snapshot/输入上下文 | FEAT-017 已产生逻辑投影；agent-bus 已补齐事件枚举、response relay 集合与 `InvocationResponseStatus.INPUT_REQUIRED` 映射 |
 | `INVOCATION_TERMINAL` | 必填 | terminal state、持久 revision、Task snapshot/结果 | 已实现逻辑投影和 agent-bus 事件类型 |
 
-`streamRef` 不是 URL，也不编码 host、port、topic 或 partition。Gateway 应先用 `taskId + streamRef` 完成内部流定位/授权，再通过 I-06 建立标准 A2A SSE；SSE method 和帧格式不新增 FEAT-017 私有协议，继续复用 FEAT-011。当前 FEAT-017 只提供不透明引用的签发与校验能力，没有另行定义专用 HTTP URL。
+`streamRef` 不是 URL，也不编码 host、port、topic 或 partition。Gateway 应先用 `taskId + streamRef` 完成内部流定位/授权，再通过 I-06 建立标准 A2A SSE；SSE method 和帧格式不新增 FEAT-017 私有协议，继续复用 FEAT-011。FEAT-017 提供不透明引用的签发与校验，不另行定义专用 HTTP URL。
 
 payloadRef 失败按是否已经形成确定结论分类：
 
@@ -937,18 +898,7 @@ payloadRef 失败按是否已经形成确定结论分类：
 | 引用可取但正文无法解析或 method 不匹配 | `INVOCATION_FAILED(PAYLOAD_INVALID,retryable=false)` |
 | 引用服务暂时不可用、超时等瞬时故障 | `RETRY`，在形成稳定投影前不 ACK，也不伪造确定失败 |
 
-最低联调模块为 `common/agent-bus/{agent-bus-spi,agent-bus-sdk,agent-bus-testkit}` 与 `common/agent-runtime-ext-java/agent-service-bus-consumer`。启用前缀为 `openjiuwen.service.bus.consumer`，至少需要 `enabled=true`、target/consumer service identity、consumer tenant、request consumer、response outbox publisher、A2A `RequestHandler` 与 `TaskStore`；流式还需要 `stream-ref-secret`。执行方法见 `common/agent-runtime-ext-java/doc/agent-service-bus-consumer-integration-test-guide.md`。当前已通过内存联调和真实 RocketMQ 的 `*_deliver → FEAT-017 → *_resp_in` 往返测试。agent-bus PR 96 已闭合 `INPUT_REQUIRED` 的枚举与 relay/classify 静态契约；`*_req → *_deliver`、`*_resp_in → *_resp_out`、完整响应 payloadRef 以及 `INPUT_REQUIRED` 的完整两跳行为仍需跨特性联调验证。
-
-**结论（2026-07-23 冻结 / 王向刚回填）：**
-
-| # | 结论 | 日期 / 回填人 |
-| --- | --- | --- |
-| AC-017-1 | **同意**；按 `SendMessage → onMessageSend`、`SendStreamingMessage → onMessageSendStream` 判别，只接受 FEAT-001 PascalCase method，见 §4.12.3 / FEAT-017 L2 §3.2、§4.2 | 2026-07-23 / 王向刚 |
-| AC-017-2 | **同意**；事件名、taskId 和公共关联字段按 §4.12.3 表执行，`correlationId` 原样回传 | 2026-07-23 / 王向刚 |
-| AC-017-3 | 采用标准 A2A SSE：`streamRef` 是不透明的内部授权/定位引用，不是新 URL；当前 I-06 物理解析装配仍需联调 | 2026-07-23 / 王向刚 |
-| AC-017-4 | `INPUT_REQUIRED`、`TERMINAL` 均按 Task 持久状态 revision 产生，730 应消费；agent-bus PR 96 已补齐 `INPUT_REQUIRED` 枚举、relay 和状态分类 | 2026-07-23 / 王向刚 |
-| AC-017-5 | 按确定非法、正文非法、瞬时不可用三类分别处理为 REJECTED、FAILED、RETRY，见 §4.12.3 | 2026-07-23 / 王向刚 |
-| AC-017-6 | FEAT-017 模块内存与真实 RocketMQ 中间链路已就绪；完整两跳、payloadRef、INPUT_REQUIRED 仍须 FEAT-013/014 联调 | 2026-07-23 / 王向刚 |
+最低联调模块为 `common/agent-bus/{agent-bus-spi,agent-bus-sdk,agent-bus-testkit}` 与 `common/agent-runtime-ext-java/agent-service-bus-consumer`。启用前缀为 `openjiuwen.service.bus.consumer`，至少需要 `enabled=true`、target/consumer service identity、consumer tenant、request consumer、response outbox publisher、A2A `RequestHandler` 与 `TaskStore`；流式还需要 `stream-ref-secret`。执行方法见 `common/agent-runtime-ext-java/doc/agent-service-bus-consumer-integration-test-guide.md`。模块侧已通过内存联调和真实 RocketMQ 的 `*_deliver → FEAT-017 → *_resp_in` 往返测试。agent-bus 已闭合 `INPUT_REQUIRED` 的枚举与 relay/classify 静态契约；`*_req → *_deliver`、`*_resp_in → *_resp_out`、完整响应 payloadRef 以及 `INPUT_REQUIRED` 的完整两跳行为仍须跨特性联调验证。
 
 ---
 
@@ -959,7 +909,7 @@ payloadRef 失败按是否已经形成确定结论分类：
 
 本章只写 **path=BUS** 相对直连的差量：控制/投影经 **I-04**；出站事件 **固定**为 `CLIENT_INVOCATION_REQUESTED`，续跑语义靠 **payload 内已有 `taskId`**（与 FEAT-017 continuation 对齐）；**禁止**降级成新建 Task。
 
-工具本地执行、`_interrupt` 解析在 client；Gateway **不**执行工具、**不**解析工具业务语义。**不向晓娜另开 S3 回填**（复用 011 已冻）。
+工具本地执行、`_interrupt` 解析在 client；Gateway **不**执行工具、**不**解析工具业务语义。Client→Gateway wire 复用 FEAT-011 §5 / §5.9，**无** BUS 增量。
 
 ### 5.1 要做什么（差量）
 
@@ -1069,7 +1019,7 @@ sequenceDiagram
 | 项 | 约定 |
 | --- | --- |
 | 模块 | `bus/*` + 只读粘滞索引（S2 写、S3 读） |
-| 事件 | 出站写死 `CLIENT_INVOCATION_REQUESTED`，勿自造 RESUME 事件名（除非 013 日后增枚举并双方改冻） |
+| 事件 | 出站写死 `CLIENT_INVOCATION_REQUESTED`；不为续跑另增事件枚举（见 §5.9.1） |
 | 透传 | TextPart / 下行 `_interrupt` 不改业务字段 |
 | 拓扑 | 对 client 隐藏 routeHandle / topic |
 
@@ -1083,97 +1033,61 @@ sequenceDiagram
 | T-S3-B4 | TextPart 工具结果 | 续跑 | parts 未被 Gateway 改写丢弃 |
 | T-S3-B5 | 投影 Task not found / terminal | 续跑 | 明确失败；不伪造新 Task |
 
-### 5.9 联调回填（S3；**范围含 §6 S4**）
+### 5.9 跨特性契约（S3；**范围含 §6 S4**）
 
-> **范围：** 本表确认的投递/continuation 口径同时覆盖 **S3 工具续跑** 与 **S4 continueInput**（二者 wire 与出站事件相同；业务差量仅在 client）。§6 **不**另开 013/017 专表；回填结论须写明「含 S4」。
+> **范围：** 投递与 continuation 口径同时覆盖 **S3 工具续跑** 与 **S4 continueInput**（二者 wire 与出站事件相同；业务差量仅在 client）。§6 **不**另立 013/017 专节。
 
-| 对象 | 是否回填 | 说明 |
+| 对端 | 本文 | 约定 |
 | --- | --- | --- |
-| **晓娜** | **否** | Client wire = FEAT-011 §5.9 / §6.9 已冻；BUS 无增量 |
-| **丁勇** | **是（确认）** | §5.9.1；对照已合入 FEAT-013；**含 S4** |
-| **王向刚** | **是（主确认）** | §5.9.2；对照 FEAT-017 continuation；**含 S4** |
-| **尤国庆** | **否** | 续跑入口由 017→001；复用 011 AC-RT-3/6 语义 |
+| **agent-client** | FEAT-011 §5.9 / §6.9 | Client wire 已定；BUS **无**增量 |
+| **FEAT-013** | §5.9.1 | S3/S4 出站事件与信封；含 S4 |
+| **FEAT-017** | §5.9.2 | continuation 语义与失败投影；含 S4 |
+| **FEAT-001 / runtime** | FEAT-011 AC-RT-3 / AC-RT-6 | 续跑入口由 017→001；失败语义经投影表达 |
 
 ---
 
-#### 5.9.1 请 FEAT-013（丁勇）确认 — S3/S4 投递层
+#### 5.9.1 Gateway ↔ FEAT-013 契约（S3/S4 投递）
 
-> **发给**：丁勇。  
-> **性质**：确认表（默认不新开开发）。  
-> **范围**：工具续跑（S3）与 continueInput（S4）共用同一出站事件族；请一次确认、结论含 S4。  
-> **请 AI / 人工对照**：FEAT-013 合入 L2 中 `AgentBusEventType` 枚举、信封封装、`IngressRequestType`（含 `RUN_RESUME`）映射；`agent-bus` as-built。  
-> **状态**：**已冻结** — AC-S3-013-1～3 均已确认（含第二轮 AC-S3-013-1）；**含 S4**。  
-> **Gateway 将采用的断言（请逐条表态）：**
+> **用途**：工具续跑与 continueInput 共用同一出站事件族。  
+> **前提**：FEAT-013 合入 L2 中 `AgentBusEventType`、信封、`IngressRequestType`（含 `RUN_RESUME`）；`agent-bus` as-built。
 
-| # | Gateway 断言 | 依据（012 理解） |
-| --- | --- | --- |
-| G-S3-013-1 | 续跑类出站（工具续跑 **与** continueInput）均为 **`eventType = CLIENT_INVOCATION_REQUESTED`**，**不**使用 Cancel/Query/Subscribe 事件 | 013 枚举无独立 RESUME；创建与推进共用该类型 |
-| G-S3-013-2 | 测具若把 `RUN_RESUME` 映射到上述事件族，与正式 Gateway 一致 | 013 as-built：`IngressRequestType` 含 `RUN_RESUME` |
-| G-S3-013-3 | A2A 续跑正文经 `payload`/`payloadRef` 携带；**`taskId` 在业务 payload 内**，不是用 `correlationId` 代替 | 013：correlationId 不替代 taskId |
-| G-S3-013-4 | 两跳 produce/consume SPI 与 S2 创建相同 | 013 §3.3 / §4.1 |
-| G-S3-013-5 | 本确认 **不要求** 013 新增事件类型或功能（含因 S4） | — |
+##### Gateway 侧约定
 
-**请回填（同意 / 不同意+反提案 / 须改代码则单列）：**
+| # | 约定 |
+| --- | --- |
+| G-S3-013-1 | 续跑类出站（工具续跑 **与** continueInput）均为 **`eventType = CLIENT_INVOCATION_REQUESTED`**，**不**使用 Cancel/Query/Subscribe 事件 |
+| G-S3-013-2 | 测具若把 `RUN_RESUME` 映射到上述事件族，与正式 Gateway 一致 |
+| G-S3-013-3 | A2A 续跑正文经 `payload`/`payloadRef` 携带；**`taskId` 在业务 payload 内**，不得用 `correlationId` 代替 |
+| G-S3-013-4 | 两跳 produce/consume SPI 与 S2 创建相同 |
+| G-S3-013-5 | **不要求** FEAT-013 新增事件类型或功能（含因 S4） |
 
-| # | 待确认项 | 期望输出 |
-| --- | --- | --- |
-| AC-S3-013-1 | G-S3-013-1～5 是否与合入实现一致；**是否同时适用于 S4** | 同意（写「含 S4」）或指出差异（附 L2 节/枚举名） |
-| AC-S3-013-2 | 正式路径 `correlationId` 在续跑上的建议取值 | 可与当次请求 id 相同；**澄清**不得用其替代 payload.`taskId` |
-| AC-S3-013-3 | 是否需要为续跑（含 continueInput）单独增事件枚举 | **默认否**；若是，给出新名与迁移计划 |
+##### FEAT-013 侧约定
 
-**结论（2026-07-23 / 丁勇回填；已冻结）：**
+| # | 约定 |
+| --- | --- |
+| **AC-S3-013-1** | G-S3-013-1～5 成立且 **含 S4**。`INVOCATION_INPUT_REQUIRED` / `A2A_CALL_INPUT_REQUIRED` **仅为入站投影**（非续跑出站）；S3+S4 出站仍固定 `CLIENT_INVOCATION_REQUESTED`。 |
+| **AC-S3-013-2** | 续跑 `correlationId` 可与当次请求 id 相同；**不得**替代 payload 内 `taskId`。 |
+| **AC-S3-013-3** | **不为**续跑 / continueInput **单独**增出站事件枚举。 |
 
-| # | 结论 | 日期 / 回填人 |
-| --- | --- | --- |
-| AC-S3-013-1 | **同意（含 S4）**：G-S3-013-1～5 成立；`INVOCATION_INPUT_REQUIRED` / `A2A_CALL_INPUT_REQUIRED` **仅为入站投影**（非续跑出站）；S3+S4 出站仍固定 `CLIENT_INVOCATION_REQUESTED`；枚举见 [agent-solution#96](https://gitcode.com/openJiuwen/agent-solution/pull/96) | 2026-07-23 / 丁勇（第二轮） |
-| AC-S3-013-2 | **同意**：续跑 `correlationId` 可与当次请求 id 相同；**不得**替代 payload 内 `taskId` | 2026-07-23 / 丁勇 |
-| AC-S3-013-3 | **同意**（默认否：不为续跑 / continueInput **单独**增出站事件枚举） | 2026-07-23 / 丁勇 |
-
-#### 5.9.1.1 AC-S3-013-1 澄清记录（已确认）
-
-首轮回填曾写「新增了 `A2A_CALL_INPUT_REQUIRED` 和 `INVOCATION_INPUT_REQUIRED`」。第二轮逐条确认：
-
-1. **仅为入站投影**（不是续跑出站）；枚举在 [agent-solution#96](https://gitcode.com/openJiuwen/agent-solution/pull/96)
-2. S3 + S4（continueInput）出站仍固定 **`CLIENT_INVOCATION_REQUESTED`**
-3. G-S3-013-1～5 **同意**；结合第 2 点视为 **含 S4**
-
-与 AC-S3-013-3、§4.12 / §5.9.2（王向刚）一致：`*_INPUT_REQUIRED` 属投影/入站补全，不为续跑另开出站枚举。
+`*_INPUT_REQUIRED` 属投影/入站补全，不为续跑另开出站枚举（与 §4.12 / §5.9.2 一致）。
 
 ---
 
-#### 5.9.2 请 FEAT-017（王向刚）确认 — S3/S4 continuation
+#### 5.9.2 Gateway ↔ FEAT-017 契约（S3/S4 continuation）
 
-> **发给**：王向刚。  
-> **性质**：主确认（语义在 017 L2 已有，请书面冻结到与 Gateway 联调口径）。  
-> **范围**：工具续跑（S3）与 continueInput（S4）均为「同事件 + 已有 taskId」continuation；请一次确认、结论含 S4。  
-> **请 AI / 人工对照**：FEAT-017 文档中下列表述（摘要供检索；以你方正文为准）：  
-> - `CLIENT_INVOCATION_REQUESTED` / `A2A_CALL_REQUESTED` **也可以携带已有 `taskId` 表达标准 A2A continuation**；  
-> - admission **使用该 taskId 建立或核对幂等记录，不分配新 Task**；  
-> - **taskId 不存在或 tenant 不匹配时确定失败，禁止把 continuation 降级成新建请求**；  
-> - 入站矩阵：`CLIENT_INVOCATION_REQUESTED` → `onMessageSend` / `onMessageSendStream`，成功可 `INVOCATION_ACCEPTED`，可追加 RESPONSE/STREAM_READY/INPUT_REQUIRED 等。  
-> **另对照**：FEAT-011 §4.10 AC-RT-3 / AC-RT-6（直连续跑权威键与失败语义，经投影表达即可）。  
-> **状态**：**已冻结（契约口径）** — 2026-07-23 / 王向刚回填；**含 S4**。
+> **用途**：同事件 + 已有 `taskId` 的 continuation（工具续跑与 continueInput 同形）。  
+> **前提**：FEAT-017 continuation 表述；FEAT-011 §4.10 AC-RT-3 / AC-RT-6。
 
-**Gateway 将采用的断言：**
+##### Gateway 侧约定
 
-| # | Gateway 断言 |
+| # | 约定 |
 | --- | --- |
 | G-S3-017-1 | 出站 `CLIENT_INVOCATION_REQUESTED` + payload 含原 `taskId` + TextPart = continuation（**含**工具续跑与 continueInput；017 **不**按业务来源分支） |
 | G-S3-017-2 | 017 **不得**因该请求再分配新 Task；成功则仍是同一 `taskId` |
 | G-S3-017-3 | taskId 不存在 / 跨 tenant / 已终态不可续 → **确定失败投影**；Gateway 折成对 client 明确失败，不伪造成功新建 |
 | G-S3-017-4 | 查询/取消/订阅事件不在本场景；730 不交付 |
 
-**请回填（建议 AI 从 017 原文摘录后改写为结论）：**
-
-| # | 待确认项 | 期望输出形态 |
-| --- | --- | --- |
-| AC-S3-017-1 | continuation 规则是否即 G-S3-017-1～2；**是否同时适用于 S4** | **同意（写「含 S4」）** + 指向 017 章节/段落；若有额外 admission 键（如 idempotencyKey）请写明 |
-| AC-S3-017-2 | Task 不存在 / 终态不可续时的**投影事件类型与关键字段** | 表：场景 → `INVOCATION_*` 名 → 是否含 taskId → retryable 否；并说明 Gateway 如何识别「明确失败」 |
-| AC-S3-017-3 | **禁止降级新建**（工具续跑与 continueInput 同等） | 明确书面同意；列出任何例外（默认无） |
-| AC-S3-017-4 | 续跑后再次 `INPUT_REQUIRED`（多轮工具或再次等待用户输入） | 是否仍发 `INVOCATION_INPUT_REQUIRED`；与首次等待是否同形 |
-| AC-S3-017-5 | 与 FEAT-001 `SendMessage(taskId)` 失败码 | 是否仍语义对齐 011 AC-RT-6（HTTP 200 + JSON-RPC error 等）；经 Bus 时投影如何携带 |
-
-**FEAT-017 对齐说明：**
+##### FEAT-017 对齐说明
 
 - S3 工具结果与 S4 `continueInput` 对 FEAT-017 都是普通 A2A continuation，不按业务来源分支。Gateway 发布 `CLIENT_INVOCATION_REQUESTED`，payload 使用 `SendMessage`，并在 `params.message.taskId` 中携带原 Task ID；`clientInvocationId`、`correlationId`、tool call ID 都不能替代它。
 - admission 以 `(tenantId,idempotencyKey)` 为唯一键，并用 request digest 防止同一幂等键承载不同正文。continuation 的 reservation 直接使用 payload 已有的 taskId，不生成新 Task ID。
@@ -1186,19 +1100,19 @@ sequenceDiagram
 | Task 已处于终态、不能继续 | `INVOCATION_FAILED` | 当前实现不回显，禁止新建 | false | 标准 `RequestHandler` 拒绝；当前 bridge 暂映射为 `STREAM_NOT_AVAILABLE`，Gateway 应按确定失败处理，错误码后续可专门化 |
 | Task 实际归属其他 tenant | 设计要求与不存在使用同一 `TASK_NOT_FOUND` 外部表面 | 不回显 | false | 当前 bridge 已校验 payload/envelope tenant；TaskStore 自身的 tenant-scoped 查询仍须 runtime host 联调确认 |
 
-同一 Task 续跑后再次进入 `INPUT_REQUIRED` 时，仍产生与首次相同形态的 `INVOCATION_INPUT_REQUIRED`，以新的持久 revision 区分轮次；不会引入「第二轮输入」专用事件。当前 FEAT-017 内部投影已实现该行为，agent-bus PR 96 也已补齐 `INVOCATION_INPUT_REQUIRED` / `A2A_CALL_INPUT_REQUIRED` 枚举、response relay 与状态分类；剩余工作是完成真实两跳联调验证。
+同一 Task 续跑后再次进入 `INPUT_REQUIRED` 时，仍产生与首次相同形态的 `INVOCATION_INPUT_REQUIRED`，以新的持久 revision 区分轮次；**不**引入「再次等待输入」专用事件。FEAT-017 内部投影已实现该行为；agent-bus 已补齐 `INVOCATION_INPUT_REQUIRED` / `A2A_CALL_INPUT_REQUIRED` 枚举、response relay 与状态分类；完整两跳联调验证仍须跨特性闭合。
 
 经 Bus 时不透传 HTTP 状态码。FEAT-017 将 `RequestHandler` 的确定性异常转换为 `INVOCATION_FAILED(errorCode,retryable=false)`，Gateway 再按 FEAT-011 AC-RT-6 折回对 client 的标准 JSON-RPC error；由此保持外部语义一致，同时不要求本机 HTTP `/a2a` 回环。
 
-**结论（2026-07-23 冻结 / 王向刚回填）：**
+##### FEAT-017 侧约定
 
-| # | 结论 | 日期 / 回填人 |
-| --- | --- | --- |
-| AC-S3-017-1 | **同意，含 S4**；已有 taskId 必须位于 `params.message.taskId`，admission 另以 `(tenantId,idempotencyKey)` 幂等 | 2026-07-23 / 王向刚 |
-| AC-S3-017-2 | 按上表：不存在/跨 tenant 为 `INVOCATION_FAILED(TASK_NOT_FOUND,false)`；终态不可续同样为确定失败，当前错误码映射仍待专门化 | 2026-07-23 / 王向刚 |
-| AC-S3-017-3 | **同意**，工具续跑与 continueInput 均禁止降级新建，无例外 | 2026-07-23 / 王向刚 |
-| AC-S3-017-4 | 仍发同形 `INVOCATION_INPUT_REQUIRED`，以 taskId + revision 表示新一轮等待；agent-bus PR 96 已补齐枚举和 relay/classify 映射 | 2026-07-23 / 王向刚 |
-| AC-S3-017-5 | 语义对齐 FEAT-001/011；Bus 用 `INVOCATION_FAILED` 携带 errorCode/retryable，由 Gateway 转为标准 JSON-RPC error | 2026-07-23 / 王向刚 |
+| # | 约定 |
+| --- | --- |
+| **AC-S3-017-1** | 已有 taskId 必须位于 `params.message.taskId`；admission 另以 `(tenantId,idempotencyKey)` 幂等；**含 S4**。 |
+| **AC-S3-017-2** | Task 不存在/跨 tenant → `INVOCATION_FAILED(TASK_NOT_FOUND,false)`；终态不可续同样为确定失败（错误码映射可后续专门化）。 |
+| **AC-S3-017-3** | 工具续跑与 continueInput 均 **禁止降级新建**，无例外。 |
+| **AC-S3-017-4** | 再次等待输入仍发同形 `INVOCATION_INPUT_REQUIRED`，以 taskId + revision 区分轮次；agent-bus 已补齐枚举与 relay/classify 映射。 |
+| **AC-S3-017-5** | 语义对齐 FEAT-001/011；Bus 用 `INVOCATION_FAILED` 携带 errorCode/retryable，由 Gateway 转为标准 JSON-RPC error。 |
 
 ---
 
@@ -1208,14 +1122,14 @@ sequenceDiagram
 
 对 Gateway 而言：**wire 与投递栈与 §5 S3 相同**——`SendMessage` + 原 `taskId` + 新 `messageId` + TextPart；path=BUS 时出站仍为 **`CLIENT_INVOCATION_REQUESTED`** + payload 含原 `taskId`；017 按 continuation 处理，**禁止降级新建**。  
 
-业务差量（何时调 `continueInput`、`relatedInvocationRef` 不上 wire 等）在 **client**，以 FEAT-011 §6 / §6.9 **已冻**为准；**本文不向晓娜另开 BUS 回填**。client 若不交付 continueInput，则 **不对 client 联调必验**（可选承接）。
+业务差量（何时调 `continueInput`、`relatedInvocationRef` 不上 wire 等）在 **client**，以 FEAT-011 §6 / §6.9 为准；本文 **无** BUS wire 增量。client 若不交付 continueInput，则 **不对 client 联调必验**（可选承接）。
 
 | | S3 工具续跑 | S4 continueInput |
 | --- | --- | --- |
 | 业务发起 | 端侧工具结果回传 | 用户补充输入（SDK continueInput） |
 | Client→Gateway wire | 原 `taskId` + 新 `messageId` + TextPart | **同左** |
 | Gateway BUS 投递 | §5（I-04 + continuation） | **整段复用 §5** |
-| 联调 | §5.9（丁勇/向刚） | **复用 §5.9**；无增量问卷 |
+| 跨特性契约 | §5.9 | **复用 §5.9**；无增量 |
 
 ### 6.1 要做什么
 
@@ -1238,7 +1152,7 @@ sequenceDiagram
 
 **边界：**
 
-- `relatedInvocationRef` 等 client 本地句柄 **不上 wire**（011 已冻）。
+- `relatedInvocationRef` 等 client 本地句柄 **不上 wire**（FEAT-011 §6.9）。
 - Gateway **不**根据业务标签区分「工具续跑 vs continueInput」；只认续跑 wire + BUS 栈。
 - 可选交付：client 不做 continueInput → 本场景不对 client 必验；Gateway 能力仍建议具备（与 S3 同栈）。
 - **730 仅同步 `SendMessage` 续跑**；流式续跑不交付（同 §5.2）。
@@ -1291,7 +1205,7 @@ sequenceDiagram
 | --- | --- |
 | 代码路径 | **与 S3 共用**续跑 BUS 实现；勿复制第二套 continueInput 总线分支 |
 | 观测 | 审计可记 method/续跑；不必区分业务来源 |
-| 联调 | 不新增 013/017 问卷；沿用 §5.9.1 / §5.9.2 |
+| 联调 | 沿用 §5.9.1 / §5.9.2；无 013/017 增量 |
 
 ### 6.8 验收
 
@@ -1302,18 +1216,15 @@ sequenceDiagram
 | T-S4-B3 | 无 taskId | 报文 | 不按 S4 成功验收 |
 | T-S4-B4 | client 本环境不交付 continueInput | — | **跳过**对 client 必验；Gateway 与 S3 同栈单测仍建议覆盖 |
 
-### 6.9 联调回填（S4）
+### 6.9 与跨特性契约（S4）
 
-投递与 continuation 联调挂靠 **§5.9**（范围含 S4）；不另开专表。§5.9 结论未冻结前，不得单独宣称 S4 联调口径已冻结。
+投递与 continuation 挂靠 **§5.9**（范围含 S4）；不另立专节。continueInput 与工具续跑同形；若后续需独立事件或独立 admission，再开差量节。
 
-| 对象 | 是否回填 | 说明 |
-| --- | --- | --- |
-| **晓娜** | **否** | FEAT-011 §6.9 已冻；BUS 无 wire 增量 |
-| **丁勇** | **否（增量问卷）** | 挂靠 §5.9.1；结论须覆盖 S4 |
-| **王向刚** | **否（增量问卷）** | 挂靠 §5.9.2；结论须覆盖 S4 |
-| **尤国庆** | **否** | 同 §5 |
-
-若对方书面认定 continueInput 须独立事件或独立 admission，再另开差量表；默认与工具续跑同形。
+| 对端 | 约定 |
+| --- | --- |
+| **agent-client** | FEAT-011 §6.9；BUS 无 wire 增量 |
+| **FEAT-013 / FEAT-017** | 复用 §5.9.1 / §5.9.2（含 S4） |
+| **FEAT-001 / runtime** | 同 §5.9 |
 
 ---
 
@@ -1360,7 +1271,7 @@ sequenceDiagram
 - 不在本场景做「跳过 DRAINING 取下一条」等增强（同 011）。
 - 不把粘滞未命中、关联不可续并入本场景。
 - **不得**为「先 publish 再因无路由失败」留口；**先选路、后入队**（§0.2 / §1.2）。
-- Gateway 自做场景：**不**向晓娜 / 丁勇 / 向刚另开联调问卷（无 I-04 则无 013/017 契约增量）。
+- 本场景由 Gateway 单侧可验：**无** I-04 则无 013/017 契约增量。
 
 ### 7.3 时序图
 
@@ -1441,7 +1352,7 @@ sequenceDiagram
 | 错误分层 | 选路失败 ≠ 治理失败 ≠ 入队/投影失败 ≠ 粘滞失败 ≠「仅缺 endpoint」 |
 | 拓扑隐藏 | 日志可留内部细节；对 client 必须清洗 |
 | 观测 | 失败原因计入审计/指标；可另计「选路失败且 I-04 零调用」断言 |
-| 联调 | Gateway 自测为主；**无** 013/017 增量问卷 |
+| 联调 | Gateway 自测为主；**无** 013/017 契约增量 |
 
 ### 7.8 验收
 
@@ -1459,16 +1370,16 @@ G 行为与错误分层回链 **FEAT-011 §7.8**（对 client 语义）。本章
 
 实现期可用：Broker produce 桩计数、outbox 行数、`bus/control` mock 零调用（同 §3.3）。
 
-### 7.9 联调回填（S5）
+### 7.9 与跨特性契约（S5）
 
-| 对象 | 是否回填 | 说明 |
-| --- | --- | --- |
-| **晓娜** | **否** | 选路类错误按失败处理；与 011 §7.9 / §4.9 AC-7 同口径；BUS 无 wire 增量 |
-| **丁勇** | **否** | 本场景**不**触达 I-04；无 013 契约增量 |
-| **王向刚** | **否** | 本场景**不**触达 I-05 / 投影消费 |
-| **尤国庆** | **否** | 未调 runtime |
+| 对端 | 约定 |
+| --- | --- |
+| **agent-client** | 选路类错误按失败处理；与 FEAT-011 §7.9 / §4.9 AC-7 同口径；BUS 无 wire 增量 |
+| **FEAT-013** | 本场景**不**触达 I-04；无契约增量 |
+| **FEAT-017** | 本场景**不**触达 I-05 / 投影消费 |
+| **FEAT-001 / runtime** | 未调 runtime |
 
-> Gateway 单侧可测完整；宣称「选路失败不入队」不依赖 013/017 就绪。
+Gateway 单侧可测完整；宣称「选路失败不入队」不依赖 013/017 就绪。
 
 ---
 
@@ -1500,9 +1411,9 @@ G 行为与错误分层回链 **FEAT-011 §7.8**（对 client 语义）。本章
 
 S6～S8 的时序、信封字段与端到端验收 **本版不写**。S9 同键恢复流程 **本版不写**。
 
-### 8.6 联调回填
+### 8.6 与跨特性契约
 
-**无。** 晓娜 / 丁勇 / 向刚均不因本章新增问卷（能力未交付）。
+本章能力未交付：**无**新增跨特性契约条目。
 
 
 
