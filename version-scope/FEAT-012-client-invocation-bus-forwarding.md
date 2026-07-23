@@ -1,11 +1,12 @@
 ---
-version: 0715
+scope: v0730
 module: agent-bus
 feature_type: functional
 feature_id: FEAT-012
 status: active
+updated: 2026-07-21
 ---
-# agent-gateway 组件客户端调用总线转发特性文档
+# 网关组件客户端调用总线转发
 
 ## 1. 特性定位
 
@@ -38,7 +39,6 @@ FEAT-012 定义 `agent-gateway` 当前版本按 agentId 把客户端调用通过
 | 等待输入投影 | MUST | runtime 的 INPUT_REQUIRED 必须可投影为 `INVOCATION_INPUT_REQUIRED`；Gateway 只把新的 input_required 状态、所需输入描述和关联信息交付给 client，不负责管理任务接续状态机。 |
 | 终态投影 | MUST | completed、failed、canceled、rejected 等结果必须通过 `INVOCATION_TERMINAL` 或等价投影表达；Task 终态仍由 runtime 拥有。 |
 | UNKNOWN 与幂等恢复 | MUST | Gateway 在接受等待窗口内无法确认 runtime 是否创建 Task 时，必须返回 `UNKNOWN` 或等价状态，并允许 client 使用同一 `clientInvocationId` 和同一 `idempotencyKey` 重试原始创建类调用；当前版本不新增私有 `ResolveInvocation` 查询接口。 |
-| 取消请求事件 | MUST | Gateway 必须能发布 `CLIENT_INVOCATION_CANCEL_REQUESTED`；消费者最终将请求映射到 Task owner 的 `CancelTask`，不得只在总线侧标记取消。 |
 | Event Bus 不执行 Agent | MUST | Event Bus 不得执行 Agent、调用模型、运行工具、保存业务 checkpoint 或决定 Task 终态。 |
 | token 流入总线 | OUT | 当前版本不允许 token-by-token、SSE frame 或大对象正文进入 Event Bus。 |
 
@@ -56,8 +56,6 @@ Gateway 对 client 的接口面与 `FEAT-011` 保持一致；本特性只说明�
 | 阻塞调用入口 | client -> Gateway | `SendMessage` 语义；Gateway 基于认证主体和策略解析 tenant，并归一 trace、correlation、幂等键和请求上下文。 | 在等待窗口内返回 `COMPLETED_RESPONSE`、`ACCEPTED_WITH_TASK`、`REJECTED`、`FAILED` 或 `UNKNOWN`。 | Gateway 已获得 runtime `taskId` 后不得再把该调用报告为 `UNKNOWN`。 |
 | 流式调用入口 | client -> Gateway | `SendStreamingMessage` 语义；client 通过同一 Gateway A2A facade 建立 SSE 连接。 | Gateway 在收到 `INVOCATION_STREAM_READY` 后桥接 runtime A2A SSE，直到 Task 终态、中断、下游流错误或 client 连接关闭。 | Gateway 不生成 token、不缓存 token 流、不定义第二套 stream 协议。 |
 | Task 查询入口 | client -> Gateway | `GetTask` 语义；必须基于 runtime 生成的 `taskId`。 | 返回 A2A 兼容 Task 快照或确定错误。 | `clientInvocationId` 不得替代 `taskId`。 |
-| Task 取消入口 | client -> Gateway | `CancelTask` 语义；必须基于 runtime 生成的 `taskId`。 | 返回取消请求结果、Task 快照或确定错误。 | Gateway 不承诺强制中断底层模型调用。 |
-| Task 重订阅入口 | client -> Gateway | `SubscribeToTask` 语义；必须基于 runtime 生成的 `taskId`。 | Gateway 通过总线请求订阅准备，并在流准备后重新桥接该 Task 的标准 SSE 流。 | 找不到 Task 时不得隐式创建新 Task。 |
 | UNKNOWN 恢复入口 | client -> Gateway | client 使用同一 `clientInvocationId`、同一 `idempotencyKey` 重试原始创建类调用。 | 若原 Task 已创建，返回同一 `taskId`、接受投影或当前 Task 快照；若未创建，则按新投递或明确拒绝处理。 | 当前版本不新增 `ResolveInvocation` 之类 Gateway 私有查询接口。 |
 
 ### 3.2 Gateway Bus Event Interface
@@ -67,9 +65,7 @@ Gateway 对 client 的接口面与 `FEAT-011` 保持一致；本特性只说明�
 | 事件封装 / 字段 | 方向 / 类型 | 事实要求 |
 |---|---|---|
 | `CLIENT_INVOCATION_REQUESTED` | Gateway -> Event Bus 控制事件 | 表示客户端调用已入队，必须携带 clientInvocationId、tenant、routeHandle、payloadRef 和幂等信息；client 可通过 Gateway 侧投影观察该关联状态，但不直接消费该事件。 |
-| `CLIENT_INVOCATION_CANCEL_REQUESTED` | Gateway -> Event Bus 控制事件 | 表示客户端请求取消，由消费者映射到 Task owner 的 `CancelTask`；不得只在总线侧标记取消。 |
 | `CLIENT_INVOCATION_QUERY_REQUESTED` | Gateway -> Event Bus 控制事件 | 表示客户端查询 Task 或任务列表；payload 必须可映射到标准 Task 查询语义，通常基于 `taskId`。 |
-| `CLIENT_STREAM_SUBSCRIBE_REQUESTED` | Gateway -> Event Bus 控制事件 | 表示客户端希望订阅已有服务端 Task 的 A2A SSE 流；必须基于 `taskId`，不得以 `clientInvocationId` 替代。 |
 | `INVOCATION_ACCEPTED` | Event Bus -> Gateway 投影事件 | 表示 runtime / consumer 已接受调用并创建或复用 Task，必须携带 taskId、correlation 和幂等结果；创建或复用 Task 后必发。 |
 | `INVOCATION_REJECTED` | Event Bus -> Gateway 投影事件 | 表示 runtime / consumer 明确拒绝调用且未创建 Task，必须携带可编程拒绝原因。 |
 | `INVOCATION_FAILED` | Event Bus -> Gateway 投影事件 | 表示消费调用事件或处理请求时发生确定失败，必须携带错误码和是否可重试的语义。 |
@@ -89,7 +85,6 @@ Gateway 对 client 的接口面与 `FEAT-011` 保持一致；本特性只说明�
 | 阻塞调用退化为 Task 引用 | runtime 已创建或复用 Task，但最终响应未在等待窗口内完成 | consumer 发布 `INVOCATION_ACCEPTED`，但窗口内未发布 `INVOCATION_RESPONSE` | Gateway 返回 `ACCEPTED_WITH_TASK` 或等价 Task 引用；client 后续使用 `taskId` 查询或订阅。 |
 | 流式任务观察 | runtime 支持 A2A SSE，服务端已接受 Task 或稍后发布流准备投影 | 消费者发布 `INVOCATION_ACCEPTED` 和 `INVOCATION_STREAM_READY`；client 维持连接或后续基于 `taskId` 订阅 | Gateway 根据 `taskId` 和 streamRef 桥接服务端 A2A SSE；Event Bus 只转发流准备事实和引用，不承载 token chunk。 |
 | input_required 投影处理 | runtime Task 进入 INPUT_REQUIRED，且服务端发布 `INVOCATION_INPUT_REQUIRED` | Gateway 消费 input_required 投影并按 `clientInvocationId` / `taskId` 通知 client | Gateway 只呈现新的 input_required 状态、输入需求和关联信息；任务接续、输入校验和 Task 状态推进由 runtime 控制管理。 |
-| 取消总线转发任务 | client 已获得服务端 `taskId`，或可通过 `clientInvocationId` 关联到已接受 Task | client 通过 Gateway 发起取消请求 | Gateway 发布 `CLIENT_INVOCATION_CANCEL_REQUESTED`；消费者定位 Task owner 并调用 `CancelTask`；runtime 决定取消结果并发布终态或错误投影。 |
 | 接受状态未知与幂等恢复 | Gateway 已发布调用事件，但在接受等待窗口内未观察到接受、拒绝或失败投影 | Gateway 向 client 返回 `UNKNOWN` 或等价状态；client 使用同一 `idempotencyKey` / `clientInvocationId` 重试或继续观察 | 若 runtime 已创建 Task，重复投递必须幂等返回同一 `taskId` 或接受投影；若未创建，则按新投递创建或明确拒绝，不得因重试创建多个 Task。 |
 
 ## 5. 行为语义与边界
@@ -115,7 +110,6 @@ Gateway 对 client 的接口面与 `FEAT-011` 保持一致；本特性只说明�
 - 取消请求必须最终路由到 Task owner，不得只在总线侧标记取消。
 - input_required 是 runtime Task 状态投影；Gateway 只负责把新的等待输入状态和输入需求交付给 client。
 - 任务接续、输入校验、callbackId 解释和 Task 状态推进由 runtime 或目标服务控制管理，不属于 Gateway 或 Event Bus 职责。
-- `clientInvocationId` 不得作为 A2A `GetTask` / `SubscribeToTask` 的标准输入，也不得替代 `taskId`。
 
 #### 5.1.3 UNKNOWN 与幂等语义
 
@@ -173,7 +167,7 @@ Gateway 对 client 的接口面与 `FEAT-011` 保持一致；本特性只说明�
 ## 7. 关联文档
 
 - `agent-sdk/Docs/agent-gateway组件客户端调用总线转发特性设计.md`
-- `Docs/FEAT_Design/FEAT-011-agent-gateway-client-invocation-route-forwarding.md`
-- `JAVA local working/version-scope/FEAT-013-client-invocation-event-forwarding.md`
-- `Docs/FEAT_Design/FEAT-017-agent-runtime-bus-event-subscription-consumption.md`
-- `Docs/FEAT_Design/FEAT-001-standardized-agent-service-entrypoint.md`
+- `version-scope/FEAT-011-client-invocation-route-forwarding.md`
+- `version-scope/FEAT-013-client-invocation-event-forwarding.md`
+- `version-scope/FEAT-017-bus-event-subscription-consumption.md`
+- `version-scope/FEAT-001-standardized-agent-service-entrypoint.md`
