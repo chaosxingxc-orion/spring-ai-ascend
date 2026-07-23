@@ -13,7 +13,7 @@ updated: 2026-07-21
 
 FEAT-019 定义 `agent-core` 侧对 openJiuwen DeepAgent / ReActAgent 同一轮 agent-loop 生成多个下游智能体委托调用的事实要求。下游智能体通过 runtime 代理工具暴露给模型；模型在同一轮可以多次调用该单调用工具，每个调用代表一个独立的下游 Agent 委托意图。
 
-本特性不把下游 Agent 委托设计成一个显式的“批量调用工具”。模型看到的是多个普通形态的 runtime-proxy downstream-agent ToolCall；`agent-core` 必须在同轮 ToolCall 执行边界完整保留这些调用，为每个调用生成独立中断项，并把同轮多个下游 Agent 中断聚合成一个批量中断交给 `agent-runtime`。真正的远程 A2A child Task 创建、并发 fan-out / fan-in、状态投射、INPUT_REQUIRED 定向续接、取消、超时和部分失败处理由 [FEAT-004](./FEAT-004-remote-agent-orchestration.md) 约束。
+本特性不把下游 Agent 委托设计成一个显式的“批量调用工具”。模型看到的是多个普通形态的 runtime-proxy downstream-agent ToolCall；`agent-core` 必须在同轮 ToolCall 执行边界完整保留这些调用，为每个调用生成独立中断项，并把同轮多个下游 Agent 中断聚合成一个批量中断交给 `agent-runtime`。真正的远程 A2A child Task 创建、并发 fan-out / fan-in、状态投射、INPUT_REQUIRED 定向续接、取消、超时和部分失败处理由 [FEAT-004](./FEAT-004-task-driven-remote-agent-communication.md) 约束。
 
 本特性解决的问题是：DeepAgent 一轮规划可能同时需要天气、酒店、航班、研究、财务等多个下游 Agent。如果 `agent-core` 只保留最后一个工具中断，或逐个局部 resume，就会导致下游 Agent 调用丢失、结果串线、父 Agent 过早继续推理和 runtime 无法形成稳定并行批次。FEAT-019 要求 `agent-core` 把这些委托意图作为同一轮批量中断保存和回灌，使 runtime 可以安全代理 A2A 并行调用。
 
@@ -190,7 +190,7 @@ agent-core 按 toolCallId 写入 ToolMessage，并触发一次 DeepAgent 后续�
 
 - `version-scope/README.md`
 - `version-scope/FEAT-002-heterogeneous-agent-framework-compatibility.md`
-- `version-scope/FEAT-004-remote-agent-orchestration.md`
+- `version-scope/FEAT-004-task-driven-remote-agent-communication.md`
 - `version-scope/DFX-001-trajectory-observability.md`
 - `architecture/L0-Top-Level-Design/boundaries.md`
 - `architecture/L1-High-Level-Design/agent-core/logical.md`

@@ -19,7 +19,7 @@ FEAT-002 定义 `agent-runtime` 当前版本接入异构 Agent 框架的事实�
 
 本特性面向以下角色：
 
-- Agent 开发者：通过框架专用基类或通用 `AgentRuntimeHandler` SPI 把 Agent 挂载到 runtime。
+- Agent 开发者：通过框架专用基类或通用 `AgentHandler` SPI 把 Agent 挂载到 runtime。
 - 平台集成方：用同一套 A2A 服务入口调用不同框架或远端服务包装出的 Agent。
 - Adapter 开发者：为新框架实现执行、结果映射、错误映射、取消和可观测性适配。
 - 测试与验收团队：按统一黑盒行为验证不同 adapter 是否产生一致的 Task/SSE/error 语义。
@@ -30,25 +30,23 @@ FEAT-002 定义 `agent-runtime` 当前版本接入异构 Agent 框架的事实�
 
 | 能力 | 要求级别 | 事实要求 |
 |---|---|---|
-| 统一 Handler SPI | MUST | 所有本地框架 adapter 和远端代理 adapter 必须通过 `AgentRuntimeHandler` 或其框架专用基类接入 runtime；A2A 层不得直接依赖具体框架 SDK。 |
-| 统一结果流适配 | MUST | Adapter 的原生输出必须通过 `StreamAdapter` 或等价映射转为 `AgentExecutionResult` 流，并覆盖 `OUTPUT`、`COMPLETED`、`FAILED`、`INTERRUPTED` 四类结果语义。 |
-| 框架中立执行上下文 | MUST | Adapter 必须以 `AgentExecutionContext` 作为执行输入，消费其中的 tenant、user、session、task、agent、message、metadata、state key 等运行时上下文，不得重新定义与 runtime 冲突的身份字段。消费 tenant 等身份字段不等于 adapter 可以自行拼接或生成框架内部多租户 key namespace；隔离边界由 runtime 部署、TaskStore 和下层框架共同保证。 |
-| 单 Agent runtime 执行模型 | MUST | 当前版本一个 runtime 实例只承诺服务一个 Agent。若 Spring 中存在多个 Handler，runtime 可以按 `@Order` 选择第一个并记录告警，但不得承诺按 `agentId` 在同一实例内路由多个 Handler。 |
-| Adapter 健康与生命周期 | SHOULD | Adapter 应实现健康检查与 start/stop 生命周期，以便 runtime readiness 和运维观测能反映底层框架或远端依赖状态。 |
-| 协作式取消 | MUST | Adapter 必须提供 runtime 可调用的取消入口。取消至少要阻止 runtime 继续消费本次执行结果；是否能立即中断底层 LLM、HTTP 或框架执行，由 adapter 能力决定，不能被夸大为强制中断。 |
+| 统一 Handler SPI | MUST | 所有本地框架 adapter 和远端代理 adapter 必须通过 `AgentHandler` 或其框架专用基类接入 runtime；A2A 层不得直接依赖具体框架 SDK。 |
+| 统一结果流适配 | MUST | Adapter 的执行输出必须通过 `QueryChunk` 流承载，覆盖三类 `QueryChunk` 类型（`chunk` 增量输出、`interrupt` 中断等待输入、`error` 异常失败），并通过流控制信号表达终态（`onComplete()` = 隐式 COMPLETED，`onError()` = FAILED）。 |
+| 框架中立执行上下文 | MUST | Adapter 必须以 `ServeRequest` 作为执行输入，消费其中的 `tenantId`、`userId`、`conversationId`（兼任 session）、`messages`、`stream`、`spaceId` 和 `metadata`（透传 Map）等字段。当前版本 `task`、`agent`、`stateKey`、`memoryScope` 等字段未在 `ServeRequest` 中承载，由后续特性补齐。 |
+| 单 Agent runtime 执行模型 | MUST | 当前版本一个 runtime 实例只承诺服务一个 Agent。多 Handler 注册无检测告警、无 `@Order` 选择逻辑；当前实现通过 `@ConditionalOnMissingBean` 提供占位 Holder，实际注入通过 `ObjectProvider.getIfAvailable()` 获取单个 Handler。不得承诺按 `agentId` 在同一实例内路由多个 Handler。 |
+| Adapter 健康与生命周期 | SHOULD | Adapter 应实现 `start()`/`stop()` 生命周期方法。当前 `AgentReadiness` 仅覆盖启动阶段一次性检查（`isProcessUp()` / `isAgentLoaded()`），`isAgentLoaded` 在 init 后永不变更，不反映运行中底层框架或远端依赖的持续健康状态。持续健康探测由后续版本补齐。 |
+| 协作式取消 | MUST | Handler 无独立 `cancel()` 入口。取消通过 `QueryStreamObserver.isCancelled()` 轮询实现（协作式取消），adapter 在流式循环中定期检查该标志。取消至少要阻止 runtime 继续消费本次执行结果；是否能立即中断底层 LLM、HTTP 或框架执行，由 adapter 能力和轮询窗口决定，不能被夸大为强制中断。 |
 | 框架中立错误表面 | MUST | Adapter 必须把框架原生异常、HTTP 错误、SSE 错误或未知结果映射为 `FAILED` 或 runtime 等价失败终态，使 A2A 层形成一致的 Task/error 表面；框架原生存在错误 code 时应尽量保留。只有物理 SPI 能承载相关字段时，才承诺统一的 category、retryable 等结构化分类。 |
-| 框架中立轨迹接入 | SHOULD | Adapter 应把可观察到的 run、model、tool、progress、error 事件映射到 runtime 轨迹语义；框架不暴露的事件不得伪造为已观测事实。 |
-| OpenJiuwen ReActAgent adapter | MUST | 当前版本必须支持进程内托管 OpenJiuwen `ReActAgent`，使用 runtime 传入的稳定 state key 作为框架会话标识来源，输出通过 OpenJiuwen stream adapter 映射为 runtime 结果流。 |
-| OpenJiuwen Workflow adapter | MUST | 当前版本必须支持以独立 adapter 托管 OpenJiuwen `Workflow`，支持 DAG 执行、人机交互中断、按 runtime state key 续接调用和 Workflow 输出映射；框架内部 checkpoint/cache 仍由 OpenJiuwen 或智能体开发者自治。 |
-| OpenJiuwen DeepAgent adapter | MUST | 当前版本必须支持以独立 adapter 托管 OpenJiuwen `DeepAgent`，并将其执行输出、失败和中断语义归一为 runtime 结果流；DeepAgent 的内部规划、工具、skill、memory 和 checkpoint 机制不进入 adapter 治理范围。 |
+| 框架中立轨迹接入 | OUT | 当前版本未实现轨迹接入（全仓 trajectory 零命中），由后续特性承接。 |
+| OpenJiuwen Agent adapter | MUST | 当前版本通过 `JiuwenCoreAgentHandler` 托管可通过 `Runner` 执行的 OpenJiuwen Agent（含 ReActAgent、DeepAgent 及实现了 Agent 接口的 WorkflowAgent），使用 runtime 传入的 `conversationId` 作为框架会话标识来源，输出通过 `QueryChunk` 映射为 runtime 结果流。 |
 | AgentScope ReActAgent adapter | MUST | 当前版本必须支持包装宿主已构建的本地 `ReActAgent`，把 `Mono<Msg>` / `Flux<AgentEvent>` 映射为 runtime query、stream、失败和暂停语义。 |
 | AgentScope HarnessAgent adapter | MUST | 当前版本必须支持包装宿主已构建的本地 `HarnessAgent`；调用走 Harness 公开 API，状态读取和定向中断通过其公开 ReAct delegate 完成，对上保持与 ReAct 相同的 runtime 协议。 |
 | AgentScope A2A 暂停恢复 | MUST | 当前版本必须支持 message stop、人工确认和单个 external pending tool 三类已验证暂停；tool_result interrupt 必须携带 external tool 的 `name/arguments` 供外部执行，但不得暴露内部 tool-call ID；runtime 只从原 `INPUT_REQUIRED` Task 回带可信 `_interrupt` marker，adapter 从 AgentScope 当前 state 构造原生 `ConfirmResult` / `ToolResultBlock`。 |
 | AgentScope 远程 SSE client | OUT | 当前版本只接入同一 JVM 内由宿主构建的 AgentScope `ReActAgent` 和 `HarnessAgent`，不提供 AgentScope 专用 HTTP/SSE client。远端非 A2A 服务可使用 Versatile，远端 A2A Agent 由 FEAT-004 处理。 |
-| Versatile REST 代理 | MUST | 当前版本必须支持把远端 REST/SSE Agent 服务代理为 runtime Agent，完成 A2A Message 到 REST request、REST/SSE response 到 `AgentExecutionResult` 的双向转换。 |
+| Versatile REST 代理 | MUST | 当前版本必须支持把远端 REST/SSE Agent 服务代理为 runtime Agent，完成 A2A Message 到 REST request、REST/SSE response 到 `QueryChunk` 的双向转换。 |
 | Versatile URL 模板 | MUST | Versatile adapter 必须支持 `{conversation_id}` 和部署配置中的 URL 变量替换，使同一 runtime state/session 能稳定映射到远端 conversation。 |
 | Versatile header 与 metadata 映射 | MUST | Versatile adapter 必须支持配置 header、允许列表内 metadata header 透传、structured metadata 覆盖等映射规则，并避免未授权 metadata 任意透传。 |
-| Versatile 结果提取 | SHOULD | Versatile adapter 应支持按 match/get 规则从远端 SSE 或 JSON payload 中提取业务结果，并在 terminal event 到达时形成 completed 结果。 |
+| Versatile 结果提取 | SHOULD | Versatile adapter 通过 `resultNodeName` 配置指定目标节点名称，当 SSE 流中出现匹配 `node_name` 且 `node_type` 为 `"QA"` 的事件时，提取其 `text` 作为业务结果；terminal event（`node_type: "End"`）到达时形成 completed 结果。提取路径（先 `/custom_rsp_data/data`，再 `/data`）当前为硬编码。 |
 | Versatile 中断检测 | MUST | 当远端 HTTP/SSE 流关闭但未观察到明确 End / terminal 事件时，adapter 必须映射为 `INTERRUPTED` 或等价 input-required 语义，而不是误报 completed。 |
 | Python / Node.js sidecar 原生 adapter | OUT | 当前版本不承诺直接以 sidecar SDK 方式接入 Python / Node.js Agent。跨语言 Agent 应通过 Versatile REST 代理或独立远端 Agent 方式接入。 |
 | 同实例多 Agent 路由 | OUT | 当前版本不承诺一个 runtime 实例内按 agent id 路由多个 Handler。多 Agent 部署应使用多个 runtime 实例或上层路由。 |
@@ -58,19 +56,13 @@ FEAT-002 定义 `agent-runtime` 当前版本接入异构 Agent 框架的事实�
 
 | 入口 | 类型 | 事实要求 |
 |---|---|---|
-| `AgentRuntimeHandler` | Java SPI | 必须作为所有 adapter 被 runtime 调用的统一执行入口，提供 `agentId`、`isHealthy`、`execute`、`resultAdapter`、`cancel` 和生命周期扩展点。 |
-| `StreamAdapter` | Java SPI | 必须把框架原生 `Stream<?>` 映射为 `Stream<AgentExecutionResult>`；映射过程中不得返回 A2A SDK 私有类型作为 adapter 对外事实。 |
-| `AgentExecutionContext` | Java runtime context | 必须承载 adapter 执行所需的身份、消息、metadata、input type、state key、memory scope 和 task 语义。 |
-| `AgentExecutionResult` | Java result model | 必须作为 adapter 到 runtime 的标准结果表面，表达增量输出、完成、失败和中断等待输入。 |
-| `AgentCardProvider` | Java optional provider | 可由 handler 或 adapter 提供 Agent Card 元数据，使执行职责与能力声明分离；其 northbound 暴露仍受 FEAT-001 约束。 |
-| `agentStateKey` / `stateKey` | Runtime state boundary | 必须作为 adapter 传递给框架调用的稳定会话标识来源；若社区版物理 SPI 未暴露独立 state key，可使用 `conversationId`、`sessionId` 等语义等价的稳定会话键。该键只建立 runtime task/session 与框架内部会话的关联，不授权 adapter 读写或治理框架 checkpointer/cache payload。缺省 fallback 可以使用 task 语义，但不得覆盖 tenant、session 或 task 事实字段。 |
-| `MemoryProvider` | Java reserved SPI | 只作为 runtime 预留的窄 memory 接入点出现；当前版本的 Redis 任务状态缓存由 FEAT-003 约束，Memory/State 中间件历史草稿已归档。 |
-| `OpenJiuwenAgentRuntimeHandler` | Java adapter base | 应作为 OpenJiuwen ReActAgent 接入入口，开发者通过实现 `createOpenJiuwenAgent(context)` 构建 Agent。 |
-| `OpenJiuwenWorkflowAgentRuntimeHandler` | Java adapter base | 应作为 OpenJiuwen Workflow 接入入口，开发者通过实现 `createOpenJiuwenWorkflow(context)` 构建 Workflow DAG。 |
-| `OpenJiuwenDeepAgentRuntimeHandler` | Java adapter base | 应作为 OpenJiuwen DeepAgent 接入入口，开发者通过实现框架所需构造逻辑提供 DeepAgent。 |
-| `AgentScopeAgentHandler` | Java adapter | 作为本地 AgentScope 统一接入入口，通过 `forReActAgent(...)` 或 `forHarnessAgent(...)` 包装宿主已构建的 agent；两种 agent 共享同一 runtime 协议表面。 |
-| `VersatileAgentRuntimeHandler` | Java adapter base | 必须作为远端 REST/SSE 服务代理入口，并可提供 Agent Card 信息供 A2A 发现。 |
-| `versatile.*` | YAML configuration | 必须承载 Versatile URL、timeout、URL variables、query params、headers、passthrough headers、input metadata keys 和 result extractions。 |
+| `AgentHandler` | Java SPI | 必须作为所有 adapter 被 runtime 调用的统一执行入口，提供 `query()`（同步执行）、`streamQuery()`（异步流式执行）、`start()`/`stop()` 生命周期和 `clearSession(conversationId)` 会话清理。 |
+| `ServeRequest` | Java runtime context | 承载 adapter 执行输入，字段包括 `tenantId`、`userId`、`conversationId`、`spaceId`、`messages`、`stream`、`metadata`。当前版本 `task`（A2A task id）、`agent`（agent id）、`stateKey`（独立于 conversationId）、`memoryScope` 等字段未承载，由后续特性补齐。 |
+| `QueryChunk` | Java result model | 作为 adapter 到 runtime 的标准结果表面，包含三类：`TYPE_CHUNK`（增量输出，可多次出现）、`TYPE_INTERRUPT`（中断等待输入）、`TYPE_ERROR`（异常失败）。COMPLETED 由 `observer.onComplete()` 隐式表达，FAILED 由 `observer.onError()` 表达，二者不在 `QueryChunk` 数据模型中。 |
+| `agentStateKey` / `stateKey` | Runtime state boundary | 当前版本 `conversationId` 直接作为 session key 使用，无独立 `stateKey` 派生逻辑。`JiuwenCoreAgentHandler.runnerSession()` 直接用 `conversationId` 构造 Runner session；跨租户时 `conversationId` 碰撞可能导致会话串扰。独立 `stateKey` 派生规则由后续特性补齐。 |
+| `JiuwenCoreAgentHandler` | Java adapter base | OpenJiuwen Agent 通用 adapter，接受任意 `Object agent`，通过反射调用 `Runner.runAgentStreaming(agent, ...)` 执行，不区分 ReActAgent / DeepAgent / WorkflowAgent 类型。 |
+| `VersatileAgentHandler` | Java adapter base | 必须作为远端 REST/SSE 服务代理入口，并可提供 Agent Card 信息供 A2A 发现。 |
+| `openjiuwen.service.versatile.*` | YAML configuration | 承载 Versatile URL、timeout、URL variables、query params、headers、passthrough headers、input metadata keys 和 `resultNodeName`。 |
 | `GET /.well-known/agent-card.json` | HTTP endpoint | 不属于 adapter 私有入口；任何 adapter 挂载出的 Agent 都必须通过 FEAT-001 的 Agent Card 发现表面暴露能力。 |
 | `POST /a2a` | HTTP endpoint | 不属于 adapter 私有入口；任何 adapter 挂载出的 Agent 都必须通过 FEAT-001 的标准 A2A JSON-RPC/SSE 表面被调用。 |
 
@@ -78,15 +70,12 @@ FEAT-002 定义 `agent-runtime` 当前版本接入异构 Agent 框架的事实�
 
 | 场景 | 前置条件 | 用户/系统动作 | 期望行为 |
 |---|---|---|---|
-| 挂载 OpenJiuwen ReActAgent | 应用已引入 OpenJiuwen adapter，开发者能构建 `ReActAgent` | 开发者继承 `OpenJiuwenAgentRuntimeHandler` 并注册为 Spring Bean | runtime 通过标准 A2A 入口调用该 Agent；OpenJiuwen 输出被映射为 Task/SSE/Artifact/terminal 状态。 |
-| 挂载 OpenJiuwen Workflow Agent | 应用已引入 Workflow adapter，框架或开发者已配置其内部续接机制 | 开发者继承 `OpenJiuwenWorkflowAgentRuntimeHandler`，构建 Workflow DAG | Workflow 正常完成时返回 completed；遇到人工确认节点时返回 input-required；用户续接同一任务后，adapter 以同一 runtime state key 发起续接调用，内部恢复由 OpenJiuwen 或开发者配置负责。 |
-| 挂载 OpenJiuwen DeepAgent | 应用已引入 DeepAgent adapter，开发者能构建 `DeepAgent` | 开发者继承 `OpenJiuwenDeepAgentRuntimeHandler` 并注册为 Spring Bean | runtime 通过标准 A2A 入口调用该 Agent；DeepAgent 输出、失败和中断被映射为标准 Task/SSE/error 语义。 |
-| 挂载 AgentScope 本地 Agent | 应用已构建 `ReActAgent` 或 `HarnessAgent` | 开发者用 `AgentScopeAgentHandler.forReActAgent(...)` 或 `forHarnessAgent(...)` 注册 Handler bean | runtime 通过统一 Handler 表面消费 AgentScope 结果与事件，调用方仍观察标准 A2A Task/SSE 表面。 |
-| 代理远端 REST Agent 服务 | 远端服务提供 REST endpoint 和 SSE/JSON 响应 | 开发者注册 `VersatileAgentRuntimeHandler` 并配置 `versatile.*` | 调用方仍发送标准 A2A 请求；adapter 组装 REST request，解析远端 response 并返回标准 Task/SSE 结果。 |
+| 挂载 OpenJiuwen ReActAgent | 应用已引入 OpenJiuwen adapter，开发者能构建 `ReActAgent` | 开发者继承 `JiuwenCoreAgentHandler` 并注册为 Spring Bean | runtime 通过标准 A2A 入口调用该 Agent；OpenJiuwen 输出被映射为 Task/SSE/Artifact/terminal 状态。 |
+| 代理远端 REST Agent 服务 | 远端服务提供 REST endpoint 和 SSE/JSON 响应 | 开发者注册 `VersatileAgentHandler` 并配置 `openjiuwen.service.versatile.*` | 调用方仍发送标准 A2A 请求；adapter 组装 REST request，解析远端 response 并返回标准 Task/SSE 结果。 |
 | 远端服务需要会话连续性 | runtime 输入带有 session/context/task 语义 | Versatile adapter 用 `{conversation_id}` 或配置字段构造远端 URL | 同一 runtime state/session 稳定映射到远端 conversation，避免跨会话串扰。 |
-| Agent 等待用户输入 | OpenJiuwen Workflow、OpenJiuwen DeepAgent 或 Versatile 远端服务产生中断语义 | 调用方收到 `INPUT_REQUIRED` 后用同 task/context 续接 | adapter 必须使用同一 runtime state key、task/context 或远端 continuation 信息发起续接调用；内部恢复上下文由框架或远端服务自治，adapter 不直接读写缓存 payload。 |
-| 调用方取消任务 | A2A client 调用标准 cancel | runtime 调用当前 handler 的 cancel | adapter 至少停止本次结果消费并让 Task 表面进入取消语义；底层是否立即停止由 adapter 能力决定。 |
-| 多 Handler 被同时注册 | Spring 容器中存在多个 `AgentRuntimeHandler` Bean | runtime 启动并选择执行 Handler | runtime 可以按 `@Order` 选第一个并记录告警；不得对外承诺同实例多 Agent 路由。 |
+| Agent 等待用户输入 | JiuwenCore Agent 或 Versatile 远端服务产生中断语义 | 调用方收到 `INPUT_REQUIRED` 后用同 task/context 续接 | adapter 必须使用同一 `conversationId`、task/context 或远端 continuation 信息发起续接调用；内部恢复上下文由框架或远端服务自治，adapter 不直接读写缓存 payload。 |
+| 调用方取消任务 | A2A client 调用标准 cancel | runtime 通过 `QueryStreamObserver.isCancelled()` 轮询通知 handler | adapter 在流式循环中检测到取消后停止结果消费并让 Task 表面进入取消语义；底层是否立即停止由 adapter 轮询窗口和框架能力决定。 |
+| 多 Handler 被同时注册 | Spring 容器中存在多个 `AgentHandler` Bean | runtime 启动并选择执行 Handler | 当前实现无多 Handler 检测、无 `@Order` 选择、无 WARN 日志；通过 `ObjectProvider.getIfAvailable()` 获取 Handler，多 Handler 场景行为未定义。不得对外承诺同实例多 Agent 路由。 |
 
 ## 5. 行为语义与边界
 
@@ -95,7 +84,7 @@ FEAT-002 定义 `agent-runtime` 当前版本接入异构 Agent 框架的事实�
 #### 5.1.1 Adapter 归一语义
 
 - Adapter 是框架差异的吸收层，不是新的 northbound 协议层。
-- A2A controller、Task store、readiness gate、trajectory、state/memory scope 必须看到统一的 `AgentRuntimeHandler` 执行表面。
+- A2A controller、Task store、readiness gate、trajectory、state/memory scope 必须看到统一的 `AgentHandler` 执行表面。
 - Adapter 不得把 OpenJiuwen、AgentScope、Versatile 或其他框架的内部状态机直接暴露为 A2A Task 状态机。
 - Adapter 可以保留框架内部 session、conversation、workflow node、remote request id 等字段，但这些字段必须稳定映射到 runtime context 或 metadata，不能覆盖 runtime 的 task/session/tenant 事实字段。
 - Adapter 不得实现或代理框架 checkpointer/cache 的读写策略；它只能把 runtime 拥有的 state key、task/context 和调用生命周期信号传给框架。
@@ -103,55 +92,50 @@ FEAT-002 定义 `agent-runtime` 当前版本接入异构 Agent 框架的事实�
 
 #### 5.1.2 执行与结果映射语义
 
-- `execute(context)` 必须返回可被 runtime 消费的 stream；即使底层框架是同步阻塞调用，也必须包装为统一 stream 结果。
-- 原生增量输出必须映射为 `OUTPUT`；最终成功必须映射为 `COMPLETED`；异常或不可恢复错误必须映射为 `FAILED`；需要用户输入、远端继续或连接关闭未终止时必须映射为 `INTERRUPTED`。
-- `COMPLETED` 不得用于表示“远端还在等待用户输入”或“连接意外关闭但没有 terminal event”的情况。
+- Handler 通过 `query(ServeRequest)`（同步）或 `streamQuery(ServeRequest, QueryStreamObserver)`（异步）执行 Agent；即使底层框架同步阻塞，也必须通过 `QueryStreamObserver` 消费结果。
+- 增量输出通过 `QueryChunk(TYPE_CHUNK, data)` 承载，可在流中多次出现（LLM 每生成 token/segment 即发一个 chunk）。
+- 需要用户输入或连接关闭未终止时通过 `QueryChunk(TYPE_INTERRUPT, message)` 表达，之后 `onComplete()` 被抑制。
+- 异常或不可恢复错误通过 `QueryChunk(TYPE_ERROR, error)` + `observer.onError()` 表达 FAILED 终态。
+- 正常完成通过 `observer.onComplete()` 隐式表达 COMPLETED 终态（前置无 `TYPE_INTERRUPT` chunk）。
+- FAILED 完全由异常驱动（Java 异常或 `TYPE_ERROR` chunk + `onError()`）；Agent 无法以数据方式主动声明自己失败，只能依赖异常传播路径。
+- `COMPLETED` 不得用于表示”远端还在等待用户输入”或”连接意外关闭但没有 terminal event”的情况。
 - 未知原生结果类型必须失败或被显式过滤，不得以空 completed 掩盖。
 
-#### 5.1.3 OpenJiuwen ReActAgent 语义
+#### 5.1.3 OpenJiuwen Agent 通用语义
 
-- OpenJiuwen ReActAgent adapter 必须把 runtime text input 映射为 OpenJiuwen input，并以 stable state key / conversation id 维持会话连续性。
-- OpenJiuwen streaming runner 或等价执行路径输出的 chunk 必须映射为 runtime 结果流。
-- ReActAgent 内部 hook、rail、tool、skill、memory 和 checkpoint 能力由 OpenJiuwen 或智能体开发者自治，adapter 不声明这些机制的安装、编排或缓存读写承诺。
+- `JiuwenCoreAgentHandler` 是统一的 OpenJiuwen Agent 通用 adapter，通过反射调用 `Runner.runAgentStreaming(agent, ...)` 执行 Agent，不区分 ReActAgent、DeepAgent 或 WorkflowAgent 类型。
+- 通过 `conversationId` 维持会话连续性；`conversationId` 直接作为 `Runner` session key 使用，无独立 `stateKey` 派生逻辑。
+- OpenJiuwen streaming runner 输出的 chunk 映射为 runtime `QueryChunk` 流。
+- Agent 内部 hook、rail、tool、skill、memory 和 checkpoint 能力由 OpenJiuwen 或智能体开发者自治，adapter 不声明这些机制的安装、编排或缓存读写承诺。
+- cancel 通过 `QueryStreamObserver.isCancelled()` 轮询实现（协作式取消），handler 无独立 `cancel()` 入口。底层 LLM 调用是否立即中断由框架决定。
 
-#### 5.1.4 OpenJiuwen Workflow 语义
+#### 5.1.5 AgentScope 语义
 
-- Workflow adapter 必须作为独立 adapter 入口存在，不能被描述为 ReActAgent adapter 内部隐式能力。
-- Workflow DAG 正常结束时必须映射为 `COMPLETED`；Workflow 抛出或返回错误时必须映射为 `FAILED`。
-- Workflow 人工确认或交互节点必须映射为 `INTERRUPTED` / input-required；同一 state key 下的后续用户输入必须由 adapter 传回 OpenJiuwen，内部 checkpoint/cache 恢复由 OpenJiuwen 或智能体开发者自治。
-- Workflow 组件模型不等同于 ReActAgent 模型，二者必须保持独立 adapter 入口。
-
-#### 5.1.5 OpenJiuwen DeepAgent 语义
-
-- DeepAgent adapter 必须作为独立 adapter 入口存在，不能被描述为 ReActAgent 或 Workflow adapter 内部隐式能力。
-- DeepAgent 的最终输出、失败和中断必须映射为 runtime 标准 `OUTPUT`、`COMPLETED`、`FAILED` 或 `INTERRUPTED` 语义。
-- DeepAgent 内部规划、工具调用、skill 调度、MCP 工具服务调用、memory 和 checkpoint 机制由 OpenJiuwen 或智能体开发者自治；adapter 不对这些内部机制做显式承诺。
-
-#### 5.1.6 AgentScope 语义
-
-- AgentScope 本地 `ReActAgent` 和 `HarnessAgent` 的结果与事件必须由同一 `AgentScopeAgentHandler` 映射为 runtime 等价的输出、完成、失败和可恢复暂停语义；当前版本不包含 AgentScope 专用远程 HTTP/SSE 模式。
+- AgentScope 本地 `ReActAgent` 和 `HarnessAgent` 的结果与事件必须由同一 adapter 映射为 runtime 等价的输出、完成、失败和可恢复暂停语义；当前版本不包含 AgentScope 专用远程 HTTP/SSE 模式。
 - AgentScope 暂停恢复只承诺已实现的三类：`message` 使用空消息列表续跑，`confirmation` 将精确 `APPROVE/REJECT` 转为 `ConfirmResult`，`tool_result` 在第一轮输出当前唯一 external pending tool 的 `name/arguments`，并在第二轮根据 AgentScope state 构造 `ToolResultBlock`。不承诺多 external pending、自然语言确认、客户端回传内部 tool ID 或非 A2A 恢复。
 - 当前接入的 AgentScope Java 2.0 本地 API 以 `Throwable` 表达执行失败，没有稳定的 code-bearing error event 契约；adapter 必须映射为 `FAILED` 或 runtime 等价失败终态并保留异常因果链，但不承诺不存在的原生错误 code。
 - 当前版本不适配 AgentScope PROGRESS 轨迹；不得从文本增量或普通事件伪造 PROGRESS/MODEL_CALL 轨迹。
 - 当前版本不承诺 AgentScope 原生 Memory 或 Checkpoint 适配。
 
-#### 5.1.7 Versatile REST 代理语义
+#### 5.1.4 Versatile REST 代理语义
 
 - Versatile adapter 必须把 A2A text input 和 metadata 映射为远端 REST request body、URL、query 和 header。
 - `{conversation_id}` 必须由 runtime state/session 语义派生，确保远端 conversation 与 runtime 会话边界一致。
 - Header 透传必须受 allowlist 或 structured metadata 规则控制；不得默认透传所有调用方 metadata。
-- 远端 SSE 的 message、workflow_finished、end、exception、connection_closed 等事件必须映射为标准 `OUTPUT`、`COMPLETED`、`FAILED` 或 `INTERRUPTED`。
-- result extraction 只能影响 completed payload 的组装，不能改变 terminal 状态语义。
+- 远端 SSE 事件映射：普通 SSE data → `QueryChunk(TYPE_CHUNK)` 增量输出；`event: "exception"` → `QueryChunk(TYPE_ERROR)` + `onError()` = FAILED；流关闭且 `isCompleted=true` 且有 result → 最后发 answer envelope + `onComplete()` = COMPLETED；流关闭但无 End/terminal event → `QueryChunk(TYPE_INTERRUPT)` = INPUT_REQUIRED。
+- INPUT_REQUIRED 的 message 来自非 interrupt chunk 的 data 文本拼接或兜底硬编码 `"Remote agent requires input"`；当前无机制将远端具体中断原因结构化传递。
+- result extraction 通过 `resultNodeName` 匹配 `node_name` 且 `node_type == "QA"` 的事件提取 `text`；只能影响 completed payload 的组装，不能改变 terminal 状态语义。
+- Versatile adapter 和 A2A 扩展位于 `agent-solution` 项目（扩展/示例性质），不在 `agent-runtime-java` 核心模块中。仅引入 `agent-runtime-java` 依赖时 Versatile REST 代理能力不可用。
 
-#### 5.1.8 错误、取消与可观测性结果
+#### 5.1.6 错误、取消与可观测性结果
 
 | 场景 | 事实要求 |
 |---|---|
-| handler 未就绪或不健康 | runtime 应拒绝执行或暴露不健康状态，调用方不应看到伪成功结果。 |
+| handler 未就绪 | init 阶段未完成时 `AgentHandlerHolder.requireHandler()` 抛出 `IllegalStateException` 拒绝执行（启动时序保护）。当前版本无运行时健康拒绝机制；若 handler 在 init 后变为不健康，无 `isHealthy()` 方法可供运行时查询。 |
 | adapter 创建底层 Agent 失败 | 必须映射为 failed Task/error，并记录可诊断错误。 |
 | 框架同步调用异常 | 必须映射为 `FAILED`；不得让异常绕过标准 Task/error 表面。 |
-| 远端 HTTP 超时 | 必须映射为可诊断、可分类的失败错误。 |
-| 远端 HTTP 4xx/5xx | 必须保留状态码或等价错误 code，并映射为 `FAILED`。 |
+| 远端 HTTP 超时 | 当前 Versatile adapter 将 HTTP 错误统一包装为 `IllegalStateException("Versatile invocation failed")`，状态码在日志中可见但丢失于异常链。可分类的失败错误由后续版本补齐。 |
+| 远端 HTTP 4xx/5xx | 当前同上，状态码未保留在异常链中供上游分类。 |
 | SSE 解析失败 | 应记录并按可恢复性选择跳过单帧或失败整个任务；不得输出破损事件给 A2A 调用方。 |
 | 流关闭但无 terminal event | 必须映射为 `INTERRUPTED` 或失败，不能映射为 completed。 |
 | cancel requested | 必须停止 runtime 对该执行流的继续消费，并尽力通知底层框架或远端请求。 |
@@ -176,9 +160,9 @@ FEAT-002 定义 `agent-runtime` 当前版本接入异构 Agent 框架的事实�
 ## 6. 对下游设计与实现的约束
 
 - L2 设计必须把本文作为异构 Agent adapter 层的事实来源，不能把旧实现限制或新增代码能力未经声明地写成事实承诺。
-- A2A 层必须只依赖 `AgentRuntimeHandler` / `AgentExecutionResult` 等框架中立表面，不得导入 OpenJiuwen、AgentScope、Versatile 私有类型。
+- A2A 层必须只依赖 `AgentHandler` / `QueryChunk` 等框架中立表面，不得导入 OpenJiuwen、AgentScope、Versatile 私有类型。
 - 新增 adapter 必须提供执行入口、结果映射、失败终态映射、取消语义、健康检查策略、配置说明和至少一个可运行示例；原生错误 code 存在时应验证其保留行为，统一错误分类只在物理 SPI 支持时验证；不得把框架 cache/checkpointer 读写、hook/rail/tool/skill 编排写成本特性承诺。
-- OpenJiuwen ReActAgent、OpenJiuwen Workflow 与 OpenJiuwen DeepAgent 必须在文档和实现中保持入口清晰：三者分别面向 LLM 自主循环、DAG 编排/人机交互中断和 DeepAgent 执行模型。
+- OpenJiuwen Agent 通过 `JiuwenCoreAgentHandler` 统一托管；ReActAgent、DeepAgent 和实现了 Agent 接口的 WorkflowAgent 均可通过 `Runner` 执行，不区分专用 adapter 入口。
 - Versatile adapter 的 URL、header、metadata、result extraction 和中断检测规则必须被测试覆盖，尤其要覆盖“无 End 连接关闭不得 completed”的边界。
 - AgentScope adapter 必须覆盖本地 ReAct/Harness 的正常完成、失败终态、无业务终态断流、暂停恢复和取消边界；当前本地 API 没有稳定原生错误 code 时不要求 code 保留测试。远程 SSE、PROGRESS、Memory/Checkpoint 不得在未实现前写入 guide 作为当前承诺能力。
 - 多 Handler 注册只能作为兼容降级路径处理；任何同实例多 Agent 路由设计必须先更新本特性或新增 version-scope 特性。

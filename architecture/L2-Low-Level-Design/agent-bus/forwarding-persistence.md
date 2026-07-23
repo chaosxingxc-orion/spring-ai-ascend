@@ -629,7 +629,7 @@ A2A `FAILED` 是远程 agent 的**终态业务失败**（业务层），区别�
 
 `C3ForwardingFailurePathIntegrationTest` 双场景，复用 Stage 17 boot recipe（embedded-postgres + Flyway + `spring.autoconfigure.exclude` + 真实 `LocalA2aRuntimeHost`），唯一差异是 handler：
 
-- **场景 1（真实 FAILED → DLQ）**：`FailingHandler.resultAdapter` 把每个 raw 结果映射为 `AgentExecutionResult.failed(...)` → 真实 A2A server Task FAILED → 真实 SSE FAILED 帧 → `A2aForwardingDeliveryPort dlq(REMOTE_TASK_FAILED)` → worker `moveToDlq` → persisted `last_failure_code = remote_task_failed`。
+- **场景 1（真实 FAILED → DLQ）**：`FailingHandler` 通过 `observer.onError()` 产生 FAILED → 真实 A2A server Task FAILED → 真实 SSE FAILED 帧 → `A2aForwardingDeliveryPort dlq(REMOTE_TASK_FAILED)` → worker `moveToDlq` → persisted `last_failure_code = remote_task_failed`。
 - **场景 2（不可达 route → RETRY）**：`MapEndpointResolver` 指向 `freeUnusedPort()`（bind 后 close 的瞬时空闲端口 → 真实 socket 拒连）→ `A2aForwardingDeliveryPort retry(RECEIVER_UNAVAILABLE)` → worker `scheduleRetry`（Stage 14 policy）→ persisted `last_failure_code = receiver_unavailable` + `attempt_count = 1` + future `next_attempt_at`。场景 2 不经 runtime（socket 拒连在任何 server 之前）。
 
 outbox 端口不暴露 per-record reader（`claimDue` 是租约路径非读路径），IT 用 raw JDBC 投影读 `last_failure_code` / `attempt_count` / `next_attempt_at` 持久化列，对齐 `ForwardingFailureCode.wireCode()` 契约。
