@@ -634,7 +634,7 @@ sequenceDiagram
 | I-01 | 入站 A2A；出站五态 / SSE 回 client |
 | I-02 | 入队前选路；失败则无 I-04 |
 | I-04 出站 | `CLIENT_INVOCATION_REQUESTED`；契约对齐 FEAT-013 |
-| I-04 入站 | `INVOCATION_ACCEPTED` / `REJECTED` / `FAILED` / `RESPONSE` / `STREAM_READY` / `TERMINAL` /（若有）`INPUT_REQUIRED` 等 |
+| I-04 入站 | `INVOCATION_ACCEPTED` / `REJECTED` / `FAILED` / `RESPONSE` / `STREAM_READY` / `TERMINAL` / `INPUT_REQUIRED` 等（见 §4.12.3） |
 | I-05 | 端到端必现；**FEAT-017**；Gateway 不实现 |
 | I-06 | 仅流式且已 `STREAM_READY`；token 不经 I-04 |
 | I-03 | 本场景主路径**不用** |
@@ -653,10 +653,11 @@ sequenceDiagram
 | `INVOCATION_ACCEPTED` 且已有 `taskId`；response 窗口内无最终响应 | 已接受（Task 引用） | 不得报未知 |
 | `INVOCATION_REJECTED` | 拒绝 | 不伪造 `taskId` |
 | `INVOCATION_FAILED` / 确定失败终态 | 失败 | 可含错误码；不伪造成功 |
+| 017 侧 `RETRY`（payloadRef 瞬时不可用等，§4.12.3） | **不**折成五态终态面 | 继续等稳定投影；**不得**据此 ACK 为成功/拒绝/失败；窗口耗尽仍按超时规则 |
 | accept 窗口超时，且从未 ACCEPTED/REJECTED/FAILED/RESPONSE | 未知 | 可携带重试关联（G4 幂等键）；**非** S9 同键恢复专章；BUS `correlationId` 对 client 不可见 |
 | 已 ACCEPTED 后 response 窗口超时 | 已接受 | **禁止**改报未知 |
-| `INVOCATION_STREAM_READY` | （流式）可桥接 | 与 ACCEPTED **可分离**；缺则不得开 I-06 |
-| `INVOCATION_INPUT_REQUIRED`（若 017 产出） | 等待输入 | 须带 `taskId`；后续续跑见 S3/S4 |
+| `INVOCATION_STREAM_READY` | （流式）可桥接 | 与 ACCEPTED **可分离**；缺则不得开 I-06；`streamRef` 为不透明引用（§4.12 AC-017-3），非新 URL |
+| `INVOCATION_INPUT_REQUIRED` | 等待输入 | 须带 `taskId`；730 应消费（§4.12 AC-017-4）；后续续跑见 S3/S4 |
 
 #### 4.6.1 投影消费幂等与乱序（总线必有）
 
@@ -886,7 +887,7 @@ client 联调主路径配合：与 011 相同的 A2A 创建组包；总线关联
 > **性质**：**P0 主契约**。答案以 **017 自家 L2/实现** 为准；本文只列 Gateway 期望，便于逐条对照回填。  
 > **请 AI / 人工对照**：FEAT-017 设计文档（及代码 PR/补丁若有）+ 本文 §4.3～§4.6。  
 > **事件名权威**：以 017 枚举为准；若与本文用词不一致，回填时给出**映射表**即可。  
-> **状态**：待回填。
+> **状态**：**已冻结（契约口径）** — 2026-07-23 / 王向刚回填；**端到端两跳就绪见 AC-017-6（未宣称完整闭合）**。
 
 #### 4.12.1 Gateway 侧期望（请逐条表态）
 
@@ -911,16 +912,51 @@ client 联调主路径配合：与 011 相同的 A2A 创建组包；总线关联
 | AC-017-5 | payloadRef 取正文失败 | REJECTED 还是 FAILED |
 | AC-017-6 | 联调就绪标准 | 最低模块 / 开关 / 文档或 commit |
 
-**结论（冻结后填写）：**
+#### 4.12.3 FEAT-017 回填口径
+
+创建请求仍使用统一的 `CLIENT_INVOCATION_REQUESTED` 事件，具体调用方式由 A2A payload 的 PascalCase `method` 决定：
+
+| Bus 事件 | A2A payload `method` | FEAT-017 bridge 调用 | 说明 |
+| --- | --- | --- | --- |
+| `CLIENT_INVOCATION_REQUESTED` | `SendMessage` | `RequestHandler.onMessageSend` | 非流式创建，或携带已有 `params.message.taskId` 的同步 continuation |
+| `CLIENT_INVOCATION_REQUESTED` | `SendStreamingMessage` | `RequestHandler.onMessageSendStream` | 流式创建/continuation；730 的 S3/S4 不以此作为验收路径 |
+
+`message/send`、`message/stream`、`message/sendStream` 等小写别名不属于双方协议。payload 省略 `method` 时，FEAT-017 允许由事件类型与 envelope 的 `metadata.streaming` 兼容判别，但 Gateway 正式出站应携带上述标准方法名，避免产生第二套线上契约。
+
+FEAT-017 对客户端来源请求产生如下逻辑投影；所有投影都原样携带请求的 `correlationId`，并交换 source/target 使其返回 Gateway：
+
+| 投影事件 | `taskId` | 关键字段/内容 | 当前实现情况 |
+| --- | --- | --- | --- |
+| `INVOCATION_ACCEPTED` | 必填，必须是 runtime 创建或复用的真实 Task ID | `idempotencyResult=CREATED/REUSED` | 已实现 |
+| `INVOCATION_REJECTED` | 不得伪造 | `reason`、`retryable=false` | 已实现 |
+| `INVOCATION_FAILED` | 已知时携带，否则可空 | `errorCode`、`retryable` | 已实现 |
+| `INVOCATION_RESPONSE` | 必填 | 标准 A2A response 或 Task snapshot | 内部投影已实现；完整复杂对象经 agent-bus `payloadRef` 返回尚待跨特性联调闭合 |
+| `INVOCATION_STREAM_READY` | 必填 | `streamRef` | 已实现签发；Gateway 到标准 SSE 入口的解析/装配尚待 I-06 联调 |
+| `INVOCATION_INPUT_REQUIRED` | 必填 | `taskState`、持久 revision、Task snapshot/输入上下文 | FEAT-017 已产生逻辑投影；agent-bus PR 96 已补齐事件枚举、response relay 集合与 `InvocationResponseStatus.INPUT_REQUIRED` 映射 |
+| `INVOCATION_TERMINAL` | 必填 | terminal state、持久 revision、Task snapshot/结果 | 已实现逻辑投影和 agent-bus 事件类型 |
+
+`streamRef` 不是 URL，也不编码 host、port、topic 或 partition。Gateway 应先用 `taskId + streamRef` 完成内部流定位/授权，再通过 I-06 建立标准 A2A SSE；SSE method 和帧格式不新增 FEAT-017 私有协议，继续复用 FEAT-011。当前 FEAT-017 只提供不透明引用的签发与校验能力，没有另行定义专用 HTTP URL。
+
+payloadRef 失败按是否已经形成确定结论分类：
+
+| 失败 | FEAT-017 处理 |
+| --- | --- |
+| 信封缺字段、引用格式/租户范围确定非法 | `INVOCATION_REJECTED`，不创建 Task |
+| 引用可取但正文无法解析或 method 不匹配 | `INVOCATION_FAILED(PAYLOAD_INVALID,retryable=false)` |
+| 引用服务暂时不可用、超时等瞬时故障 | `RETRY`，在形成稳定投影前不 ACK，也不伪造确定失败 |
+
+最低联调模块为 `common/agent-bus/{agent-bus-spi,agent-bus-sdk,agent-bus-testkit}` 与 `common/agent-runtime-ext-java/agent-service-bus-consumer`。启用前缀为 `openjiuwen.service.bus.consumer`，至少需要 `enabled=true`、target/consumer service identity、consumer tenant、request consumer、response outbox publisher、A2A `RequestHandler` 与 `TaskStore`；流式还需要 `stream-ref-secret`。执行方法见 `common/agent-runtime-ext-java/doc/agent-service-bus-consumer-integration-test-guide.md`。当前已通过内存联调和真实 RocketMQ 的 `*_deliver → FEAT-017 → *_resp_in` 往返测试。agent-bus PR 96 已闭合 `INPUT_REQUIRED` 的枚举与 relay/classify 静态契约；`*_req → *_deliver`、`*_resp_in → *_resp_out`、完整响应 payloadRef 以及 `INPUT_REQUIRED` 的完整两跳行为仍需跨特性联调验证。
+
+**结论（2026-07-23 冻结 / 王向刚回填）：**
 
 | # | 结论 | 日期 / 回填人 |
 | --- | --- | --- |
-| AC-017-1 | （待填） | |
-| AC-017-2 | （待填） | |
-| AC-017-3 | （待填） | |
-| AC-017-4 | （待填） | |
-| AC-017-5 | （待填） | |
-| AC-017-6 | （待填） | |
+| AC-017-1 | **同意**；按 `SendMessage → onMessageSend`、`SendStreamingMessage → onMessageSendStream` 判别，只接受 FEAT-001 PascalCase method，见 §4.12.3 / FEAT-017 L2 §3.2、§4.2 | 2026-07-23 / 王向刚 |
+| AC-017-2 | **同意**；事件名、taskId 和公共关联字段按 §4.12.3 表执行，`correlationId` 原样回传 | 2026-07-23 / 王向刚 |
+| AC-017-3 | 采用标准 A2A SSE：`streamRef` 是不透明的内部授权/定位引用，不是新 URL；当前 I-06 物理解析装配仍需联调 | 2026-07-23 / 王向刚 |
+| AC-017-4 | `INPUT_REQUIRED`、`TERMINAL` 均按 Task 持久状态 revision 产生，730 应消费；agent-bus PR 96 已补齐 `INPUT_REQUIRED` 枚举、relay 和状态分类 | 2026-07-23 / 王向刚 |
+| AC-017-5 | 按确定非法、正文非法、瞬时不可用三类分别处理为 REJECTED、FAILED、RETRY，见 §4.12.3 | 2026-07-23 / 王向刚 |
+| AC-017-6 | FEAT-017 模块内存与真实 RocketMQ 中间链路已就绪；完整两跳、payloadRef、INPUT_REQUIRED 仍须 FEAT-013/014 联调 | 2026-07-23 / 王向刚 |
 
 ---
 
@@ -1127,7 +1163,7 @@ sequenceDiagram
 2. S3 + **S4（continueInput）** 出站是否仍固定 **`CLIENT_INVOCATION_REQUESTED`**？
 3. G-S3-013-1～5 是否整体 **同意（请写明「含 S4」）**？若有差异请单列。
 
-> **注：** AC-S3-013-3 与本条不矛盾的前提是：`*_INPUT_REQUIRED` 若落地，属**投影/入站**补全，而非「为续跑另开出站枚举」。
+> **注：** AC-S3-013-3 与本条不矛盾的前提是：`*_INPUT_REQUIRED` 若落地，属**投影/入站**补全，而非「为续跑另开出站枚举」。§4.12 / §5.9.2（王向刚）已确认 017 产生 `INVOCATION_INPUT_REQUIRED`，并称 agent-bus PR 96 补齐枚举与 classify——可作丁勇确认时的旁证，**不能替代** AC-S3-013-1 书面表态。
 
 ---
 
@@ -1141,7 +1177,8 @@ sequenceDiagram
 > - admission **使用该 taskId 建立或核对幂等记录，不分配新 Task**；  
 > - **taskId 不存在或 tenant 不匹配时确定失败，禁止把 continuation 降级成新建请求**；  
 > - 入站矩阵：`CLIENT_INVOCATION_REQUESTED` → `onMessageSend` / `onMessageSendStream`，成功可 `INVOCATION_ACCEPTED`，可追加 RESPONSE/STREAM_READY/INPUT_REQUIRED 等。  
-> **另对照**：FEAT-011 §4.10 AC-RT-3 / AC-RT-6（直连续跑权威键与失败语义，经投影表达即可）。
+> **另对照**：FEAT-011 §4.10 AC-RT-3 / AC-RT-6（直连续跑权威键与失败语义，经投影表达即可）。  
+> **状态**：**已冻结（契约口径）** — 2026-07-23 / 王向刚回填；**含 S4**。
 
 **Gateway 将采用的断言：**
 
@@ -1162,15 +1199,32 @@ sequenceDiagram
 | AC-S3-017-4 | 续跑后再次 `INPUT_REQUIRED`（多轮工具或再次等待用户输入） | 是否仍发 `INVOCATION_INPUT_REQUIRED`；与首次等待是否同形 |
 | AC-S3-017-5 | 与 FEAT-001 `SendMessage(taskId)` 失败码 | 是否仍语义对齐 011 AC-RT-6（HTTP 200 + JSON-RPC error 等）；经 Bus 时投影如何携带 |
 
-**结论：**
+**FEAT-017 对齐说明：**
+
+- S3 工具结果与 S4 `continueInput` 对 FEAT-017 都是普通 A2A continuation，不按业务来源分支。Gateway 发布 `CLIENT_INVOCATION_REQUESTED`，payload 使用 `SendMessage`，并在 `params.message.taskId` 中携带原 Task ID；`clientInvocationId`、`correlationId`、tool call ID 都不能替代它。
+- admission 以 `(tenantId,idempotencyKey)` 为唯一键，并用 request digest 防止同一幂等键承载不同正文。continuation 的 reservation 直接使用 payload 已有的 taskId，不生成新 Task ID。
+- 730 的 S3/S4 只验收同步 `SendMessage` continuation。FEAT-017 bridge 虽能识别 `SendStreamingMessage`，但不把它扩张为本版本 Gateway 的交付范围。
+
+| continuation 场景 | FEAT-017 投影 | `taskId` | `retryable` | Gateway 识别方式 |
+| --- | --- | --- | ---: | --- |
+| 原 Task 存在且可继续 | `INVOCATION_ACCEPTED`，随后可有 `INVOCATION_RESPONSE` / `INVOCATION_INPUT_REQUIRED` / `INVOCATION_TERMINAL` | 必须仍为原 taskId | — | 按 `correlationId` 关联，并校验返回 taskId 等于请求 taskId |
+| Task 不存在，或 payload tenant 与 envelope tenant 不同 | `INVOCATION_FAILED`，`errorCode=TASK_NOT_FOUND` | 当前实现不回显，禁止伪造 | false | 按 `INVOCATION_FAILED + errorCode` 折成明确失败 |
+| Task 已处于终态、不能继续 | `INVOCATION_FAILED` | 当前实现不回显，禁止新建 | false | 标准 `RequestHandler` 拒绝；当前 bridge 暂映射为 `STREAM_NOT_AVAILABLE`，Gateway 应按确定失败处理，错误码后续可专门化 |
+| Task 实际归属其他 tenant | 设计要求与不存在使用同一 `TASK_NOT_FOUND` 外部表面 | 不回显 | false | 当前 bridge 已校验 payload/envelope tenant；TaskStore 自身的 tenant-scoped 查询仍须 runtime host 联调确认 |
+
+同一 Task 续跑后再次进入 `INPUT_REQUIRED` 时，仍产生与首次相同形态的 `INVOCATION_INPUT_REQUIRED`，以新的持久 revision 区分轮次；不会引入「第二轮输入」专用事件。当前 FEAT-017 内部投影已实现该行为，agent-bus PR 96 也已补齐 `INVOCATION_INPUT_REQUIRED` / `A2A_CALL_INPUT_REQUIRED` 枚举、response relay 与状态分类；剩余工作是完成真实两跳联调验证。
+
+经 Bus 时不透传 HTTP 状态码。FEAT-017 将 `RequestHandler` 的确定性异常转换为 `INVOCATION_FAILED(errorCode,retryable=false)`，Gateway 再按 FEAT-011 AC-RT-6 折回对 client 的标准 JSON-RPC error；由此保持外部语义一致，同时不要求本机 HTTP `/a2a` 回环。
+
+**结论（2026-07-23 冻结 / 王向刚回填）：**
 
 | # | 结论 | 日期 / 回填人 |
 | --- | --- | --- |
-| AC-S3-017-1 | （待填） | |
-| AC-S3-017-2 | （待填） | |
-| AC-S3-017-3 | （待填） | |
-| AC-S3-017-4 | （待填） | |
-| AC-S3-017-5 | （待填） | |
+| AC-S3-017-1 | **同意，含 S4**；已有 taskId 必须位于 `params.message.taskId`，admission 另以 `(tenantId,idempotencyKey)` 幂等 | 2026-07-23 / 王向刚 |
+| AC-S3-017-2 | 按上表：不存在/跨 tenant 为 `INVOCATION_FAILED(TASK_NOT_FOUND,false)`；终态不可续同样为确定失败，当前错误码映射仍待专门化 | 2026-07-23 / 王向刚 |
+| AC-S3-017-3 | **同意**，工具续跑与 continueInput 均禁止降级新建，无例外 | 2026-07-23 / 王向刚 |
+| AC-S3-017-4 | 仍发同形 `INVOCATION_INPUT_REQUIRED`，以 taskId + revision 表示新一轮等待；agent-bus PR 96 已补齐枚举和 relay/classify 映射 | 2026-07-23 / 王向刚 |
+| AC-S3-017-5 | 语义对齐 FEAT-001/011；Bus 用 `INVOCATION_FAILED` 携带 errorCode/retryable，由 Gateway 转为标准 JSON-RPC error | 2026-07-23 / 王向刚 |
 
 ---
 
