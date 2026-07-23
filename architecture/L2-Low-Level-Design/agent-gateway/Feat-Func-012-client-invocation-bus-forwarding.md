@@ -104,6 +104,8 @@ BUS 是与 DIRECT 并行的**控制面支路**，用于控制事件分发、平�
 | IN-10 | 查询 / 取消 / 重订阅 · 经总线 | **否** | 长期可属本特性；**730 不实现、不验收** |
 | IN-11 | UNKNOWN 同键恢复 | **否** | 当次五态之「未知」仍可为当次结果面；不交付「同键恢复」专场景 |
 
+> **编号说明：** 本文 IN / OUT **编号独立于 FEAT-011**，仅在本文内引用。跨文档请用能力名或「012 IN-n / 011 IN-n」并列表述，**勿**把两侧同号 IN 当作同一能力。
+
 #### 0.4.3 明确不做（Out of Scope）
 
 | 编号 | 不做 | 说明 |
@@ -149,6 +151,8 @@ BUS 是与 DIRECT 并行的**控制面支路**，用于控制事件分发、平�
 | FEAT-017 | 回投影生产在对端；**未就绪前不得宣称总线端到端联调完成**（软阻塞） |
 | Broker | 不拍死唯一 MQ；可配置；联调拓扑与 013 一致即可 |
 | 已有 `taskId` 后 | **禁止**再向 client 报告创建类「未知」 |
+| 等待窗口存储 | 730 默认同进程内存（类比 011 粘滞/幂等）；Gateway **重启后窗口丢失**，进行中调用可能对 client 表现为未知/失败，**不**做跨实例共享等待表（多实例属后续） |
+| 投影消费就绪 | Gateway **须在 I-04 入站消费者就绪后**才接受会触发 publish 的创建/续跑；否则明确失败或拒绝服务，避免「已入队却无人匹配投影」 |
 
 ### 0.7 成功标准
 
@@ -164,6 +168,8 @@ BUS 是与 DIRECT 并行的**控制面支路**，用于控制事件分发、平�
 | SC-8 | 宣称「总线路径联调完成」前，FEAT-017 消费与投影路径须就绪（或书面豁免） |
 | SC-9 | 730 不交付的 Get / Cancel / Subscribe / UNKNOWN 恢复：不作为本版本验收项；若入口可达则禁止假成功 |
 | SC-10 | 配置与部署约束（§1.5）满足：path-mode 对 client 不可见；I-04 双窗口语义正确；入站必启；SSE release 不可关；正式 Gateway 不绑测具（详见 AC-CFG / **T-CFG-***） |
+| SC-11 | 投影消费幂等与终态闭合：重复投影不二次回传 client；迟到投影不降级已折叠终态（§4.6） |
+| SC-12 | 同步等待窗口内 client 断开：释放窗口、不自动 Cancel Task、不二次完整回传（§4.6） |
 
 ### 0.8 相关特性（只记编号，不挂路径）
 
@@ -293,7 +299,7 @@ agent-gateway/
 | S1 治理拒绝 | 仅 I-01 | **无** I-04 出站 / 入站 |
 | S2 创建（同步） | I-01, I-02, **I-04 出站+入站** | 端到端另含 **I-05**（017）；Gateway 不实现 I-05 |
 | S2 创建（流式） | I-01, I-02, **I-04 出站+入站**, I-06 | 入站须含 `STREAM_READY`；再 I-06；端到端另含 I-05 |
-| S3 / S4 续跑 | I-01, **I-04 出站+入站**（+ 关联 / 粘滞） | 流式续跑若启用再加 I-06；端到端另含 I-05 |
+| S3 / S4 续跑 | I-01, **I-04 出站+入站**（+ 关联 / 粘滞） | **730 仅同步**；流式续跑不交付；端到端另含 I-05 |
 | S5 选路失败 | I-01, I-02 | **无** I-04（出站与入站皆无） |
 | S6～S9 | — | 730 不交付 |
 
@@ -350,6 +356,8 @@ openjiuwen.gateway:
 | Event Bus / Broker | 本路径运行**依赖** Broker 与 Event Bus 转发能力（FEAT-013）；缺则 BUS 路径不可用 |
 | FEAT-017（I-05） | 端到端联调依赖对端消费与回投影就绪（§0.6 软阻塞）；Gateway 配置不替代 017 |
 | Task 权威 | 仍在 runtime；Gateway / Bus 不写 Task 权威库 |
+| 投影消费者就绪 | 入站订阅就绪前，不接受会 I-04 出站的业务调用（或明确失败）；见 §0.6 |
+| 等待窗口持久性 | 730 单机内存；重启丢失；**不**要求跨 Gateway 副本共享（见 §0.6） |
 
 #### 1.5.3 验收要点与用例（横切，非独立 S）
 
@@ -365,6 +373,8 @@ openjiuwen.gateway:
 | AC-CFG-6 | SSE release 不可关 | client 断开后释放 I-06；配置不得关闭该语义 | S2 流式、SC-2 |
 | AC-CFG-7 | 正式 Gateway 独立于测具 | 交付制品不绑死 Event Bus `gateway` profile 临时实现 | §1.5.2、SC-8 |
 | AC-CFG-8 | 网络边界可达 | 联调环境 Gateway 可达 RDC、Broker；流式可达 runtime SSE | S2 流式 |
+| AC-CFG-9 | 投影消费者就绪 | 入站未就绪时不得伪造成功入队；须失败或不可用 | §0.6、S2 |
+| AC-CFG-10 | 等待窗口单机限制 | 文档/运行说明标明 730 内存窗口、重启丢失 | §0.6 |
 
 **验收用例（T-CFG）** — 与 T-S*-B* 同形；不新开 S 编号。S1 / S5 的「零 I-04」见 T-S1-B* / T-S5-B*，支撑 SC-4，不单列 T-CFG。
 
@@ -379,10 +389,11 @@ openjiuwen.gateway:
 | T-CFG-6 | path=bus；流式已建 I-06 | client 断开 SSE | 桥接 release；配置无法关闭该语义 | AC-CFG-6 |
 | T-CFG-7 | 对照交付制品与 Event Bus 测具 | 检查模块边界 | 正式 Gateway **不**绑死 `gateway` profile 临时实现 | AC-CFG-7 |
 | T-CFG-8 | 联调拓扑 | Gateway 访问 RDC、Broker；流式再访问 runtime SSE | 可达；不可达时失败明确，不伪造成功 | AC-CFG-8 |
+| T-CFG-9 | path=bus；I-04 入站未就绪 | 同步创建 | 明确失败/不可用；不得报已入队成功 | AC-CFG-9 |
 
 **边界提醒：** Broker / topic / 两跳键名以 FEAT-013 为准；投影生产归 FEAT-017；S6～S9 事件若底座已有，**012 730 不验收**。端到端宣称完成前 FEAT-017（I-05）须就绪或书面豁免（SC-8）。
 
-SC-10 = AC-CFG-1～8 / T-CFG-1～8 均满足（本环境不验流式时可豁免 T-CFG-6 并注明原因）。
+SC-10 = AC-CFG-1～10 / T-CFG-1～9 均满足（本环境不验流式时可豁免 T-CFG-6 并注明原因；AC-CFG-10 以说明文档勾选即可）。
 
 ---
 
@@ -557,21 +568,37 @@ sequenceDiagram
     GW-->>C: 选路失败（S5）；无 I-04
   else 信封目标已齐
     RDC-->>GW: opaque routeHandle + targetServiceId
+    GW->>GW: P2 登记等待窗口<br/>(correlation / accept+response)
     GW->>Bus: I-04 出站 CLIENT_INVOCATION_REQUESTED<br/>(A2A 为 payload/payloadRef)
-    Note over Bus,RT: I-05：Relay 投递 + FEAT-017 消费（非 Gateway）
-    RT-->>Bus: INVOCATION_* 投影
-    Bus-->>GW: I-04 入站（按 correlation 匹配）
-    alt 同步
-      GW->>GW: 双窗口内 classify → 五态折叠
-      GW-->>C: A2A 兼容结果面（无拓扑泄漏）
-    else 流式
-      GW->>GW: 须先匹配 STREAM_READY（与 ACCEPTED 可分离）
-      GW->>RT: I-06 按 streamRef 建 SSE（点对点）
-      loop client 连接存活
-        RT-->>GW: SSE 帧
-        GW-->>C: 逐帧桥接（token 不进 Bus）
+    alt publish / produce 失败
+      GW->>GW: abort G4；释放窗口
+      GW-->>C: 明确失败（如 ENQUEUE_FAILED）；无假 taskId
+    else 出站成功
+      Note over Bus,RT: I-05：Relay 投递 + FEAT-017 消费（非 Gateway）
+      alt accept 窗口超时且无 ACCEPTED/REJECTED/FAILED/RESPONSE
+        GW->>GW: 五态「未知」；abort G4；释放窗口
+        GW-->>C: 未知（可带重试关联）
+      else 已 ACCEPTED 后 response 窗口超时
+        GW->>GW: 五态「已接受」；complete G4
+        GW-->>C: 已接受 + taskId（禁止改报未知）
+      else 投影到达（含重复/乱序，见 §4.6）
+        Bus-->>GW: I-04 入站（按 correlation 匹配）
+        alt 同步
+          GW->>GW: 双窗口内 classify → 五态折叠<br/>终态后 complete；重复投影忽略
+          GW-->>C: A2A 兼容结果面（无拓扑泄漏）
+        else 流式
+          GW->>GW: 须先匹配 STREAM_READY（与 ACCEPTED 可分离）
+          GW->>RT: I-06 按 streamRef 建 SSE（点对点）
+          loop client 连接存活
+            RT-->>GW: SSE 帧
+            GW-->>C: 逐帧桥接（token 不进 Bus）
+          end
+          GW->>GW: client 断开或流结束 → release；<br/>正常结束则 complete
+        end
       end
-      GW->>GW: client 断开或流结束 → release
+      opt 同步等待中 client 断开 HTTP
+        GW->>GW: 释放等待窗口；不 publish CANCEL；<br/>不自动 Cancel Task；后续投影可丢弃
+      end
     end
   end
 ```
@@ -588,7 +615,7 @@ sequenceDiagram
 | P3 | I-04 出站 | 组装 `ForwardingEnvelope`（`CLIENT_INVOCATION_REQUESTED`）；写入可信租户、路由引用、`correlationId`；A2A 入 `payload`/`payloadRef`；enqueue → produce |
 | P4a | 同步折叠 | I-04 入站消费投影 → §4.6 五态；清洗后经 I-01 回传 |
 | P4b | 流式桥接 | 已匹配 `INVOCATION_STREAM_READY`（含 `streamRef`）且 client 仍连接 → I-06；逐帧桥接；断开 release |
-| P5 | 收尾 | 首次获得非空 `taskId` 时写入续跑所需关联（见下）；更新创建幂等（若适用）；route/bus trace；响应去拓扑 |
+| P5 | 收尾 | 首次获得非空 `taskId` 时写入续跑所需关联（见下）；**按 §4.6 G4 接线表** `complete` / `abort`；route/bus trace；响应去拓扑 |
 
 **粘滞 / 续跑预备（相对 011 差量）：**
 
@@ -598,7 +625,7 @@ sequenceDiagram
 | 总线 012 | 控制/投影侧以 **`taskId` + 信封关联** 为准；Gateway 仍可保留 `taskId → routeHandle`（或 stream 定位信息）供后续 S3 / I-06 解析，**不得**对 client 暴露 |
 | 写入时机 | 首次从投影得到非空 `taskId`（通常 `INVOCATION_ACCEPTED`） |
 
-**P3 出站失败：** produce / 入队明确失败 → 对 client 明确错误；**不得**伪造 `taskId`；可映射为失败或未知（不得假装已接受）。
+**P3 出站失败：** produce / 入队明确失败 → 对 client 明确错误（如 `ENQUEUE_FAILED`）；**G4 abort**；释放等待窗口；**不得**伪造 `taskId`；不得假装已接受。
 
 ### 4.5 接口
 
@@ -631,11 +658,56 @@ sequenceDiagram
 | `INVOCATION_STREAM_READY` | （流式）可桥接 | 与 ACCEPTED **可分离**；缺则不得开 I-06 |
 | `INVOCATION_INPUT_REQUIRED`（若 017 产出） | 等待输入 | 须带 `taskId`；后续续跑见 S3/S4 |
 
+#### 4.6.1 投影消费幂等与乱序（总线必有）
+
+Event Bus 投递为 **at-least-once**。折叠表不得按「每个投影只到达一次、且严格按 ACCEPTED→RESPONSE 顺序」实现。
+
+| 规则 | 约定 |
+| --- | --- |
+| 入站去重键 | 优先使用投影侧稳定 id（FEAT-013/017 约定的 event id / projection id）；若无，则用 `(correlationId, eventType, 规范化载荷摘要)`。同一去重键只处理一次 |
+| 重复投影 | 已处理过的投影 **不得**再次触发对 client 的完整回传，**不得**再次 `complete`，**不得**再次打开 I-06 |
+| 终态闭合 | 等待记录一旦已对 client 折叠为终态面（响应完成 / 拒绝 / 失败 / 已接受且窗口关闭 / 未知且窗口关闭），该 correlation **忽略**一切迟到投影（含迟到的 `ACCEPTED`） |
+| 乱序：RESPONSE/终态早于 ACCEPTED | 按「响应完成 / 失败 / 拒绝」折叠；**不**要求先见到 ACCEPTED |
+| 乱序：终态后迟到 ACCEPTED | **忽略**；不得降级已回传终态 |
+| 乱序：STREAM_READY 早于 ACCEPTED | **允许**（与 ACCEPTED 可分离）；仍须 client 连接存活才建 I-06 |
+| 出站 `messageId` | 仍只服务 I-04 **出站**投递去重；**不**替代入站投影去重键 |
+
+#### 4.6.2 同步等待窗口内 client 断开
+
+流式断开见 AC-CFG-6（release I-06）。**同步**路径 Gateway 阻塞在 accept/response 窗口时，若 client 关闭 HTTP 连接：
+
+| 项 | 约定 |
+| --- | --- |
+| 等待窗口 | **立即释放**（停止为该 correlation 向 client 回传） |
+| Cancel | **不**自动 publish 取消类控制事件（730 **不交付** Cancel，见 IN-10） |
+| Task | **不**因断开而 Cancel；Task 仍由 runtime 持有并可继续执行 |
+| 迟到投影 | 可丢弃 / 仅记 trace；**不得**再向已断开的 client 完整回传 |
+| G4 | **abort**（释放 IN_FLIGHT），使同键可重试；与「不自动 Cancel Task」正交——重试可能二次 publish，由 runtime/017 侧创建幂等约束（若有） |
+
+精神对齐 FEAT-011：client 断开 **不**自动 Cancel Task；BUS 额外明确「释放窗口 + 结果可丢弃」。
+
+#### 4.6.3 G4 `complete` / `abort` 与投影终态（精确接线）
+
+创建类请求在进入本章前已由 G4 `check` 登记（NEW）。**禁止**使用「若适用」模糊收尾；按下表接线（与 011 复审结论一致：成功须可 REPLAY，失败须可释放 IN_FLIGHT）。
+
+| 条件 | G4 动作 | 同键重试期望 |
+| --- | --- | --- |
+| 已对 client 回传 **响应完成**（RESPONSE/含结果终态） | **complete**(结果体) | REPLAY；**不**二次 publish |
+| 已对 client 回传 **拒绝**（REJECTED） | **complete**(拒绝面) | REPLAY 拒绝面；**不**二次 publish |
+| 已对 client 回传 **失败**（FAILED） | **complete**(失败面) | REPLAY 失败面；**不**二次 publish |
+| 已对 client 回传 **已接受**（含 response 窗口超时） | **complete**(已接受面) | REPLAY；**不**二次 publish |
+| publish / produce **失败** | **abort** | 可再次 NEW→publish |
+| accept 窗口超时 → **未知** | **abort** | 可再次 NEW→publish |
+| 同步等待中 **client 断开**（§4.6.2） | **abort** | 可再次 NEW→publish |
+| 仍在双窗口内等待、尚未回传终态面 | **keep**（IN_FLIGHT） | 并发同键 → IN_FLIGHT 409 |
+| 流式：I-06 **正常结束** | **complete**(可重放体：优先首帧/约定摘要，同 011 口径 A) | REPLAY JSON；**不**二次 publish / 开流 |
+| 流式：开流前失败或桥接失败 | **abort** | 可重试 |
+
 **流式额外：**
 
 1. 控制面出站与同步相同（同一 `CLIENT_INVOCATION_REQUESTED` 族，流式语义由 method / 标记区分，对齐 017）。
 2. 仅当 client→Gateway 连接仍在，且已匹配 `STREAM_READY` + 可用 `streamRef` 时建立 I-06。
-3. Gateway **不**生成、**不**缓存 token；client 断开必须 release（AC-CFG-6）。
+3. Gateway **不**生成、**不**缓存 token；client 断开必须 release（AC-CFG-6）；同步断开见 §4.6.2。
 
 ### 4.7 实现要点
 
@@ -643,9 +715,23 @@ sequenceDiagram
 | --- | --- |
 | 模块 | `bus/control`（出站）、`bus/projection` + `bus/wait`（入站与窗口）、`sse/`（I-06）、`routing/`（同 011） |
 | 依赖 | FEAT-013 SDK：`BrokerForwardingRelayPort` / `BrokerForwardingConsumerPort` / outbox；**不**嵌入 Event Bus 测具进程为正式制品 |
-| 窗口 | `accept-wait-window` / `response-wait-window`（§1.5）；超时判断勿被 `poll` 阻塞「吃掉」整段窗口 |
-| 幂等 | G4 创建幂等与 Bus `messageId` 去重分层；服务端创建幂等在 runtime / 017 |
+| 窗口 | `accept-wait-window` / `response-wait-window`（§1.5）；超时判断勿被 `poll` 阻塞「吃掉」整段窗口；730 内存、重启丢失（§0.6） |
+| 幂等 | G4 创建幂等（§4.6.3）与 Bus 出站 `messageId`、入站投影去重（§4.6.1）分层；服务端创建幂等在 runtime / 017 |
 | 拓扑 | 对 client 禁止泄漏 topic、worker、endpoint、`routeHandle`、消费者组 |
+
+#### 4.7.1 总线路径错误码占位（实现期冻结字面量）
+
+与 FEAT-011 的 `ROUTE_*` / `FORWARD_FAILED` / `IDEMPOTENCY_*` **分层**；下列为 Gateway 自控错误码占位（HTTP 映射实现期冻结，须稳定、无拓扑）：
+
+| code（占位） | 何时 | 备注 |
+| --- | --- | --- |
+| `ENQUEUE_FAILED` | I-04 出站 produce/入队明确失败 | 对应 AC-CFG-2；G4 abort |
+| `PROJECTION_TIMEOUT_UNKNOWN` | accept 窗口超时 → 五态未知 | 可带重试关联；G4 abort |
+| `PROJECTION_CONSUMER_UNAVAILABLE` | 入站消费者未就绪 | AC-CFG-9 |
+| `CONTINUATION_FAILED` | S3/S4 无法给出可续跑路由引用或 017 关联失败 | 禁止降级新建 |
+| `BUS_PATH_UNAVAILABLE` | path=bus 但 Broker/底座不可用 | 部署/依赖失败 |
+
+治理拒绝、选路失败仍分别用 011 的 `AUTH_*` / `VALIDATION_*` / `ROUTE_*` 等，**不**改用上表冒充。
 
 ### 4.8 验收
 
@@ -656,11 +742,15 @@ sequenceDiagram
 | T-S2-B3 | 同 T-S2-B1；SendStreamingMessage | 流式创建 | 先 `STREAM_READY` 再 I-06；Bus 侧无 token；断开 release |
 | T-S2-B4 | RDC 空列表 | 创建 | **S5**；I-04 出站 **0** 次 |
 | T-S2-B5 | 缺 `clientInvocationId`（默认策略 A） | 创建 | 校验失败（明确错误）；**不** publish；若 §4.10 采纳备选 B 则本条作废 |
-| T-S2-B6 | 投影 `REJECTED` | 创建 | 拒绝面；无伪造 `taskId` |
-| T-S2-B7 | accept 窗口内无接受类投影 | 创建 | 五态「未知」；非已接受 |
-| T-S2-B8 | 已 ACCEPTED 后 response 超时 | 创建 | 「已接受」+ `taskId`；**不得**未知 |
-| T-S2-B9 | produce 失败 / Broker 不可达（桩） | 创建 | 明确失败或未知；不伪造成功 Task |
+| T-S2-B6 | 投影 `REJECTED` | 创建 | 拒绝面；无伪造 `taskId`；G4 complete；同键重试不二次 publish |
+| T-S2-B7 | accept 窗口内无接受类投影 | 创建 | 五态「未知」；非已接受；G4 abort |
+| T-S2-B8 | 已 ACCEPTED 后 response 超时 | 创建 | 「已接受」+ `taskId`；**不得**未知；G4 complete |
+| T-S2-B9 | produce 失败 / Broker 不可达（桩） | 创建 | `ENQUEUE_FAILED`（或等价明确失败）；G4 abort；不伪造成功 Task |
 | T-S2-B10 | 首次 ACCEPTED 含 `taskId` | 创建成功 | Gateway 侧具备续跑关联（内部）；client 响应无 `routeHandle` |
+| T-S2-B11 | 同一投影（同去重键）投递两次 | 同步创建 | 对 client **只完整回传一次**；不二次 complete |
+| T-S2-B12 | 已回传 RESPONSE 后迟到 ACCEPTED | 同步创建 | 忽略迟到投影；不降级终态 |
+| T-S2-B13 | 同步等待投影中 client 断开 HTTP | 创建 | 释放窗口；无 CANCEL 出站；G4 abort；无完整结果面强回传 |
+| T-S2-B14 | 已 complete 的成功创建 | 同键同文重试 | REPLAY；I-04 出站 **0** 次 |
 
 client 联调主路径配合：与 011 相同的 A2A 创建组包；总线关联键见 §4.10。端到端绿依赖 FEAT-017（或书面豁免 + 投影桩）。联调对象与回填优先级见下节。
 
@@ -845,8 +935,9 @@ client 联调主路径配合：与 011 相同的 A2A 创建组包；总线关联
 
 - 不要求本次携带 `agentId`；若携带，**不得**覆盖 `taskId` 关联目标。
 - 不走 G4 创建去重；续跑关联键是 **`taskId`**，不是 §4.10 创建用的 `clientInvocationId`/`correlationId` 冒充新 Task。
-- 730 主路径：同步 `SendMessage`；流式续跑若启用则同 S2（须 `STREAM_READY` 再 I-06）。
+- **730 续跑主路径 = 同步 `SendMessage`。流式续跑（`SendStreamingMessage` + 原 `taskId`）本版本不交付、不验收**；入口若可达则按 method 白名单拒绝或明确不支持，**禁止**假成功。长期若启用，须复用 S2：先 `STREAM_READY` 再 I-06（不在 730 验收）。
 - 粘滞未命中 **≠ S5**（S5 = 创建类选路失败）。
+- 投影去重 / 乱序 / 终态闭合 / 同步断开：复用 **§4.6.1～§4.6.2**（按当次 correlation 的等待记录）。
 
 ### 5.3 时序图
 
@@ -878,10 +969,10 @@ sequenceDiagram
 | 阶段 | 名称 | BUS 差量 |
 | --- | --- | --- |
 | P1 | 识别续跑 | 同 011：非空 `taskId` → 续跑类 |
-| P2 | 定位 | **禁止**成功路径再 `searchInstancesByAgentId`。优先沿用 S2 写入的 `taskId→routeHandle` / `targetServiceId` 写入信封；缺失则明确失败（或仅当联调约定「TaskStore 全局可查」时允许弱化——默认不弱化） |
+| P2 | 定位 | **禁止**成功路径再 `searchInstancesByAgentId`。沿用 S2 写入的 `taskId→routeHandle` / `targetServiceId` 写入信封；**缺失则明确失败**（`CONTINUATION_FAILED` 或等价）。**730 不提供**「TaskStore 全局可查」弱化变体；若未来需要，须单列版本范围外变体，不得写入本表主路径 |
 | P3 | I-04 出站 | **`eventType = CLIENT_INVOCATION_REQUESTED`（固定）**；A2A `SendMessage` 入 payload/payloadRef，**必须**带原 `taskId`；可信租户入信封 |
-| P4 | I-04 入站 | 投影折叠同 §4.6；等待窗口可用当次 `correlationId`，但 **Task 身份只认 `taskId`** |
-| P5 | 回传 | 同步五态；流式则 STREAM_READY → I-06 |
+| P4 | I-04 入站 | 投影折叠同 §4.6（含去重/乱序）；等待窗口可用当次 `correlationId`，但 **Task 身份只认 `taskId`** |
+| P5 | 回传 | **仅同步**五态（730）；不交付流式续跑 I-06 |
 
 **相对 011 粘滞：** 直连用内存索引打回原 HTTP 实例；总线还须保证信封路由指向正确消费者，且 **017 按同一 `taskId` continuation、不新建**。
 
@@ -893,14 +984,14 @@ sequenceDiagram
 | I-04 出站 | `CLIENT_INVOCATION_REQUESTED` + 含 `taskId` 的 A2A payload |
 | I-04 入站 | `INVOCATION_*` 投影 |
 | I-05 | FEAT-017 continuation |
-| I-06 | 仅流式续跑且已 STREAM_READY |
+| I-06 | **730 不用**（流式续跑不交付） |
 | I-02 / I-03 | 成功路径不用 |
 
 **Client→Gateway（复用 011，无 BUS 新字段）：**
 
 | 项 | 约定 |
 | --- | --- |
-| method | `SendMessage`（730 工具续跑主路径） |
+| method | `SendMessage`（730 工具续跑**唯一**主路径；`SendStreamingMessage` 续跑不交付） |
 | `params.message.taskId` | **必填**，原 Task |
 | `params.message.messageId` | **必填**，本条新键（≠ 创建键） |
 | `parts` | 工具结果 TextPart，原样进 Bus payload |
@@ -1072,6 +1163,7 @@ sequenceDiagram
 - `relatedInvocationRef` 等 client 本地句柄 **不上 wire**（011 已冻）。
 - Gateway **不**根据业务标签区分「工具续跑 vs continueInput」；只认续跑 wire + BUS 栈。
 - 可选交付：client 不做 continueInput → 本场景不对 client 必验；Gateway 能力仍建议具备（与 S3 同栈）。
+- **730 仅同步 `SendMessage` 续跑**；流式续跑不交付（同 §5.2）。
 
 ### 6.3 时序图
 
