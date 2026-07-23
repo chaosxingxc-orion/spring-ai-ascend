@@ -827,7 +827,7 @@ client 联调主路径配合：与 011 相同的 A2A 创建组包；总线关联
 > **性质**：**确认表**，不是新需求清单。默认按已合入实现装配正式 Gateway。  
 > **请 AI / 人工对照**：FEAT-013 合入 L2（如 `feat-013-client-invocation-event-forwarding.md`）+ `agent-solution` `common/agent-bus/` as-built。  
 > **仅当**与 as-built 冲突时再开 013 变更。  
-> **状态**：**部分冻结** — 2026-07-23 / 丁勇回填；**AC-013-3 待对齐 §4.10 策略 B 后定稿**。
+> **状态**：**已冻结** — 2026-07-23 / 丁勇回填（含第二轮确认 AC-013-3）。
 
 #### 4.11.1 Gateway 将按此使用（请核对）
 
@@ -850,34 +850,26 @@ client 联调主路径配合：与 011 相同的 A2A 创建组包；总线关联
 | AC-013-5 | 正式 Gateway 最小依赖 / 装配 | 链 README 或 L2；同意即可 |
 | AC-013-6 | 本表 **不要求**新开功能 | 确认；若必须改代码请单列变更项（默认无） |
 
-**结论（2026-07-23 / 丁勇回填；部分合入）：**
+**结论（2026-07-23 / 丁勇回填；已冻结）：**
 
 | # | 结论 | 日期 / 回填人 |
 | --- | --- | --- |
 | AC-013-1 | **同意** | 2026-07-23 / 丁勇 |
 | AC-013-2 | **同意**（信封权威必填与失败码以 FEAT-013 合入 L2 为准） | 2026-07-23 / 丁勇 |
-| AC-013-3 | **待对齐（请丁勇再确认）**：回填原文「同意 = client 关联键」；与 §4.10 **已冻策略 B** 冲突。详见下方澄清说明 | 待确认 |
+| AC-013-3 | **同意 §4.10 策略 B**：`correlationId` 由 Gateway 自生成（可等于内部 `requestId`）；client 不上送；投影原样回传。首轮「client 关联键」按问卷旧默认作废 | 2026-07-23 / 丁勇（第二轮） |
 | AC-013-4 | **小载荷走 `payload`（inline），大载荷走 `payloadRef`**（回填用语 `inlinePayload` 对齐本文 `payload`） | 2026-07-23 / 丁勇 |
 | AC-013-5 | **同意** | 2026-07-23 / 丁勇 |
 | AC-013-6 | **确认**（本表不要求新开功能） | 2026-07-23 / 丁勇 |
 
-#### 4.11.3 AC-013-3 澄清说明（发丁勇再确认）
+#### 4.11.3 AC-013-3 澄清记录（已确认）
 
 **业务场景：** path=bus 创建时，Gateway 发布 `CLIENT_INVOCATION_REQUESTED` 后须在接受/响应窗口内匹配回程投影并折成五态。请求–投影配对靠信封 `correlationId`。该键 **不是** G4 创建幂等键（`params.message.messageId`），也 **不是** Bus 投递去重 `messageId`（如 `gw-`+UUID）。
 
-**各方现状：**
-
 | 来源 | 结论 |
 | --- | --- |
-| 丁勇回填（2026-07-23） | 「同意 = **client 关联键**」 |
-| §4.10（晓娜已冻） | **策略 B**：client **不上送**关联键；Gateway **自生成** `correlationId` 写入信封与等待窗口；对 client 不可见 |
-| FEAT-013 as-built 时序 | `correlationId = requestId`（Gateway 侧），与策略 B 更接近 |
-| 本文倾向定稿 | 按策略 B；待丁勇书面同意后改「待对齐」为冻结 |
-
-**请丁勇确认（同意 / 不同意+反提案）：**
-
-> 正式 Gateway 路径：`correlationId` 由 **Gateway 自生成**（可等于内部 `requestId`）；**不要求** client 上送关联键；投影侧 **原样回传**该字段即可。  
-> 若同意，上次「client 关联键」按问卷旧默认处理，正式稿 AC-013-3 改为策略 B。
+| 丁勇首轮 | 「同意 = client 关联键」（旧问卷默认） |
+| §4.10（晓娜） | 策略 B：Gateway 自生成 |
+| 丁勇第二轮 | **同意**正式路径按策略 B（Gateway 自生成 / 可对齐 `requestId`；client 不上送；投影原样回传） |
 
 ---
 
@@ -1110,7 +1102,7 @@ sequenceDiagram
 > **性质**：确认表（默认不新开开发）。  
 > **范围**：工具续跑（S3）与 continueInput（S4）共用同一出站事件族；请一次确认、结论含 S4。  
 > **请 AI / 人工对照**：FEAT-013 合入 L2 中 `AgentBusEventType` 枚举、信封封装、`IngressRequestType`（含 `RUN_RESUME`）映射；`agent-bus` as-built。  
-> **状态**：**部分冻结** — AC-S3-013-2/3 已合入；**AC-S3-013-1 待澄清**。  
+> **状态**：**已冻结** — AC-S3-013-1～3 均已确认（含第二轮 AC-S3-013-1）；**含 S4**。  
 > **Gateway 将采用的断言（请逐条表态）：**
 
 | # | Gateway 断言 | 依据（012 理解） |
@@ -1129,41 +1121,23 @@ sequenceDiagram
 | AC-S3-013-2 | 正式路径 `correlationId` 在续跑上的建议取值 | 可与当次请求 id 相同；**澄清**不得用其替代 payload.`taskId` |
 | AC-S3-013-3 | 是否需要为续跑（含 continueInput）单独增事件枚举 | **默认否**；若是，给出新名与迁移计划 |
 
-**结论（2026-07-23 / 丁勇回填；部分合入）：**
+**结论（2026-07-23 / 丁勇回填；已冻结）：**
 
 | # | 结论 | 日期 / 回填人 |
 | --- | --- | --- |
-| AC-S3-013-1 | **待澄清（请丁勇再确认）**：回填提及新增 `A2A_CALL_INPUT_REQUIRED` / `INVOCATION_INPUT_REQUIRED`；未答完 G-S3-013-1～5 /「含 S4」。详见下方澄清说明 | 待确认 |
+| AC-S3-013-1 | **同意（含 S4）**：G-S3-013-1～5 成立；`INVOCATION_INPUT_REQUIRED` / `A2A_CALL_INPUT_REQUIRED` **仅为入站投影**（非续跑出站）；S3+S4 出站仍固定 `CLIENT_INVOCATION_REQUESTED`；枚举见 [agent-solution#96](https://gitcode.com/openJiuwen/agent-solution/pull/96) | 2026-07-23 / 丁勇（第二轮） |
 | AC-S3-013-2 | **同意**：续跑 `correlationId` 可与当次请求 id 相同；**不得**替代 payload 内 `taskId` | 2026-07-23 / 丁勇 |
 | AC-S3-013-3 | **同意**（默认否：不为续跑 / continueInput **单独**增出站事件枚举） | 2026-07-23 / 丁勇 |
 
-#### 5.9.1.1 AC-S3-013-1 澄清说明（发丁勇再确认）
+#### 5.9.1.1 AC-S3-013-1 澄清记录（已确认）
 
-**问卷原问（G-S3-013-1～5，须含 S4）：**
+首轮回填曾写「新增了 `A2A_CALL_INPUT_REQUIRED` 和 `INVOCATION_INPUT_REQUIRED`」。第二轮逐条确认：
 
-1. 工具续跑（S3）与 continueInput（S4）**出站**均为 `eventType = CLIENT_INVOCATION_REQUESTED`（不另开 Cancel/Query/Subscribe/RESUME）
-2. 测具 `RUN_RESUME` 映射到上述事件族，与正式路径一致
-3. 续跑正文在 `payload`/`payloadRef`，**`taskId` 在业务 payload 内**，不用 `correlationId` 替代
-4. 两跳 produce/consume SPI 与 S2 创建相同
-5. **不要求**因续跑/S4 再为**出站**新增事件类型
+1. **仅为入站投影**（不是续跑出站）；枚举在 [agent-solution#96](https://gitcode.com/openJiuwen/agent-solution/pull/96)
+2. S3 + S4（continueInput）出站仍固定 **`CLIENT_INVOCATION_REQUESTED`**
+3. G-S3-013-1～5 **同意**；结合第 2 点视为 **含 S4**
 
-期望输出：写「同意（含 S4）」或指出差异（附 L2 节/枚举名）。
-
-**丁勇回填原文：**「新增了 `A2A_CALL_INPUT_REQUIRED` 和 `INVOCATION_INPUT_REQUIRED`」——句子未完，未写「含 S4」，未逐条表态 G-1～5。
-
-**012 侧临时理解（供核对，非正式定论）：**
-
-- 两事件名更像 **入站投影**（runtime→Gateway，表达 Task 进入 `INPUT_REQUIRED`），属创建回程「等待输入」，以便后续 S3/S4；**不等于**把续跑出站改成新事件
-- 已同意的 AC-S3-013-3（不为续跑单独增出站枚举）与「仅入站补 `*_INPUT_REQUIRED`」可并存
-- 当前 `AgentBusEventType` as-built **尚未见**上述两枚举名；本文对 `INPUT_REQUIRED` 仍保留「若有 / 若 017 产出」口子（§4.5 / §4.6）
-
-**请丁勇逐条回复：**
-
-1. `INVOCATION_INPUT_REQUIRED` / `A2A_CALL_INPUT_REQUIRED` 是否仅为 **入站投影**（不是续跑出站）？枚举是否已合入 / 在哪个 PR 或分支？
-2. S3 + **S4（continueInput）** 出站是否仍固定 **`CLIENT_INVOCATION_REQUESTED`**？
-3. G-S3-013-1～5 是否整体 **同意（请写明「含 S4」）**？若有差异请单列。
-
-> **注：** AC-S3-013-3 与本条不矛盾的前提是：`*_INPUT_REQUIRED` 若落地，属**投影/入站**补全，而非「为续跑另开出站枚举」。§4.12 / §5.9.2（王向刚）已确认 017 产生 `INVOCATION_INPUT_REQUIRED`，并称 agent-bus PR 96 补齐枚举与 classify——可作丁勇确认时的旁证，**不能替代** AC-S3-013-1 书面表态。
+与 AC-S3-013-3、§4.12 / §5.9.2（王向刚）一致：`*_INPUT_REQUIRED` 属投影/入站补全，不为续跑另开出站枚举。
 
 ---
 
