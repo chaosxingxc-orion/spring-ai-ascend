@@ -59,7 +59,7 @@ FEAT-006 定义 `agent-client` 当前版本作为业务应用侧标准 Agent 调
 | 创建 invocation 入口 | client facade | 必须携带 agentId、`conversationId`、调用模式、业务输入、trace/correlation、凭证上下文；必须生成或接收 `invocationId` 与幂等键。可选携带 `relatedInvocationRef` 或 `inputRequiredRef` 表达继续等待输入。 | 返回 `InvocationResult`，回显 `conversationId`、`invocationRef`、幂等键、调用模式、结果类型、状态投影和恢复线索。 | 每次业务应用发起 client 调用都形成新的 invocation；不得要求业务应用传入或操作 `taskId`。 |
 | invocation 查询入口 | client facade | 必须基于 `invocationRef`，可携带 `conversationId` 用于业务侧校验和隔离。 | 返回 `InvocationSnapshot`、等待输入状态、终态投影或确定错误。 | client 内部可使用 taskRef 查询 runtime，但不得把 taskId 变成业务应用操作句柄。 |
 | invocation 重订阅入口 | client facade | 必须基于 `invocationRef`，可携带 stream cursor 或恢复上下文。 | 返回该 invocation 关联的服务流或 Gateway 投影流。 | 重订阅只观察已有 invocation，不改变创建时的调用模式，不隐式创建新 invocation。 |
-| invocation 取消入口 | client facade | 必须基于 `invocationRef`，并携带租户、trace、幂等和权限上下文。 | 返回取消请求结果、Invocation 快照或确定错误。 | client 内部映射到 runtime `CancelTask`；SDK 不承诺强制中断底层模型调用。 |
+| invocation 取消入口 | client facade | 必须基于 `invocationRef`，并携带租户、trace、幂等和权限上下文。 | 返回取消请求结果、Invocation 快照或确定错误。 | SDK 不承诺强制中断底层模型调用。 |
 | 继续等待输入入口 | client facade | 通过创建新的 invocation 表达；必须携带同一 `conversationId`、新的输入内容，以及旧 invocation 的 `relatedInvocationRef` 或 `inputRequiredRef`。 | 返回新的 `InvocationResult`，并在状态投影中表达与旧 invocation 的关联和当前等待输入推进结果。 | 如果关联状态不可续接、已过期、已终态或存在多义性，client 必须返回明确错误，不得偷偷创建普通新任务。 |
 | UNKNOWN 恢复入口 | client facade | 使用同一 `invocationId`、同一幂等键和同一原始创建类请求。 | 若原 Task 已创建，client 内部恢复 taskRef 映射并返回同一 invocation 的当前投影；若未创建，则按新投递或明确拒绝处理。 | 当前版本不新增以 `invocationId` 查询 runtime Task 的私有接口。 |
 | 错误与状态返回 | client facade | 适用于所有入口。 | 必须提供可编程错误码、retryable、correlation/trace、可恢复线索、invocation 状态和必要诊断信息。 | 不把业务失败包装成网络失败，不把 `UNKNOWN` 当成功或失败。 |
@@ -75,7 +75,7 @@ FEAT-006 定义 `agent-client` 当前版本作为业务应用侧标准 Agent 调
 | 阻塞等待退化为可查询调用 | 应用声明 `BLOCKING`，请求适合一次性响应窗口 | Gateway/runtime 在等待窗口内处理调用 | 若窗口内完成，返回完成响应投影；若已接受但未完成，返回 `ACCEPTED_WITH_INVOCATION` 或等价已接受状态；若无法确认是否已接受，返回 `UNKNOWN` 和 invocation 恢复线索。 |
 | 全链路流式调用 | 应用声明 `STREAMING`，目标链路支持流式能力 | SDK 创建 invocation 并保持服务流消费 | 流式诉求从 client 创建点进入 Gateway/runtime，并在后续远端 A2A 多跳中作为执行上下文传播；SDK 消费 SSE / 服务流并映射 token、progress、input_required 和终态投影。 |
 | 异步提交与状态观察 | 应用声明 `ASYNC` 或阻塞调用退化为已接受 invocation | 应用后续通过 invocationRef 查询、重订阅或接收 Gateway 投影 | SDK 基于 invocationRef 观察执行中、等待输入、完成、失败、取消等状态；client 内部通过 taskRef 与平台交互。 |
-| 查询和取消调用 | 应用已获得 `invocationRef` | 应用调用查询或取消 facade | SDK 基于 invocationRef 解析内部 taskRef，通过 Gateway 转发 `GetTask` 或 `CancelTask` 语义；runtime 作为 Task owner 返回快照、取消结果或确定错误，SDK 映射为 invocation 投影。 |
+| 查询和取消调用 | 应用已获得 `invocationRef` | 应用调用查询或取消 facade | SDK 基于 invocationRef 解析内部 taskRef，通过 Gateway 转发 `GetTask` 查询语义；runtime 作为 Task owner 返回快照、取消结果或确定错误，SDK 映射为 invocation 投影。 |
 | 继续 input_required | 某个旧 invocation 进入等待输入状态 | 应用复用同一 `conversationId`，携带 `relatedInvocationRef` 或 `inputRequiredRef` 发起新的 invocation 并提交补充信息 | SDK 创建新的 invocation，解析旧 invocation 的等待输入状态和内部 taskRef，提交给 Gateway / runtime 继续既有 Task；runtime 校验恢复点并决定是否推进。 |
 | 多个等待输入消歧 | 同一 conversation 下存在多个 input_required invocation | 应用选择要继续的旧 invocation 或等待输入引用 | SDK 只续接被明确指定的目标；若未指定或存在多义性，返回明确错误，不凭 conversationId 猜测。 |
 | UNKNOWN 后恢复 | Gateway 无法确认 runtime 是否创建 Task，且 client 尚未建立 taskRef 映射 | 应用或 SDK 使用同一 invocation 关联和幂等信息重试原始创建类调用 | 若原 Task 已创建，client 内部恢复 taskRef 映射并返回同一 invocation 投影；若未创建，则按新投递或明确拒绝处理；不得因重试创建多个 Task。 |

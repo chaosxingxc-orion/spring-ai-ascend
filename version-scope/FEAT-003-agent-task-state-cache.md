@@ -164,6 +164,8 @@ runtime-hosted DeepAgent 提供 Todolist 规划能力时，Todolist 的领域语
 | key schema 稳定性 | 不承诺 Redis key schema 或 value 序列化格式作为外部稳定接口。 |
 | 客户监控平台建设 | 不承诺实现客户统一监控平台或运行时 Redis 指标体系，只保证可通过客户组件接入其治理体系。 |
 | 零重启切换 | 当前版本不要求运行中动态切换 Redis 数据源；配置切换可通过重启生效。 |
+| Redis Sentinel 主从+哨兵模式 | 当前版本仅支持原生单机（`JedisPooled`）和原生集群（`JedisCluster`）两种连接模式，不支持 Sentinel 主从+哨兵模式（`JedisSentineled`）。私有化/政企客户若使用 Sentinel 拓扑，需额外部署网络收敛层（VIP/HAProxy/K8s operator）或采用集群模式替代。 |
+| 连接池精细调优 | 当前版本 `maxWait` 未设（默认无限等待），`maxTotal` 硬编码为 16 不可配置；高并发场景下存在池耗尽风险。连接池参数可配置化由后续版本补齐。 |
 | 运行时故障自动降级 | 当前版本不承诺 Redis 运行中断后的自动流量迁移、fail-open、fail-close 或内存降级；Redis 可用性由部署和系统工程方案承接。 |
 | 多租户 key 隔离 | 当前版本不承诺按租户生成 key namespace 或做请求维度租户隔离。 |
 | 跨逻辑 runtime keyspace 自动隔离 | 当前版本不承诺为不同逻辑 runtime 自动生成 Redis key namespace，也不承诺未隔离共用同一 keyspace 时不存在 key 覆盖、扫描串扰或运维归属不清；隔离由开发者和部署方承接。 |
@@ -197,7 +199,7 @@ runtime-hosted DeepAgent 提供 Todolist 规划能力时，Todolist 的领域语
 - `architecture/L1-High-Level-Design/agent-runtime/development.md`
 - `architecture/L1-High-Level-Design/agent-runtime/spi-appendix.md`
 - `version-scope/FEAT-001-standardized-agent-service-entrypoint.md`
-- `version-scope/FEAT-004-remote-agent-orchestration.md`
+- `version-scope/FEAT-004-task-driven-remote-agent-communication.md`
 - `architecture/L2-Low-Level-Design/agent-runtime/Feat-Func-001-standardized-agent-service-entrypoint.md`
 - `architecture/L2-Low-Level-Design/agent-runtime/Feat-Func-003-agent-task-state-cache.md`
 - `architecture/L2-Low-Level-Design/agent-runtime/Feat-Func-004-remote-agent-orchestration.md`

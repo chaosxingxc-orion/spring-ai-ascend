@@ -24,7 +24,7 @@ dependency:
 
 agent-runtime 通过统一的 Adapter 抽象层接入不同类型的 Agent 实现（OpenJiuwen / AgentScope / Versatile），使上层 A2A 协议层无需感知底层 Agent 框架差异。
 
-- **解决的问题**：不同 Agent 框架有不同的 API、执行模型和扩展机制。runtime 将它们统一为 `AgentRuntimeHandler` SPI，使得 A2A 协议层以相同方式调用任意 Agent。
+- **解决的问题**：不同 Agent 框架有不同的 API、执行模型和扩展机制。runtime 将它们统一为 `AgentHandler` SPI，使得 A2A 协议层以相同方式调用任意 Agent。
 - **适用场景**：需要在一个 runtime 实例中托管多种框架构建的 Agent，或需要为 Agent 框架提供统一的 A2A 协议暴露能力。如果只需要单一框架且不需要 A2A 协议，不需要此特性。
 
 ### 1.2 当前事实边界
@@ -33,9 +33,9 @@ agent-runtime 通过统一的 Adapter 抽象层接入不同类型的 Agent 实�
 
 ### 1.3 设计原则
 
-1. **SPI 优先** — 所有 Adapter 实现 `AgentRuntimeHandler`，runtime 核心只依赖 SPI，不依赖具体 Agent 框架
+1. **SPI 优先** — 所有 Adapter 实现 `AgentHandler`，runtime 核心只依赖 SPI，不依赖具体 Agent 框架
 2. **模块隔离** — 每个 Adapter 在 `engine/<framework>/` 下自闭环，不穿越模块边界
-3. **最小适配** — 新增 Agent 框架只需实现请求桥接、调用执行和 `StreamAdapter` 结果归一，不修改 runtime 核心
+3. **最小适配** — 新增 Agent 框架只需实现请求桥接、调用执行和 `QueryStreamObserver` 结果归一，不修改 runtime 核心
 4. **状态归属清晰** — runtime 拥有 task/session/state key、续接语义和 Task 终态；框架内部 checkpoint/cache payload 由框架或智能体开发者自治
 5. **扩展机制自治** — 框架 hook、rail、tool、skill、middleware、callback 不属于异构 adapter 的治理范围
 
@@ -43,10 +43,10 @@ agent-runtime 通过统一的 Adapter 抽象层接入不同类型的 Agent 实�
 
 | 子特性 | 职责 | 关键抽象 | 状态 |
 |--------|------|---------|------|
-| Adapter 抽象层 | 定义统一的 Handler SPI 和公共类型 | `AgentRuntimeHandler`, `AgentExecutionResult`, `RuntimeIdentity` | ✅ |
-| OpenJiuwen Adapter | 进程内调用 OpenJiuwen ReActAgent / Workflow / DeepAgent，并归一结果语义 | `OpenJiuwenAgentRuntimeHandler`, `OpenJiuwenWorkflowAgentRuntimeHandler`, `OpenJiuwenDeepAgentRuntimeHandler` | ✅ |
+| Adapter 抽象层 | 定义统一的 Handler SPI 和公共类型 | `AgentHandler`, `QueryChunk`, `ServeRequest` | ✅ |
+| OpenJiuwen Adapter | 进程内调用 OpenJiuwen Agent（通过 `Runner` 执行，不区分 ReActAgent / DeepAgent / WorkflowAgent） | `JiuwenCoreAgentHandler` | ✅ |
 | AgentScope Adapter | 进程内调用宿主已构建的 AgentScope ReAct/Harness Agent | `AgentScopeAgentHandler`, `ReActAgent`, `HarnessAgent` | ✅ |
-| Versatile Adapter | REST/SSE 代理远端非 A2A 服务 | `VersatileAgentRuntimeHandler`, `VersatileProperties` | ✅ |
+| Versatile Adapter | REST/SSE 代理远端非 A2A 服务 | `VersatileAgentHandler`, `VersatileProperties` | ✅ |
 
 ---
 
@@ -56,13 +56,10 @@ agent-runtime 通过统一的 Adapter 抽象层接入不同类型的 Agent 实�
 
 | 能力 | 状态 | 说明 |
 |------|------|------|
-| 统一 SPI — Handler 执行 | ✅ | `AgentRuntimeHandler.execute(context)` 返回 `Stream<?>` |
-| 统一 SPI — 结果适配 | ✅ | `StreamAdapter` 将框架原生结果转为 `AgentExecutionResult` |
-| 统一 SPI — 取消 | ✅ | `cancel(taskId)` 默认 no-op，各 Adapter 按自身能力实现 |
-| 统一公共类型 | ✅ | `RuntimeIdentity`（租户/用户/会话/任务/Agent ID）、`RuntimeMessage`（角色+文本+元数据） |
-| OpenJiuwen — ReActAgent | ✅ | 进程内调用 OpenJiuwen ReActAgent，结果包装为 Stream 并归一为 `AgentExecutionResult` |
-| OpenJiuwen — Workflow | ✅ | 独立 Workflow adapter，支持 DAG 执行、人机交互中断和同 state key 续接调用 |
-| OpenJiuwen — DeepAgent | ✅ | 独立 DeepAgent adapter，归一输出、失败和中断语义 |
+| 统一 SPI — Handler 执行 | ✅ | `AgentHandler.query(ServeRequest)` 同步执行；`AgentHandler.streamQuery(ServeRequest, QueryStreamObserver)` 异步流式执行 |
+| 统一 SPI — 结果流式归一 | ✅ | `QueryStreamObserver.onNext(QueryChunk)` 承载增量输出（chunk/interrupt/error）；`onComplete()` 隐式 COMPLETED；`onError()` 隐式 FAILED |
+| 统一 SPI — 协作式取消 | ✅ | 通过 `QueryStreamObserver.isCancelled()` 轮询实现，Handler 无独立 `cancel()` 入口 |
+| OpenJiuwen — Agent 通用托管 | ✅ | `JiuwenCoreAgentHandler` 通过 `Runner` 执行 Agent，不区分 ReActAgent / DeepAgent / WorkflowAgent 类型 |
 | AgentScope — 本地 Agent | ✅ | 包装宿主已构建的 `ReActAgent` |
 | AgentScope — Harness Agent | ✅ | 测试/评估场景下的受控运行 |
 | AgentScope — A2A 暂停恢复 | ✅ | 支持 message、confirmation 和单个 external pending tool；tool_result 第一轮输出 `name/arguments` 供外部执行，恢复对象由 adapter 根据 AgentScope 当前 state 构造 |
@@ -84,13 +81,12 @@ agent-runtime 通过统一的 Adapter 抽象层接入不同类型的 Agent 实�
 | AgentScope Workflow | 仅支持 Core Agent | — |
 | AgentScope 远程 SSE / PROGRESS | 当前版本只支持本地 ReAct/Harness，不提供专用远程 client 或 PROGRESS 轨迹映射 | 远端非 A2A 服务使用 Versatile；远端 A2A Agent 由上层远程 Agent 能力接入 |
 | Python / Node.js sidecar | 非 Java 进程内调用不在当前 scope | 使用 Versatile Adapter 代理远端服务 |
-| 多 Handler 路由 | runtime 当前只承载单 Agent；如果注册多个 Handler 会记录 WARN，并按 `@Order` 选取第一个作为兼容降级，不支持按 agentId 路由多个 Handler | 每个 Agent 部署独立 runtime 实例 |
+| 多 Handler 路由 | runtime 当前只承载单 Agent；多 Handler 无检测告警、无 `@Order` 选择逻辑（实际通过 `@ConditionalOnMissingBean` + `ObjectProvider.getIfAvailable()` 获取） | 每个 Agent 部署独立 runtime 实例 |
 
 ### 2.3 行为承诺
 
-- **必须**：所有 Adapter 的 `execute()` 返回的 Stream 必须由 `resultAdapter()` 映射为 `AgentExecutionResult` 流
-- **必须**：`agentId()` 返回值在整个生命周期中保持不变
-- **禁止**：Adapter 实现不可以直接依赖 A2A SDK 类型——所有交互通过 `AgentExecutionContext` 和 `AgentExecutionResult`
+- **必须**：所有 Adapter 通过 `query()`（同步）或 `streamQuery(request, observer)`（异步）执行，通过 `QueryStreamObserver` 消费结果
+- **禁止**：Adapter 实现不可以直接依赖 A2A SDK 类型——所有交互通过 `ServeRequest` 和 `QueryChunk`
 
 ---
 
@@ -103,31 +99,19 @@ agent-runtime 通过统一的 Adapter 抽象层接入不同类型的 Agent 实�
 ```
 A2aAgentExecutor
   │
-  ├─ handler.execute(context) → Stream<?> raw
-  ├─ handler.resultAdapter().adapt(raw) → Stream<AgentExecutionResult>
+  ├─ stream=true:  handler.streamQuery(request, observer)
+  │     └─ observer.onNext(TYPE_CHUNK) → emitter.addArtifact()
+  │        observer.onNext(TYPE_INTERRUPT) → emitter.requiresInput()
+  │        observer.onNext(TYPE_ERROR) + observer.onError() → emitter.fail()
+  │        observer.onComplete() → emitter.complete()
   │
-  └─ 逐个消费 AgentExecutionResult：
-       ├─ OUTPUT       → emitter.addArtifact(TextPart)
-       ├─ COMPLETED    → emitter.complete()
-       ├─ FAILED       → emitter.fail()
-       └─ INTERRUPTED  → task → INPUT_REQUIRED
+  └─ stream=false: handler.query(request) → QueryResponse
+        ├─ result.content → emitter.addArtifact()
+        ├─ _interrupt → emitter.requiresInput()
+        └─ normal → emitter.complete()
 ```
 
-#### 3.1.2 AbstractAgentRuntimeHandler 轨迹包装
-
-```
-子类 doExecute(context, trajectory)
-  │
-  ▼ (wrap in AbstractAgentRuntimeHandler.execute)
-trajectory.emit(RUN_START)
-  │
-  ├─ Stream<?> raw = doExecute(context, trajectory)
-  ├─ raw.onClose(() -> trajectory.emit(RUN_END))
-  │
-  └─ return raw (with trajectory lifecycle)
-```
-
-如果 `doExecute` 抛出异常，基类自动发射 ERROR 事件和 RUN_END。
+Handler 无 `cancel()` 入口；取消通过 `QueryStreamObserver.isCancelled()` 轮询检测。
 
 ### 3.2 OpenJiuwen Adapter
 
@@ -141,9 +125,7 @@ trajectory.emit(RUN_START)
 
 | Adapter | 入口 | 适配职责 |
 |---|---|---|
-| ReActAgent | `OpenJiuwenAgentRuntimeHandler` | 调用 ReActAgent，归一输出、失败和中断语义。 |
-| Workflow | `OpenJiuwenWorkflowAgentRuntimeHandler` | 调用 Workflow DAG，归一完成、失败和人机交互中断语义。 |
-| DeepAgent | `OpenJiuwenDeepAgentRuntimeHandler` | 调用 DeepAgent，归一输出、失败和中断语义。 |
+| OpenJiuwen Agent | `JiuwenCoreAgentHandler` | 通用 `Runner` 包装器，通过 `Runner.runAgentStreaming(agent, ...)` 执行，不区分 ReActAgent / DeepAgent / WorkflowAgent 类型。 |
 
 ### 3.3 AgentScope Adapter
 
@@ -167,7 +149,7 @@ HarnessAgent: AgentScopeAgentHandler → HarnessAgentScopeInvoker → call/strea
 #### 3.4.1 类协作
 
 ```
-VersatileAgentRuntimeHandler.execute(context)
+VersatileAgentHandler.execute(context)
   │
   ├─ VersatileMessageAdapter.toRequest(context) → VersatileHttpRequest
   │     ├─ URL:   模板替换 {conversation_id} + query params
@@ -176,7 +158,7 @@ VersatileAgentRuntimeHandler.execute(context)
   │
   ├─ VersatileClient.stream(request) → Stream<String> (lazy SSE lines)
   │
-  └─ VersatileStreamAdapter.adapt(rawStream) → Stream<AgentExecutionResult>
+  └─ VersatileQueryStreamObserver.adapt(rawStream) → Stream<QueryChunk>
         ├─ message/workflow_finished/exception/end → 标准映射
         ├─ 未知事件 → match/get 提取规则 → 缓存 → End 后 COMPLETED
         └─ connection_closed 无 End → INTERRUPTED
@@ -184,7 +166,7 @@ VersatileAgentRuntimeHandler.execute(context)
 
 #### 3.4.2 SSE 事件映射
 
-| SSE `event` | 条件 | `AgentExecutionResult` | Target |
+| SSE `event` | 条件 | `QueryChunk` | Target |
 |-------------|------|------------------------|--------|
 | `message` | text/summary 非空 | `OUTPUT(text)` | USER |
 | `message` | `node_type=End` | 标记 hasEnd | — |
@@ -215,19 +197,14 @@ VersatileAgentRuntimeHandler.execute(context)
 ```
 engine/
 ├── spi/                                    # 框架中立抽象层
-│   ├── AgentRuntimeHandler.java            # 核心 SPI 接口
-│   ├── AbstractAgentRuntimeHandler.java    # 基类，拥有轨迹生命周期
-│   ├── AgentExecutionResult.java           # 统一执行结果（OUTPUT/COMPLETED/FAILED/INTERRUPTED）
-│   ├── StreamAdapter.java                  # @FunctionalInterface：Stream<?> → Stream<AgentExecutionResult>
-│   ├── MemoryProvider.java                 # 记忆服务 SPI
+│   ├── AgentHandler.java            # 核心 SPI 接口
+│   ├── AbstractAgentHandler.java    # 基类，拥有轨迹生命周期
+│   ├── QueryChunk.java           # 统一结果（TYPE_CHUNK/TYPE_INTERRUPT/TYPE_ERROR）
 │   └── RemoteAgentToolSpec.java            # 协议中立的远端 Agent 工具描述
 ├── openjiuwen/                             # OpenJiuwen Adapter
-│   ├── OpenJiuwenAgentRuntimeHandler.java  # 抽象基类，子类实现 createOpenJiuwenAgent()
-│   ├── OpenJiuwenWorkflowAgentRuntimeHandler.java  # Workflow adapter 入口
-│   ├── OpenJiuwenDeepAgentRuntimeHandler.java      # DeepAgent adapter 入口
-│   ├── OpenJiuwenMessageAdapter.java       # AgentExecutionContext → openJiuwen 输入
-│   ├── OpenJiuwenStreamAdapter.java        # Runner 结果 → AgentExecutionResult
-│   └── 其他 OpenJiuwen hook/rail/tool/skill/checkpointer wiring 由框架或开发者自治，不作为本特性核心结构
+│   ├── JiuwenCoreAgentHandler.java  # 通用 Runner 包装器
+│   ├── OpenJiuwenMessageAdapter.java       # ServeRequest → openJiuwen 输入
+│   └── 其他 OpenJiuwen hook/rail/tool/skill/checkpointer wiring 由框架或开发者自治
 ├── agentscope/                             # AgentScope Adapter
 │   ├── AgentScopeAgentHandler.java         # runtime AgentHandler 统一入口
 │   ├── AgentScopeInvoker.java              # 包内调用桥接
@@ -237,9 +214,8 @@ engine/
 │   ├── AgentScopeResumeMapper.java         # A2A 恢复输入 → AgentScope 原生恢复对象
 │   └── AgentScopeEventMapper.java          # 原始事件/结果 → QueryChunk/QueryResponse
 └── versatile/                              # Versatile Adapter
-    ├── VersatileAgentRuntimeHandler.java   # Handler + AgentCardProvider
+    ├── VersatileAgentHandler.java          # Handler
     ├── VersatileMessageAdapter.java        # A2A Request → REST Request
-    ├── VersatileStreamAdapter.java         # SSE 行 → AgentExecutionResult
     ├── VersatileClient.java                # JDK HttpClient, SSE 流式读取
     ├── VersatileHttpRequest.java           # REST 请求值对象
     └── VersatileProperties.java            # @ConfigurationProperties
@@ -248,9 +224,8 @@ engine/
 ### 4.2 核心类静态关系
 
 ```
-AgentRuntimeHandler <── AbstractAgentRuntimeHandler <── OpenJiuwenAgentRuntimeHandler
-AgentRuntimeHandler <── VersatileAgentRuntimeHandler ──> AgentCardProvider
-
+AgentHandler <── JiuwenCoreAgentHandler
+AgentHandler <── VersatileAgentHandler
 AgentHandler <── AgentScopeAgentHandler ──> AgentScopeInvoker（包内）
                                              ├── ReActAgentScopeInvoker
                                              └── HarnessAgentScopeInvoker
@@ -346,5 +321,5 @@ runtime 通过现有 Spring Handler 发现机制装配业务注册的 Handler be
 | 限制 | 影响范围 | 临时方案 |
 |------|---------|---------|
 | OpenJiuwen 同步执行，cancel 不中断 LLM 调用 | 需要真正取消能力的长时间 LLM 调用场景 | 选择底层框架和调用模式前核实取消链路；AgentScope 仅流式 A2A `CancelTask` 可下沉，非流式调用当前不在 active-stream registry 中 |
-| 多 Handler 注册仅兼容降级选第一个（按 @Order） | 一个 runtime 实例只能服务一个 Agent；多 Handler 会记录 WARN | 每个 Agent 部署独立 runtime 实例 |
+| 多 Handler 无检测告警 | 一个 runtime 实例只能服务一个 Agent；多 Handler 通过 `@ConditionalOnMissingBean` + `ObjectProvider.getIfAvailable()` 获取，行为未定义 | 每个 Agent 部署独立 runtime 实例 |
 | MCP 不作为 Agent adapter | MCP 是工具服务协议，不是异构智能体框架 | 若框架本身能调用 MCP 服务，由框架或智能体开发者自治 |

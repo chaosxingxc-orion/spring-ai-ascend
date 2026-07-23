@@ -46,7 +46,7 @@ Custom REST POST
        -> internalContextId / reservation / CustomRestA2ATaskResolver
   -> RequestHandler.onMessageSend / onMessageSendStream
   -> TaskStore / EventBus / QueueManager
-  -> A2AAgentExecutor -> AgentRuntimeHandler
+  -> A2AAgentExecutor -> AgentHandler
   -> Task / StreamingEventKind
   -> CustomRestProtocolAdapter
   -> Custom JSON / SSE data

@@ -40,19 +40,19 @@ FEAT-001 定义 `agent-runtime` 当前版本作为标准化 Agent 服务端的�
 | 流式调用 | MUST | `SendStreamingMessage` 必须作为 Agent 全流程主调用入口，调用方通过 SSE 观察 Task 状态、artifact/progress 和最终终态。 |
 | 阻塞调用 | MUST | `SendMessage` 必须接受与流式调用一致的 message 输入，并由 A2A 层收集 handler stream 后返回 JSON-RPC result。 |
 | 异步查询 | MUST | `GetTask` 必须允许调用方按 task id 查询 Task 状态和结果。 |
-| Push Notification 配置 CRUD | MUST | runtime 必须支持 A2A SDK 层的 Create/Get/List/Delete push notification config 请求，使受信任 runtime-to-runtime 调用方能够注册、查询和删除 webhook 完成回调配置。 |
-| runtime-to-runtime webhook 完成回调 | MUST | runtime 必须具备向受信任调用方 runtime webhook endpoint 推送异步完成结果的能力；该能力可由部署配置关闭，关闭时 Agent Card 和 capability 声明不得显示为已启用。 |
-| webhook 回调触发范围 | MUST | webhook 只在 Task 进入结果性状态时触发：`COMPLETED` 返回完成结果，`FAILED` / `CANCELED` / `REJECTED` 返回异常状态、错误码和失败原因。submitted / working / progress / artifact update 等中间态不得作为当前版本 webhook 主路径。 |
-| webhook 文本结果 | MUST | 文本类完成结果必须支持在 webhook 回调中一次性返回；实现应按当前 Agent 上下文规模支持常见文本结果，不要求调用方再通过 SSE 获取文本正文。 |
-| webhook 大载荷引用 | MUST | 文件类、多模态类、artifact 大正文或超过回调承载策略的结果必须通过 `payloadRef` / `artifactRef` / Task 查询引用传递，不得强制塞入 webhook body。 |
-| webhook 与 streaming 模式分离 | MUST | Streaming 调用用于实时过程观察；webhook push notification 用于异步完成结果通知。webhook 不承载 token-by-token、progress stream 或 SSE frame。 |
-| webhook 安全边界 | MUST | webhook endpoint 必须是受信任 runtime endpoint 或经配置 / allowlist / registry 信任的目标；当前版本不把普通 client 自报 webhook URL 作为事实能力。 |
+| Push Notification 配置 CRUD | SHOULD | runtime 必须支持 A2A SDK 层的 Create/Get/List/Delete push notification config 请求，使受信任 runtime-to-runtime 调用方能够注册、查询和删除 webhook 完成回调配置。 |
+| runtime-to-runtime webhook 完成回调 | SHOULD | runtime 必须具备向受信任调用方 runtime webhook endpoint 推送异步完成结果的能力；该能力可由部署配置关闭，关闭时 Agent Card 和 capability 声明不得显示为已启用。 |
+| webhook 回调触发范围 | SHOULD | webhook 只在 Task 进入结果性状态时触发：`COMPLETED` 返回完成结果，`FAILED` / `CANCELED` / `REJECTED` 返回异常状态、错误码和失败原因。submitted / working / progress / artifact update 等中间态不得作为当前版本 webhook 主路径。 |
+| webhook 文本结果 | SHOULD | 文本类完成结果必须支持在 webhook 回调中一次性返回；实现应按当前 Agent 上下文规模支持常见文本结果，不要求调用方再通过 SSE 获取文本正文。 |
+| webhook 大载荷引用 | SHOULD | 文件类、多模态类、artifact 大正文或超过回调承载策略的结果必须通过 `payloadRef` / `artifactRef` / Task 查询引用传递，不得强制塞入 webhook body。 |
+| webhook 与 streaming 模式分离 | SHOULD | Streaming 调用用于实时过程观察；webhook push notification 用于异步完成结果通知。webhook 不承载 token-by-token、progress stream 或 SSE frame。 |
+| webhook 安全边界 | SHOULD | webhook endpoint 必须是受信任 runtime endpoint 或经配置 / allowlist / registry 信任的目标；当前版本不把普通 client 自报 webhook URL 作为事实能力。 |
 | Agent Card 配置 | MUST | Agent Card 必须支持由运行时配置与服务身份信息生成；配置中未声明的字段必须有可解释的默认值。 |
 | Agent Card skills | MUST | 如果 Agent 希望被其他 Agent 发现并作为工具调用，Agent Card 必须能声明 skills；无 skills 的 Agent Card 不应被远程工具安装链误认为可调用工具集合。 |
 | Agent Card capabilities | MUST | Agent Card 必须能声明 streaming、pushNotifications、extendedAgentCard 等 A2A capability 状态；capability 声明必须反映当前版本对外承诺，不得夸大未激活能力。若 webhook 推送被部署配置关闭，`pushNotifications` 不得声明为可用完成回调能力。 |
 | JSON-RPC 错误表面 | MUST | 非法 JSON、非法 request shape、未知 method、SDK/handler 异常必须以 JSON-RPC error response 或流式传输错误表面返回；错误 response 必须尽量保留原 request id。 |
 | HTTP + SSE 传输 | MUST | 当前版本的 inbound A2A 传输以 HTTP JSON-RPC 和 SSE 为事实要求。 |
-| HTTP webhook 传输 | MUST | 当前版本的 runtime-to-runtime 异步完成回调以 HTTP webhook POST 为事实要求；具体签名、token 或 mTLS 机制由部署和 A2A SDK 能力确定。 |
+| HTTP webhook 传输 | SHOULD | 当前版本的 runtime-to-runtime 异步完成回调以 HTTP webhook POST 为事实要求；具体签名、token 或 mTLS 机制由部署和 A2A SDK 能力确定。 |
 | gRPC 传输 | OUT | 当前版本不要求 runtime 暴露 gRPC northbound 传输。 |
 | 普通 client webhook | OUT | 当前版本不承诺普通 client 或业务应用自报 webhook URL 后由 runtime 主动推送；普通 client 仍应使用 SSE、`GetTask` 或其应用侧集成通道。 |
 
