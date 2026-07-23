@@ -50,6 +50,7 @@ L2 特性文档按功能特性和非功能特性分组命名：
 | Feat-Func-002 | [异构 Agent 框架兼容](Feat-Func-002-heterogeneous-agent-framework-compatibility.md) | `AgentHandler` SPI 适配模型、OpenJiuwen 通用托管、AgentScope 本地 Agent、Versatile adapter 接入。 | 框架中立执行 SPI、状态归属原则与具体 adapter 协作；adapter 不治理框架 cache/checkpointer、hook、rail、tool、skill。 |
 | Feat-Func-003 | [智能体任务状态缓存](Feat-Func-003-agent-task-state-cache.md) | 标准化 Redis 缓存 SPI、原生 Redis 单机/集群策略、客户封装 Redis 适配、A2A Task 与 checkpoints 缓存复用。 | 任务状态缓存、Redis 连接池复用、客户适配扩展点、日志脱敏和内部验收边界。 |
 | Feat-Func-004 | [远程 Agent 编排](Feat-Func-004-remote-agent-orchestration.md) | 远程 Agent Card 拉取、Tool 注入、中断-续接、远程调用结果回灌。 | runtime 作为 A2A client 编排其他 Agent。 |
+| Feat-Func-017 | [订阅消费总线事件消息](Feat-Func-017-bus-event-subscription-consumption.md) | 嵌入式消费客户端/A2A 请求事件、复用 A2A Task 控制面、发布状态投影、消费确认和三层幂等。 | 设计已接受、代码待落地；runtime 作为目标服务消费事件，broker 转发与调用方响应回灌不在本特性内。 |
 | Feat-Func-022 | [Custom REST API 到 Agent Runtime 执行入口适配 SPI](Feat-Func-022-custom-rest-api-agent-service-entrypoint.md) | 可配置 Custom REST URL、Java 协议转换 SPI、同步 JSON/SSE 响应包装。 | 设计已接受、代码待落地于 solution 扩展仓；请求经 `RequestHandler` 创建或恢复正式 A2A Task。 |
 | Feat-Func-026 | [支持工具并行执行（agent runtime java）](Feat-Func-026-parallel-tool-execution.md) | core 同轮多 ToolCall 中断适配、远端 A2A 并发调用、批次屏障、批次状态持久化和完整结果回灌。 | 设计已接受、代码待落地；core 并行逻辑以外部参考设计和最终合入契约为准。 |
 
