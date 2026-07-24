@@ -14,7 +14,7 @@ dependency:
 # 远程 Agent 编排 — 设计文档
 
 > 目标模块：`agent-runtime/src/main/java/com/huawei/ascend/runtime/engine/a2a/`（南向）
-> 最后更新：2026-06-14
+> 最后更新：2026-07-20
 > **⚠️ 关键约束：没有 skills 的 Agent Card 不会被 LLM 作为 Tool 调用。** 如果远端 Agent Card 的 `skills` 字段为空或不存在，Card Cache 不会为其生成 `RemoteAgentToolSpec`，该 Agent 对 LLM 不可见。这意味着：
 > - 如果你的 Agent 需要被其他 Agent 作为 Tool 调用，必须在 Agent Card 中声明至少一个 skill
 > - 仅用于直接 A2A 调用的 Agent（不需要被其他 Agent 发现的）可以不声明 skills
@@ -58,8 +58,8 @@ agent-runtime 作为 A2A 客户端接入和调用其他 A2A Agent，实现跨 Ag
 
 | 能力 | 状态 | 说明 |
 |------|------|------|
-| YAML 配置远程端点 | ✅ | `agent-runtime.remote-agents[N].url` |
-| Agent Card 自动拉取 | ✅ | 启动时拉取，自适应刷新 |
+| YAML 配置远程端点 | ✅ | `openjiuwen.service.a2a.remote-agents[N].url` |
+| Agent Card 自动拉取 | ✅ | `ApplicationReadyEvent` 触发一次性拉取；失败时固定间隔重试，成功后停止刷新 |
 | 本地目录维护 | ✅ | sticky remoteAgentId，故障降级 |
 | RemoteAgentToolSpec 生成 | ✅ | 从 Card skills 生成，开放 JSON schema；**无 skills 的 Agent Card 不会被注入为 Tool** |
 | OpenJiuwen Tool 安装 | ✅ | Placeholder Tool + Interrupt Rail |
@@ -68,7 +68,6 @@ agent-runtime 作为 A2A 客户端接入和调用其他 A2A Agent，实现跨 Ag
 | Metadata 转发 | ✅ | 入站 metadata → 出站远程调用 |
 | 结果回灌 | ✅ | 远程 COMPLETED → InteractiveInput → 本地 Agent resume |
 | 父 Task 进度投射 | ✅ | 远程 progress → 父 Task artifact |
-|
 
 ### 2.2 显式排除
 
@@ -91,7 +90,7 @@ agent-runtime 作为 A2A 客户端接入和调用其他 A2A Agent，实现跨 Ag
 ### 3.1 远程 Agent 配置接入
 
 ```
-应用配置: agent-runtime.remote-agents[0].url=http://remote:18081
+应用配置: openjiuwen.service.a2a.remote-agents[0].url=http://remote:18081
   │
   ▼ 启动时
 A2aClientAutoConfiguration (条件激活)
@@ -153,7 +152,7 @@ A2aRemoteInvocationOrchestrator
 | `TaskStatusUpdate` | COMPLETED | toolResult = TextPart 文本 |
 | `TaskStatusUpdate` | INPUT_REQUIRED | 父 Task → INPUT_REQUIRED + metadata |
 | `TaskStatusUpdate` | 其他 final state | toolResult = error JSON |
-| 超时 | 超过 stream-timeout | `{"error":"remote A2A stream timed out","code":"REMOTE_TIMEOUT"}` |
+| 超时 | 超过 `timeout-seconds` | `{"error":"remote A2A stream timed out","code":"REMOTE_TIMEOUT"}` |
 
 ### 3.3 中断-续接流程
 
