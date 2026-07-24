@@ -14,7 +14,7 @@ dependency:
 # 远程 Agent 编排 — 设计文档
 
 > 目标模块：`agent-runtime/src/main/java/com/huawei/ascend/runtime/engine/a2a/`（南向）
-> 最后更新：2026-06-14
+> 最后更新：2026-07-20
 > **⚠️ 关键约束：没有 skills 的 Agent Card 不会被 LLM 作为 Tool 调用。** 如果远端 Agent Card 的 `skills` 字段为空或不存在，Card Cache 不会为其生成 `RemoteAgentToolSpec`，该 Agent 对 LLM 不可见。这意味着：
 > - 如果你的 Agent 需要被其他 Agent 作为 Tool 调用，必须在 Agent Card 中声明至少一个 skill
 > - 仅用于直接 A2A 调用的 Agent（不需要被其他 Agent 发现的）可以不声明 skills
@@ -58,8 +58,8 @@ agent-runtime 作为 A2A 客户端接入和调用其他 A2A Agent，实现跨 Ag
 
 | 能力 | 状态 | 说明 |
 |------|------|------|
-| YAML 配置远程端点 | ✅ | `agent-runtime.remote-agents[N].url` |
-| Agent Card 自动拉取 | ✅ | 启动时拉取，自适应刷新 |
+| YAML 配置远程端点 | ✅ | `openjiuwen.service.a2a.remote-agents[N].url` |
+| Agent Card 自动拉取 | ✅ | `ApplicationReadyEvent` 触发一次性拉取；失败时固定间隔重试，成功后停止刷新 |
 | 本地目录维护 | ✅ | sticky remoteAgentId，故障降级 |
 | RemoteAgentToolSpec 生成 | ✅ | 从 Card skills 生成，开放 JSON schema；**无 skills 的 Agent Card 不会被注入为 Tool** |
 | OpenJiuwen Tool 安装 | ✅ | Placeholder Tool + Interrupt Rail |
@@ -68,10 +68,6 @@ agent-runtime 作为 A2A 客户端接入和调用其他 A2A Agent，实现跨 Ag
 | Metadata 转发 | ✅ | 入站 metadata → 出站远程调用 |
 | 结果回灌 | ✅ | 远程 COMPLETED → InteractiveInput → 本地 Agent resume |
 | 父 Task 进度投射 | ✅ | 远程 progress → 父 Task artifact |
-| 取消级联传播 | ⬜ | 父 Task cancel → 远程 CancelTask；当前 `A2ARemoteAgentClient` 无 `cancelTask` 调用，`cancelActive` 仅取消本地 stream |
-| 超时检测 | ⬜ | 当前仅 `result.orTimeout()` 使本地 future 超时，未向远端发 CancelTask；超时后无 `REMOTE_TIMEOUT` 结构化 code |
-| 嵌套远程调用 | ⬜ | resume 后再次请求远程 → 返回错误 NESTED_REMOTE_INVOCATION_UNSUPPORTED |
-| 同轮远端工具并行编排 | ⬜ | Feat-Func-026 已接受设计；当前代码仍是单中断/单远端调用路径，待 026 落地后支持批次并发和完整回灌 |
 
 ### 2.2 显式排除
 
@@ -85,7 +81,6 @@ agent-runtime 作为 A2A 客户端接入和调用其他 A2A Agent，实现跨 Ag
 
 - **必须**：Card Cache 按配置 URL 维护，不发现新 URL
 - **必须**：Card 初次拉取成功后不再刷新；Card 发现仅在 `ApplicationReadyEvent` 触发一次性拉取，成功后不再更新
-- **当前禁止**：resume 后再次请求远程会返回 NESTED_REMOTE_INVOCATION_UNSUPPORTED；Feat-Func-026 落地后，仅禁止前一活动批次未解决时创建第二批，前一批完成后的下一轮远端调用允许执行
 - **允许**：多个远程端点独立配置 `timeout-seconds`
 
 ---
@@ -95,7 +90,7 @@ agent-runtime 作为 A2A 客户端接入和调用其他 A2A Agent，实现跨 Ag
 ### 3.1 远程 Agent 配置接入
 
 ```
-应用配置: agent-runtime.remote-agents[0].url=http://remote:18081
+应用配置: openjiuwen.service.a2a.remote-agents[0].url=http://remote:18081
   │
   ▼ 启动时
 A2aClientAutoConfiguration (条件激活)
@@ -157,7 +152,7 @@ A2aRemoteInvocationOrchestrator
 | `TaskStatusUpdate` | COMPLETED | toolResult = TextPart 文本 |
 | `TaskStatusUpdate` | INPUT_REQUIRED | 父 Task → INPUT_REQUIRED + metadata |
 | `TaskStatusUpdate` | 其他 final state | toolResult = error JSON |
-| 超时 | 超过 stream-timeout | `{"error":"remote A2A stream timed out","code":"REMOTE_TIMEOUT"}` |
+| 超时 | 超过 `timeout-seconds` | `{"error":"remote A2A stream timed out","code":"REMOTE_TIMEOUT"}` |
 
 ### 3.3 中断-续接流程
 
@@ -205,7 +200,6 @@ OpenJiuwen Runner (resume 模式):
 
 **结束条件**：远端 completed 只代表远端 tool leg 结束。parent task 的最终结束由本地 OpenJiuwen resume 后的结果决定：
 - `result_type=answer` → parent COMPLETED
-- `result_type=interrupt` (REMOTE_AGENT_INVOCATION) → 嵌套调用 → FAILED (NESTED_REMOTE_INVOCATION_UNSUPPORTED)
 - `result_type=interrupt` (其他) → parent INPUT_REQUIRED
 
 ---
@@ -273,11 +267,8 @@ A2aRemoteInvocationOrchestrator
 | 错误场景 | 触发条件 | 行为 | 对外结果 |
 |---------|---------|------|---------|
 | Card 初次解析失败 | URL 不可达或返回非 Card | URL 保持 pending，不注入 tool | 本地 Agent 正常启动（无该远程 tool） |
-| 远程超时 | 超过 timeout-ms | 本地 `CompletableFuture.orTimeout()` 超时；无远端 CancelTask | toolResult 为空或异常，无结构化 `REMOTE_TIMEOUT` code |
 | 远程返回 FAILED | 远端 Agent 执行失败 | error 投射到父 Task | 父 Task 继续（LLM 看到 error toolResult） |
-| 父 Task 取消 | 用户 CancelTask | 当前仅取消本地 stream，无远端 CancelTask 调用 | 远程 Task 继续执行至 COMPLETED（孤儿 Task） |
 | 远端 late event | terminal/timeout 后到达 | 丢弃，不投影 | 不影响父 Task |
-| 后续远程调用（当前） | resume 后 LLM 再次请求远程 | 返回 NESTED_REMOTE_INVOCATION_UNSUPPORTED；Feat-Func-026 将收窄为仅禁止活动批次重入 | parent task FAILED；026 落地后按新批次执行 |
 | Card Cache 全空 | 所有 URL 不可达 | 不安装任何远程 tool | 本地 Agent 正常运行（无远程 tool） |
 
 ---
@@ -314,7 +305,5 @@ openjiuwen:
 | 限制 | 影响范围 | 临时方案 |
 |------|---------|---------|
 | 仅单层远程调用 | 不支持 Agent A → Agent B → Agent C 的链式调用 | 每层独立配置 |
-| 当前不支持 resume 后再次远端调用 | 前一远端调用回灌后不能创建下一轮远端调用 | Feat-Func-026 落地后允许前一批完成后的新批次；活动批次重入仍禁止 |
 | 远程端点需静态配置 | 新增远程 Agent 需修改 YAML 并重启 | — |
 | 仅 OpenJiuwen 支持远程 Tool | AgentScope 不能作为调用方发起远程调用 | 使用 OpenJiuwen 作为主 Agent |
-| 同轮并行代码未落地 | 当前不支持多个远程 Agent 并行调用 | 详见 Feat-Func-026 批次屏障设计；落地前仍按现有单调用限制运行 |

@@ -4,7 +4,7 @@ module: agent-core
 feature_type: functional
 feature_id: FEAT-019
 status: active
-updated: 2026-07-21
+updated: 2026-07-23
 ---
 
 # 智能体生成并行的下游智能体调用委托
@@ -13,7 +13,7 @@ updated: 2026-07-21
 
 FEAT-019 定义 `agent-core` 侧对 openJiuwen DeepAgent / ReActAgent 同一轮 agent-loop 生成多个下游智能体委托调用的事实要求。下游智能体通过 runtime 代理工具暴露给模型；模型在同一轮可以多次调用该单调用工具，每个调用代表一个独立的下游 Agent 委托意图。
 
-本特性不把下游 Agent 委托设计成一个显式的“批量调用工具”。模型看到的是多个普通形态的 runtime-proxy downstream-agent ToolCall；`agent-core` 必须在同轮 ToolCall 执行边界完整保留这些调用，为每个调用生成独立中断项，并把同轮多个下游 Agent 中断聚合成一个批量中断交给 `agent-runtime`。真正的远程 A2A child Task 创建、并发 fan-out / fan-in、状态投射、INPUT_REQUIRED 定向续接、取消、超时和部分失败处理由 [FEAT-004](./FEAT-004-task-driven-remote-agent-communication.md) 约束。
+本特性不把下游 Agent 委托设计成一个显式的“批量调用工具”。模型看到的是多个普通形态的 runtime-proxy downstream-agent ToolCall；`agent-core` 必须在同轮 ToolCall 执行边界完整保留这些调用，为每个调用生成独立中断项，并把同轮多个下游 Agent 中断聚合成一个批量中断交给 `agent-runtime`。真正的远程 A2A child Task 创建、并发 fan-out / fan-in、状态投射、INPUT_REQUIRED 定向续接、超时和部分失败处理由 [FEAT-004](./FEAT-004-task-driven-remote-agent-communication.md) 约束。
 
 本特性解决的问题是：DeepAgent 一轮规划可能同时需要天气、酒店、航班、研究、财务等多个下游 Agent。如果 `agent-core` 只保留最后一个工具中断，或逐个局部 resume，就会导致下游 Agent 调用丢失、结果串线、父 Agent 过早继续推理和 runtime 无法形成稳定并行批次。FEAT-019 要求 `agent-core` 把这些委托意图作为同一轮批量中断保存和回灌，使 runtime 可以安全代理 A2A 并行调用。
 
@@ -41,7 +41,7 @@ FEAT-019 定义 `agent-core` 侧对 openJiuwen DeepAgent / ReActAgent 同一轮 
 | 结果稳定归位 | MUST | 新增 | 批量回灌结果必须按 `toolCallId` 写回对应 ToolMessage；完成顺序不得改变结果身份。 |
 | 单成员兼容 | MUST | 现有兼容 | 单个下游 Agent 代理 ToolCall 必须继续兼容既有单中断、单结果回灌路径。 |
 | 普通本地工具并行 | OUT | 不在范围 | 本特性不承诺本地普通工具并行、工具安全分级、文件冲突键或普通 provider 并发治理。 |
-| A2A child Task 编排 | OUT | 归属 FEAT-004 | 远程 A2A Task 创建、状态、并发预算、INPUT_REQUIRED 路由、取消、超时和结果投射由 `agent-runtime` / FEAT-004 约束。 |
+| A2A child Task 编排 | OUT | 归属 FEAT-004 | 远程 A2A Task 创建、状态、并发预算、INPUT_REQUIRED 路由、超时和结果投射由 `agent-runtime` / FEAT-004 约束。 |
 | 任意依赖图 / DAG | OUT | 不在范围 | 当前只处理同轮彼此独立的下游 Agent 委托，不解析依赖图、条件分支、循环或 workflow DAG。 |
 
 ## 3. 外部接口与入口要求
@@ -168,7 +168,7 @@ agent-core 按 toolCallId 写入 ToolMessage，并触发一次 DeepAgent 后续�
 |---|---|
 | 本地普通工具并行 | 不承诺文件、Shell、本地函数、普通 REST/MCP、浏览器、设备或代码工具的并行执行。 |
 | 显式批量委托工具 | 不要求向模型暴露一个一次性包含多个下游 Agent 调用的批量工具。 |
-| core 拥有远程 Task | core 不创建、不查询、不取消远程 A2A Task，也不保存远端 `taskId` / `contextId` 的生命周期状态。 |
+| core 拥有远程 Task | core 不创建、不查询或推进远程 A2A Task，也不保存远端 `taskId` / `contextId` 的生命周期状态。 |
 | runtime 状态写入 | core 不写 parent Task、child Task、TaskStore 或 A2A 状态机。 |
 | 自动依赖分析 | 不从自然语言或工具参数中推断 ToolCall 间依赖关系。 |
 | 下游 Agent 内部并行 | 不约束下游 Agent 自己如何并行执行工具或工作流。 |
@@ -183,8 +183,8 @@ agent-core 按 toolCallId 写入 ToolMessage，并触发一次 DeepAgent 后续�
 - L2 必须验证非流式和流式路径都能完整保留多个中断项，不能出现只保留最后一个中断的实现。
 - L2 必须验证 `toolCallId` 在中断、runtime 回灌和 ToolMessage 写入之间保持稳定关联。
 - L2 必须验证 runtime 批量回灌后 core 只触发一次 DeepAgent 后续推理。
-- L2 必须与 FEAT-004 对齐：凡涉及 child Task、A2A wire、远端状态、用户定向续接、取消、超时、部分失败和实时投射的内容，应在 FEAT-004 或其详细设计中落地。
-- FEAT-026 已合并进 FEAT-019，不再作为独立 version-scope 事实源；历史并行工具治理内容不得作为当前 FEAT-019 的范围依据。
+- L2 必须与 FEAT-004 对齐：凡涉及 child Task、A2A wire、远端状态、用户定向续接、超时、部分失败和实时投射的内容，应在 FEAT-004 或其详细设计中落地。
+- L2 详细设计统一使用 Feat-Func-019 编号，并以本特性和 FEAT-004 的责任边界作为事实依据。
 
 ## 7. 关联文档
 
@@ -196,4 +196,4 @@ agent-core 按 toolCallId 写入 ToolMessage，并触发一次 DeepAgent 后续�
 - `architecture/L1-High-Level-Design/agent-core/logical.md`
 - `architecture/L1-High-Level-Design/agent-runtime/logical.md`
 - `architecture/L2-Low-Level-Design/agent-runtime/Feat-Func-004-remote-agent-orchestration.md`
-- `architecture/L2-Low-Level-Design/agent-runtime/Feat-Func-026-parallel-tool-execution.md`
+- `architecture/L2-Low-Level-Design/agent-runtime/Feat-Func-019-parallel-tool-execution.md`
