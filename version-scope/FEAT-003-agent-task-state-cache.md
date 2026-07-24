@@ -203,3 +203,4 @@ runtime-hosted DeepAgent 提供 Todolist 规划能力时，Todolist 的领域语
 - `architecture/L2-Low-Level-Design/agent-runtime/FEAT-001-standardized-agent-service-entrypoint.md`
 - `architecture/L2-Low-Level-Design/agent-runtime/Feat-Func-003-agent-task-state-cache.md`
 - `architecture/L2-Low-Level-Design/agent-runtime/Feat-Func-004-remote-agent-orchestration.md`
+- `architecture/L2-Low-Level-Design/agent-core/Feat-Func-003-deepagent-todolist-distributed-storage.md`
