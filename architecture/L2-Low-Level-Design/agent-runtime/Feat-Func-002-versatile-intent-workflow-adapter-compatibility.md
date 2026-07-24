@@ -79,7 +79,7 @@ dependency:
 | 原工作流恢复 | Adapter 不区分新调用与 resume；runtime 处理 resume 入口与 `ServeRequest` 构造；Adapter 按配置可选填充 `resume-request-template` | `VersatileRequestExtractor` + `interrupt.resume-request-template` | ✅（Adapter 侧不感知 resume） |
 | 下游直接用户消息承载 | 工作流面向用户的业务消息通过 `QueryChunk(TYPE_CHUNK)` 承载，交由 runtime/Bus 投影 | `VersatileResponseExtractor` 已有 `TYPE_CHUNK` 输出 | ✅（Adapter 侧）；投影链路依赖 FEAT-012/013 |
 | 状态/失败/取消映射 | 工作流完成、显式中断、远端失败、配置缺失、结果契约违反、恢复失败映射为标准 chunk/result | `VersatileResponseExtractor` + `VersatileAgentHandler` | ⬜ |
-| Runtime 转发能力 SPI 化（依赖项，不在 Adapter 内） | runtime 核心 module 改动严格限定为 SPI 改造（新增 `RemoteAgentCaller` / `RemoteAgentCardResolver` SPI 接口 + `RemoteAgentCall` 值对象含 `responseContent` + `Default*` 基线实现忽略 `responseContent` 逻辑等价 + `A2AEnabledServeOrchestrator` SPI 依赖迁移与 `RemoteAgentCall` 入参构造）；Adapter 只提取并返回三字段；messages 追加、A2A Gateway 路由、进程内联调等能力放部署模块 `versatile-intent-boot` 的 Caller SPI 实现内部，runtime 核心 module 不硬依赖 | `RemoteAgentCaller`, `RemoteAgentCardResolver`, `RemoteAgentCall`, `DefaultRemoteAgentCaller`, `DefaultCardResolver`（runtime 核心 module）；`A2AGatewayRemoteAgentCaller`, `A2AGatewayCardResolver`, `InProcessRemoteAgentCaller`（versatile-intent-boot） | ⬜（runtime 侧 SPI 改造 + 部署模块能力实现） |
+| Runtime 转发能力 a2a_delegate 路径扩展 + SPI 化（依赖项，不在 Adapter 内） | runtime 核心 module 改动严格限定为 a2a_delegate 路径扩展 + SPI 改造（`InterruptData` 新增 `responseContent` 字段 + `RemoteAgentCall` 值对象含 `responseContent` + 既有 `A2ARemoteAgentClient`/`A2AAgentCardDiscovery` 签名升级为 `RemoteAgentCaller`/`RemoteAgentCardResolver` SPI 实现忽略 `responseContent` 逻辑等价 + `A2AEnabledServeOrchestrator` 的 `handleA2ADelegate` 路径消费 `resume=false` 与 `responseContent`、构造 `RemoteAgentCall` 并通过 `RemoteAgentCaller` SPI 执行转发）；Adapter 产出 `a2a_delegate` interrupt；messages 追加、A2A Gateway 路由、进程内联调等能力放部署模块 `versatile-intent-boot` 的 SPI 实现内部，runtime 核心 module 不硬依赖 | `RemoteAgentCaller`, `RemoteAgentCardResolver`, `RemoteAgentCall`, `InterruptData.responseContent`, `A2ARemoteAgentClient`, `A2AAgentCardDiscovery`（runtime 核心 module）；`A2AGatewayRemoteAgentCaller`, `A2AGatewayCardResolver`, `InProcessRemoteAgentCaller`, `LocalHttpRemoteAgentCaller`（versatile-intent-boot） | ⬜（runtime 侧 a2a_delegate 路径扩展 + SPI 改造 + 部署模块能力实现） |
 | 可观测与敏感信息保护 | 调用、中断、恢复、失败的可关联观察记录与敏感字段掩码 | 现有日志 + 掩码策略 | ⬜（依赖 DFX-001） |
 
 > 状态标记说明：✅ 已在现有代码中具备；⬜ 需要按本特性扩展。
@@ -221,7 +221,7 @@ public interface RemoteAgentCardResolver {
 - **必须**：二层调用前由 runtime 编排组件（非 Adapter）把一层 `response_content` 作为一条 `assistant` 消息追加到 `messages` 数组末尾，与原会话历史一同传递给二层工作流。
 - **必须**：正常完成时提取并保留三字段；`response_content`/`intent_id` 必须由工作流返回且非空；`agent_id` 可由工作流返回或由 `intent-agent-mapping`（1:N）+ 选择策略映射查找，最终必须非空且唯一。
 - **必须**：三字段以机器可读形式写入 `QueryResponse.result`，禁止仅写入 `content` 自然语言字段。
-- **必须**：一层/二层 Adapter 只提取并返回三字段（含 `agent_id`），不调用下一层 runtime，不依赖 `versatile-intent-boot`；`agent_id` 的消费与跨 Runtime 转发由 `A2AEnabledServeOrchestrator` 通过 `RemoteAgentCaller` SPI 发起。A2A Gateway URL 模式为 `xxxx/{agentCard}`，`response_content` 通过 `RemoteAgentCall` 值对象从 orchestrator 传到 Caller；messages 追加在 `A2AGatewayRemoteAgentCaller` / `InProcessRemoteAgentCaller` 实现的 `call()` 内部完成（Default 实现忽略 `responseContent`，保持原逻辑）；runtime 核心 module 改动严格限定为 SPI 改造（`A2ARemoteAgentClient` + `A2AAgentCardDiscovery` 抽象为 `RemoteAgentCaller` / `RemoteAgentCardResolver` SPI + `RemoteAgentCall` 值对象 + `Default*` 基线实现 + orchestrator SPI 依赖迁移与入参构造），messages 追加等新增能力由部署模块 Caller SPI 实现内部承担（见 4.9）。
+- **必须**：一层/二层 Adapter 只提取并返回三字段（含 `agent_id`），不调用下一层 runtime，不依赖 `versatile-intent-boot`；Adapter 在三字段结果就绪时产出 `a2a_delegate` interrupt（`resume=false` + `agentName=agent_id` + `responseContent=response_content`），`agent_id` 的消费与跨 Runtime 转发由 `A2AEnabledServeOrchestrator.handleA2ADelegate` 通过 `RemoteAgentCaller` SPI 执行。A2A Gateway URL 模式为 `xxxx/{agentCard}`，`response_content` 通过 `InterruptData.responseContent` → `RemoteAgentCall.responseContent` 从 orchestrator 传到 Caller；messages 追加在 `A2AGatewayRemoteAgentCaller` / `InProcessRemoteAgentCaller` / `LocalHttpRemoteAgentCaller` 实现的 `call()` 内部完成（基线 `A2ARemoteAgentClient` 忽略 `responseContent`，保持原逻辑）；runtime 核心 module 改动严格限定为 a2a_delegate 路径扩展 + SPI 改造（`InterruptData.responseContent` 字段 + `A2ARemoteAgentClient` + `A2AAgentCardDiscovery` 签名升级为 `implements` `RemoteAgentCaller` / `RemoteAgentCardResolver` SPI + `RemoteAgentCall` 值对象 + orchestrator `handleA2ADelegate` 消费 `resume=false` + `responseContent` 构造 `RemoteAgentCall` 并通过 `RemoteAgentCaller` SPI 转发），messages 追加等新增能力由部署模块 SPI 实现内部承担（见 4.9）。
 - **禁止**：Adapter 在提取三字段后自行调用 `RemoteAgentCaller` 或任何跨 Runtime 转发组件；单工作流 Adapter 边界要求 Adapter 只对当前 Runtime 的 Task 产出结果。
 - **必须**：匹配成功、未匹配、需要澄清、跳转、重新分类交接执行相同的技术完成语义；Adapter 不区分业务结果类型。
 - **必须**：`agent_id` 是当前 tenant 下 FEAT-015 可直接查询的逻辑 `agentId`，Adapter 不做别名转换。
@@ -272,27 +272,39 @@ agent-service-adapters-versatile/src/main/java/com/openjiuwen/service/adapters/v
 
 agent-runtime-java/service/agent-service-app/src/main/java/com/openjiuwen/service/app/controller/a2a/
 ├── client/
-│   ├── A2ARemoteAgentClient.java          # 重构为 DefaultRemoteAgentCaller（实现 RemoteAgentCaller SPI）
-│   ├── A2AAgentCardDiscovery.java         # 重构为 DefaultCardResolver（实现 RemoteAgentCardResolver SPI）
 │   ├── RemoteAgentCaller.java             # 新增 SPI 接口（runtime 核心 module 仅保留 SPI 改造）
 │   ├── RemoteAgentCardResolver.java       # 新增 SPI 接口
-│   ├── RemoteAgentCall.java               # 新增值对象（agentId + ServeRequest + responseContent）
-│   ├── DefaultRemoteAgentCaller.java      # 迁移现有 A2ARemoteAgentClient 逻辑（基线实现，逻辑等价：
-│   │                                      #   URL/card 查询/SDK 调用/chunk 流回/错误处理完全不变；
-│   │                                      #   忽略 responseContent, 不追加 messages）
-│   └── DefaultCardResolver.java           # 迁移现有 A2AAgentCardDiscovery 逻辑（基线实现，逻辑等价：
-│                                          #   baseUrl + /.well-known/agent-card.json + jsonRpcPath 不变）
+│   ├── RemoteAgentCall.java               # 新增值对象（agentId + ServeRequest + responseContent
+│   │                                      #   + contextId/taskId/message/streaming legacy 兼容字段）
+│   ├── RemoteAgentException.java          # 新增：远端调用结构化异常（REMOTE_TIMEOUT/
+│   │                                      #   REMOTE_STREAM_CLOSED/REMOTE_ERROR）
+│   ├── RemoteInputRequiredException.java  # 新增：远端 INPUT_REQUIRED 信号，携带 remoteTaskId
+│   ├── RemoteAgentAnswerExtractor.java    # 新增：answer envelope 通用解析工具（type/output/
+│   │                                      #   response_content/agent_id/intent_id 提取）
+│   ├── A2ARemoteAgentClient.java          # 保留类名与文件名，签名改为 implements RemoteAgentCaller
+│   │                                      #   （基线 Caller；逻辑等价：URL/card 查询/SDK 调用/chunk 流回/
+│   │                                      #   错误处理完全不变；忽略 responseContent, 不追加 messages）
+│   ├── A2AAgentCardDiscovery.java         # 保留类名与文件名，签名改为 implements RemoteAgentCardResolver
+│   │                                      #   （基线 Resolver；逻辑等价：baseUrl + /.well-known/agent-card.json
+│   │                                      #   + jsonRpcPath 不变）
+│   └── A2ARemoteAgentCardRegistry.java    # 既有 card 缓存组件（保留，配合 SPI 化的 Discovery）
 └── orchestrator/
-    └── A2AEnabledServeOrchestrator.java   # 改动含 SPI 依赖迁移 + 从 QueryResponse.result 提取
-                                           #   response_content 构造 RemoteAgentCall 入参 + 调用
-                                           #   Caller.call()；不追加 messages（在 Caller 实现内部完成）
+    └── A2AEnabledServeOrchestrator.java   # 改动含 SPI 依赖迁移 + handleA2ADelegate 路径扩展：
+                                           #   消费 InterruptData.resume=false 与 responseContent，
+                                           #   构造 RemoteAgentCall 并通过 RemoteAgentCaller SPI 执行转发；
+                                           #   远端再返回 a2a_delegate envelope 时继续转发（递归单跳），
+                                           #   远端返回纯答案时直接返回（不 resume 父 handler）。
+                                           #   不追加 messages（messages 追加在 Caller 实现内部完成）
 
-# runtime 核心 module 改动严格限定为 SPI 改造：
+# runtime 核心 module 改动严格限定为 a2a_delegate 路径扩展 + SPI 改造：
+#   - InterruptData 新增 responseContent 字段
 #   - 新增 RemoteAgentCaller / RemoteAgentCardResolver SPI 接口 + RemoteAgentCall 值对象
-#   - Default* 基线实现迁移自现有代码（逻辑等价，忽略 responseContent）
-#   - A2AEnabledServeOrchestrator SPI 依赖迁移 + RemoteAgentCall 入参构造
-# 其他能力（messages 追加、A2AGateway / InProcess 实现）由部署模块 versatile-intent-boot 提供，
-# 通过 Spring Bean 注入为 RemoteAgentCaller SPI 实现
+#   - A2ARemoteAgentClient / A2AAgentCardDiscovery 保留类名，签名改为 implements 对应 SPI
+#     （逻辑等价，忽略 responseContent）
+#   - A2AEnabledServeOrchestrator 的 handleA2ADelegate 路径消费 resume=false + responseContent，
+#     构造 RemoteAgentCall 并通过 RemoteAgentCaller SPI 转发
+# 其他能力（messages 追加、A2AGateway / InProcess / LocalHttp 实现）由部署模块 versatile-intent-boot 提供，
+# 通过 Spring Bean 注入为对应 SPI 实现
 ```
 
 ### 3.2 核心类静态关系
@@ -311,39 +323,47 @@ AgentHandler                   VersatileAgentHandler
       ┌──────────────────────────────────────────────────────────────────────────────┐
       │ 以下属于 runtime 编排层（agent-runtime-java/service/agent-service-app），       │
       │ 不属于 VersatileAgentHandler；Adapter 不依赖 RemoteAgentCaller SPI            │
-      │ runtime 核心 module 改动仅含 SPI 改造:                                          │
-      │   SPI 接口 + RemoteAgentCall 值对象 + Default 基线实现 + orchestrator SPI 迁移 │
+      │ runtime 核心 module 改动: a2a_delegate 路径扩展 + SPI 改造:                     │
+      │   InterruptData.responseContent + RemoteAgentCall 值对象 +                    │
+      │   既有类签名升级为 SPI 实现 + orchestrator handleA2ADelegate 消费 resume=false │
       └──────────────────────────────────────────────────────────────────────────────┘
 
 «interface» RemoteAgentCaller                «interface» RemoteAgentCardResolver
         ↑                                              ↑
         │                                              │
-  «concrete» DefaultRemoteAgentCaller          «concrete» DefaultCardResolver
-  (迁移自 A2ARemoteAgentClient,                (迁移自 A2AAgentCardDiscovery,
+  «concrete» A2ARemoteAgentClient              «concrete» A2AAgentCardDiscovery
+  (保留类名, implements RemoteAgentCaller;     (保留类名, implements RemoteAgentCardResolver;
    逻辑等价: URL/card 查询/SDK 调用/             逻辑等价: baseUrl +
    chunk 流回/错误处理完全不变;                  /.well-known/agent-card.json,
    忽略 responseContent, 不追加 messages)        jsonRpcPath 不变)
 
   «concrete» A2AEnabledServeOrchestrator
-  (改动: SPI 依赖迁移 + 从 result 提取
-   response_content 构造 RemoteAgentCall
-   入参 + 调用 Caller.call();
+  (改动: SPI 依赖迁移 + handleA2ADelegate 路径扩展:
+   消费 InterruptData.resume=false + responseContent,
+   构造 RemoteAgentCall, 通过 RemoteAgentCaller SPI 转发;
+   远端再返回 a2a_delegate → 继续转发;
+   远端返回纯答案 → 直接返回, 不 resume 父 handler.
    不追加 messages, 不构造新 ServeRequest)
 
       ┌──────────────────────────────────────────────────────────────────────────────┐
       │ 以下属于部署模块 versatile-intent-boot，不属于 runtime 核心 module              │
-      │ 通过 Spring Boot 自动装配按 Profile 注入为 RemoteAgentCaller SPI 实现           │
+      │ 通过 Spring Boot 自动装配按 Profile 注入为 RemoteAgentCaller /                 │
+      │ RemoteAgentCardResolver SPI 实现                                               │
       │ 承担 SPI 之外的 messages 追加、Gateway 路由、进程内联调等能力                    │
       └──────────────────────────────────────────────────────────────────────────────┘
 
   «concrete» A2AGatewayRemoteAgentCaller      «concrete» A2AGatewayCardResolver
   (xxxx/{agentCard} 路由，生产形态;            (xxxx/{agentCard}/.well-known/agent-card.json;
-   消费 responseContent 追加 messages,          其余逻辑与 Default 对齐)
-   其余逻辑与 Default 对齐)
+   消费 responseContent 追加 messages,          其余逻辑与基线 A2AAgentCardDiscovery 对齐)
+   其余逻辑与基线 A2ARemoteAgentClient 对齐)
 
   «concrete» InProcessRemoteAgentCaller
   (开发联调形态; 消费 responseContent 追加 messages 后,
    进程内直调目标 AgentHandler Bean, 不走 HTTP)
+
+  «concrete» LocalHttpRemoteAgentCaller
+  (本地多端口联调形态; 消费 responseContent 追加 messages,
+   按 localhost:port 走 A2A SDK, 用于完整 HTTP/SSE 链路验证)
 
 QueryChunk  ──── typed by ────►  TYPE_CHUNK / TYPE_INTERRUPT / TYPE_ERROR
 QueryResponse  ──── carries ───►  result Map { role, content, response_content, intent_id, agent_id, _interrupt? }
@@ -687,9 +707,13 @@ if (!isCompleted) {
 
 ### 4.9 Runtime 转发能力 SPI 化（依赖项，不在 Adapter 内）
 
-> **职责归属**：本节描述的能力分属 runtime 编排层（`agent-runtime-java/service/agent-service-app`）与部署模块（`versatile-intent-boot`），不属于 Versatile Adapter。`VersatileAgentHandler` 只提取并返回三字段（含 `agent_id`），不依赖、不调用 `RemoteAgentCaller` / `RemoteAgentCardResolver` SPI，也不依赖 `versatile-intent-boot`。本节作为本特性的依赖项说明 runtime 编排层需要做的 SPI 化改造，以满足 Versatile 意图识别两层调用链的 `xxxx/{agentCard}` 路由与 `messages` 追加需求。
+> **重构说明（2026-07-24，2026-07-24 修订）**：原设计的 `ServeForwardStrategy` SPI + `NoopServeForwardStrategy` + `ThreeFieldForwardStrategy` 已删除。Versatile Adapter 在意图工作流正常返回时直接产出 `a2a_delegate` interrupt，复用 runtime 核心 module 既有 `a2a_delegate` 转发路径（`handleA2ADelegate` → `delegateSse`/`delegateSync`/`handleQueryInterrupt`）。runtime 核心 module 的 `a2a_delegate` 路径扩展两点：(1) `InterruptData` 携带 `responseContent` 字段，构造 `RemoteAgentCall` 时透传给 Caller（Caller 内部决定是否追加 messages）；(2) Versatile Adapter 在 interrupt payload 中设置 `resume=false`——signal orchestrator 远端返回后**不 resume 父 handler**，远端的终态答案即本层的终态答案；远端若再次返回 `a2a_delegate` envelope 则 orchestrator 继续转发（递归单跳语义）。工具调用式 a2a_delegate（如 AgentCore rail）保持 `resume=true`（默认），维持原有 forward-once + resume 父 handler 语义。
 >
-> **模块归属原则**：runtime 核心 module（`agent-service-app`）的改动**严格限定为 SPI 改造**——新增 `RemoteAgentCaller` / `RemoteAgentCardResolver` SPI 接口 + `RemoteAgentCall` 值对象（含 `responseContent`）+ `Default*` 基线实现（迁移自现有代码，忽略 `responseContent`，逻辑等价）+ `A2AEnabledServeOrchestrator` 的 SPI 依赖迁移与 `RemoteAgentCall` 入参构造；**其他能力**（`messages` 追加与新 `ServeRequest` 构造、A2A Gateway 路由实现、进程内联调实现）**放到部署模块 `versatile-intent-boot`** 的 Caller SPI 实现内部，通过 Spring Boot 自动装配按 Profile 注入为 `RemoteAgentCaller` SPI 实现，runtime 核心 module 不硬依赖这些能力。调用链：adapter 返回三字段 → orchestrator 提取 `response_content` 构造 `RemoteAgentCall` → 通过 SPI 调用 Caller → Caller 实现内部决定是否追加 messages。
+> **实现机制说明**：设计阶段曾以 `recursiveForward=true` 命名此语义，落地实现复用 `InterruptData.resume` 既有字段（设为 `false`）而非新增 `recursiveForward` 字段——二者语义等价，均表示"远端返回后不 resume 父 handler"。本特性文档统一以 `resume=false` 表述落地实现；`recursiveForward` 一词仅在本重构说明的历史背景中出现，不再作为接口字段名。SPI 数量从 3 降到 2（`RemoteAgentCaller` / `RemoteAgentCardResolver`）。
+
+> **职责归属**：本节描述的能力分属 runtime 编排层（`agent-runtime-java/service/agent-service-app`）与部署模块（`versatile-intent-boot`），不属于 Versatile Adapter。`VersatileAgentHandler` 只提取并返回三字段（含 `agent_id`），不依赖、不调用 `RemoteAgentCaller` / `RemoteAgentCardResolver` SPI，也不依赖 `versatile-intent-boot`。本节作为本特性的依赖项说明 runtime 编排层需要做的 a2a_delegate 路径扩展与 SPI 化改造，以满足 Versatile 意图识别两层调用链的 `xxxx/{agentCard}` 路由与 `messages` 追加需求。
+>
+> **模块归属原则**：runtime 核心 module（`agent-service-app`）的改动**严格限定为 a2a_delegate 路径扩展 + SPI 改造**——`InterruptData` 新增 `responseContent` 字段 + `RemoteAgentCall` 值对象（含 `responseContent`）+ 既有 `A2ARemoteAgentClient`/`A2AAgentCardDiscovery` 签名升级为 `RemoteAgentCaller` / `RemoteAgentCardResolver` SPI 实现（保留类名，忽略 `responseContent`，逻辑等价）+ `A2AEnabledServeOrchestrator` 的 `handleA2ADelegate` 路径消费 `resume=false` 与 `responseContent`、构造 `RemoteAgentCall` 并通过 `RemoteAgentCaller` SPI 执行转发；**其他能力**（`messages` 追加与新 `ServeRequest` 构造、A2A Gateway 路由实现、进程内联调实现）**放到部署模块 `versatile-intent-boot`** 的 SPI 实现内部，通过 Spring Boot 自动装配按 Profile 注入为对应 SPI 实现，runtime 核心 module 不硬依赖这些能力。调用链：adapter 产出 `a2a_delegate` interrupt（`resume=false` + `responseContent`）→ orchestrator `handleA2ADelegate` 构造 `RemoteAgentCall` → `RemoteAgentCaller` SPI 调用 Caller → Caller 实现内部决定是否追加 messages。
 
 #### 4.9.1 背景与差距
 
@@ -703,66 +727,79 @@ runtime 当前转发逻辑硬编码在：
 
 上述路径构造无 `{agentCard}` 占位符，无法适配 A2A Gateway 的 `xxxx/{agentCard}` 路由模式；且当前转发逻辑不追加上一层 `response_content` 到 `messages`。本特性把 runtime 编排层的"远端 Agent 调用"抽象为 `RemoteAgentCaller` / `RemoteAgentCardResolver` SPI，runtime 核心 module 只做 SPI 改造（接口 + 值对象 + Default 基线实现 + orchestrator SPI 依赖迁移）；`messages` 追加与新 `ServeRequest` 构造作为 SPI 实现的内部行为，由部署模块 `versatile-intent-boot` 的 A2AGateway / InProcess 实现承担——orchestrator 通过 SPI 调用实现，`responseContent` 通过 `RemoteAgentCall` 值对象从 orchestrator 传到 Caller，Caller 内部决定是否追加 messages。Default 实现忽略 `responseContent`，保持与原 `A2ARemoteAgentClient` / `A2AAgentCardDiscovery` 逻辑等价。
 
-#### 4.9.2 SPI 抽象
+#### 4.9.2 a2a_delegate 路径与 SPI 抽象
 
 ```
 ┌─ runtime 编排层（agent-runtime-java/service/agent-service-app）────────────────────────┐
-│  改动严格限定为 SPI 改造：新增 SPI 接口 + RemoteAgentCall 值对象 + Default 基线实现       │
-│  + A2AEnabledServeOrchestrator 的 SPI 依赖迁移与入参构造；其他能力不在此 module            │
+│  改动: a2a_delegate 路径扩展 + SPI 改造                                                     │
+│  InterruptData 新增 responseContent 字段; RemoteAgentCall 值对象;                            │
+│  既有 A2ARemoteAgentClient / A2AAgentCardDiscovery 签名升级为 SPI 实现;                      │
+│  A2AEnabledServeOrchestrator 的 handleA2ADelegate 路径消费 resume=false + responseContent  │
 │                                                                                          │
-│  A2AEnabledServeOrchestrator            （改动：SPI 依赖迁移 + 构造 RemoteAgentCall 入参）  │
-│        │                                                                                 │
-│        │── 依赖 A2ARemoteAgentClient  → 依赖 RemoteAgentCaller SPI                        │
-│        │── 依赖 A2AAgentCardDiscovery → 依赖 RemoteAgentCardResolver SPI                  │
-│        │── 从 QueryResponse.result 提取 response_content，构造 RemoteAgentCall             │
-│        │   (agentId, ServeRequest, responseContent) 后调用 Caller.call()                  │
-│        │── 其他编排逻辑不变（Task 状态机交互、observer 透传、错误处理等保持等价）             │
+│  VersatileAgentHandler (adapter)                                                         │
+│        │── 三字段结果提取完成                                                              │
+│        │── 产出 QueryChunk(TYPE_INTERRUPT, {agentName, responseContent,                    │
+│        │     resume=false, context:{_interrupt_kind:"a2a_delegate"}})                      │
 │        ▼                                                                                 │
-│  «interface» RemoteAgentCaller                   «interface» RemoteAgentCardResolver      │
-│    + call(RemoteAgentCall call,                  + resolveUrl(agentId) → String          │
-│           QueryStreamObserver observer)           + resolveCardUrl(agentId) → String      │
-│    + supported(agentId) → boolean                 + supported(agentId) → boolean          │
-│   // RemoteAgentCall = {agentId, ServeRequest,    (供 fetchCard 使用)                      │
-│   //   responseContent(可选, 上一层输出)}                                                 │
-│          ↑                                                  ↑                            │
-│          │                                                  │                            │
-│    «concrete» DefaultRemoteAgentCaller            «concrete» DefaultCardResolver          │
-│    (迁移自 A2ARemoteAgentClient，逻辑等价：         (迁移自 A2AAgentCardDiscovery，逻辑等价：│
-│     按 agentId 解析 card URL + jsonRpc URL,         baseUrl + /.well-known/agent-card.json│
-│     通过 A2A SDK 发起调用, 把 chunk 流回 observer;   + jsonRpcPath 不变)                   │
-│     忽略 responseContent, 不追加 messages)                                               │
+│  A2AEnabledServeOrchestrator.handleA2ADelegate()                                         │
+│        │── resolveInterruptData 读取 _interrupt_kind=a2a_delegate + agentName              │
+│        │   + responseContent + resume=false                                                │
+│        │── 构造 RemoteAgentCall{agentId=agentName, ServeRequest=原始, responseContent}     │
+│        │── RemoteAgentCaller.call(remoteAgentCall, observer) ──────────┐                   │
+│        │                                                                │                   │
+│        │   远端返回:                                                     ▼                   │
+│        │   ├── 纯答案 (TYPE_CHUNK/COMPLETED) → 直接透传给 observer, 不 resume 父 handler │
+│        │   ├── a2a_delegate envelope (resume=false) → 递归 handleA2ADelegate 继续转发    │
+│        │   ├── TYPE_INTERRUPT(INPUT_REQUIRED) → 存 shadow task, 透传 interrupt chunk     │
+│        │   └── TYPE_ERROR → 透传错误                                                     │
+│        │── resume=false: 远端终态即本层终态, 不再调用 VersatileAgentHandler               │
+│        │── resume=true (工具调用式 a2a_delegate, 如 AgentCore rail): 远端终态后           │
+│        │   resume 父 handler 继续执行 (原有 forward-once 语义, 不变)                      │
+│        ▼                                                                                 │
+│  «interface» RemoteAgentCaller                «interface» RemoteAgentCardResolver         │
+│          ↑                                              ↑                                │
+│    «concrete» A2ARemoteAgentClient   «concrete» A2AAgentCardDiscovery                      │
+│    (基线 Caller, 逻辑等价: A2A SDK 调用;   (基线 Resolver, 逻辑等价:                        │
+│     忽略 responseContent)                  baseUrl + /.well-known/agent-card.json)         │
 └──────────────────────────────────────────────────────────────────────────────────────────┘
 
 ┌─ 部署模块（versatile-intent-boot）────────────────────────────────────────────────────────┐
-│  承担 SPI 之外的跨层转发能力（messages 追加 + Gateway 路由 + 进程内联调）；                  │
-│  runtime 核心 module 不硬依赖，通过 Spring Bean 注入 Caller SPI 实现                        │
+│  承担 SPI 之外的跨层转发能力（messages 追加 + Gateway 路由 + 进程内联调 + 本地 HTTP 联调）；  │
+│  runtime 核心 module 不硬依赖，通过 Spring Bean 注入                                        │
 │                                                                                          │
 │    «concrete» A2AGatewayRemoteAgentCaller        «concrete» A2AGatewayCardResolver        │
 │    (消费 responseContent, 构造新 ServeRequest     (card URL = gatewayBaseUrl + "/" +      │
 │     追加 messages, 按 gatewayBaseUrl + "/" +      agentId + "/.well-known/agent-card.json")│
 │     agentId + jsonRpcPath 转发;                                                   │
-│     重新分类场景 messages.last 替换也在此实现)                                            │
+│     重新分类场景 messages.last 替换 gap 由 follow-up 跟踪, 见 §4.9.3)                     │
 │                                                                                          │
 │    «concrete» InProcessRemoteAgentCaller                                                 │
 │    (开发联调：消费 responseContent 追加 messages 后,                                    │
 │     从 Spring ApplicationContext 查找目标 AgentHandler Bean 直调, 不走 HTTP)               │
+│                                                                                          │
+│    «concrete» LocalHttpRemoteAgentCaller                                                 │
+│    (本地多端口联调：消费 responseContent 追加 messages,                                │
+│     按 localhost:port 走 A2A SDK, 验证完整 HTTP/SSE 链路)                                 │
 └──────────────────────────────────────────────────────────────────────────────────────────┘
 
 VersatileAgentHandler 不依赖上述 SPI —— 单工作流 Adapter 边界
-runtime 核心 module 改动仅含 SPI 改造，其他能力由 versatile-intent-boot 承担
+runtime 核心 module 改动: a2a_delegate 路径扩展 + SPI 改造
 Default 实现与原 A2ARemoteAgentClient / A2AAgentCardDiscovery 逻辑等价（向后兼容）
-A2AEnabledServeOrchestrator 通过 SPI 调用 Caller，messages 追加在 Caller 实现内部完成
+A2AEnabledServeOrchestrator 通过 handleA2ADelegate 消费 a2a_delegate interrupt, 通过 RemoteAgentCaller 执行转发
+messages 追加在 Caller 实现内部完成
 ```
 
-- `RemoteAgentCaller` SPI：接收 `RemoteAgentCall`（`agentId` + `ServeRequest` + `responseContent`）与 `QueryStreamObserver`，发起远端调用并把 chunk 流回。**调用方是 `A2AEnabledServeOrchestrator`（runtime 核心），不是 Versatile Adapter，也不是部署模块的独立组件。**
+- `RemoteAgentCaller` SPI：接收 `RemoteAgentCall`（`agentId` + `ServeRequest` + `responseContent`）与 `QueryStreamObserver`，发起远端调用并把 chunk 流回。**调用方是 `A2AEnabledServeOrchestrator.handleA2ADelegate`（runtime 核心），不是 Versatile Adapter，也不是部署模块的独立组件。**
 - `RemoteAgentCardResolver` SPI：把 `agentId` 解析为 Agent Card URL 与 JSON-RPC URL。
-- `RemoteAgentCall` 值对象（runtime 核心 module）：`agentId` + `ServeRequest`（原始）+ `responseContent`（可选，上一层 `response_content`，由 orchestrator 从 `QueryResponse.result` 提取）；Caller 实现决定是否消费 `responseContent`。
-- **runtime 核心 module（`agent-service-app`）改动严格限定为 SPI 改造**：新增 `RemoteAgentCaller` / `RemoteAgentCardResolver` SPI 接口 + `RemoteAgentCall` 值对象 + `Default*` 基线实现（迁移自现有代码，逻辑等价）+ `A2AEnabledServeOrchestrator` 的 SPI 依赖迁移（`A2ARemoteAgentClient` → `RemoteAgentCaller` SPI、`A2AAgentCardDiscovery` → `RemoteAgentCardResolver` SPI）与 `RemoteAgentCall` 入参构造（从 `QueryResponse.result` 提取 `response_content`）；**其他能力（messages 追加、新 `ServeRequest` 构造、A2A Gateway 路由、进程内联调）不在 runtime 核心 module**。
-- **`A2AEnabledServeOrchestrator` 改动范围**：SPI 依赖迁移 + 构造 `RemoteAgentCall` 入参（含 `responseContent`）+ 调用 `Caller.call()`；其他能力（Task 状态机交互、原有转发决策、observer 透传、错误处理等）保持不变。**orchestrator 不追加 messages、不构造跨层新 `ServeRequest`——messages 追加在 Caller 实现内部完成。**
-- **`messages` 追加与新 `ServeRequest` 构造职责归属 Caller SPI 实现**（部署模块 `versatile-intent-boot`）：`A2AGatewayRemoteAgentCaller` 与 `InProcessRemoteAgentCaller` 消费 `RemoteAgentCall.responseContent`，在 `call()` 内部构造新 `ServeRequest`（在 `messages` 末尾追加 `{role:"assistant", content: response_content}`）后转发；重新分类场景的 `messages.last`（user 消息）替换也在此实现。`DefaultRemoteAgentCaller` 忽略 `responseContent`，不追加 messages。
-- 默认实现 `DefaultRemoteAgentCaller` / `DefaultCardResolver` **承诺与原 `A2ARemoteAgentClient` / `A2AAgentCardDiscovery` 逻辑等价**：URL 构造（`baseUrl + /.well-known/agent-card.json` + `jsonRpcPath`）、Agent Card 查询、A2A SDK `Client.builder(card).withTransport(JSONRPCTransport.class, config)` 调用、chunk 流回、错误处理与异常分类等行为完全不变；迁移不引入新行为（`responseContent` 被忽略、不追加 messages、不重写 URL 模板、不改变错误语义）。**这两个实现放在 runtime 核心 module（`agent-service-app`），作为基线实现，用于非 Versatile 意图识别的原有转发场景。**
-- A2A Gateway 实现 `A2AGatewayRemoteAgentCaller` / `A2AGatewayCardResolver`：**消费 `responseContent` 做 messages 追加**（跨层转发场景必需），URL 模板按 `gatewayBaseUrl + "/" + agentId + jsonRpcPath`，其余逻辑（A2A SDK 调用、chunk 流回、错误处理）与 Default 对齐。**这两个实现放在部署模块 `versatile-intent-boot`，属于生产部署形态，runtime 核心 module 不硬依赖。**
+- `RemoteAgentCall` 值对象（runtime 核心 module）：`agentId` + `ServeRequest`（原始）+ `responseContent`（可选，上一层 `response_content`，源自 `InterruptData.responseContent`）+ `contextId`/`taskId`/`message`/`streaming`（legacy 兼容字段）；Caller 实现决定是否消费 `responseContent`。
+- **`a2a_delegate` interrupt 契约**（Versatile Adapter 产出）：`QueryChunk(TYPE_INTERRUPT, payload)`，payload 含 `agentName`（= 三字段 `agent_id`，作为远端 agentId）、`responseContent`（= 三字段 `response_content`）、`resume=false`、`context._interrupt_kind="a2a_delegate"`。`resume=false` 信号 orchestrator：远端返回纯答案后**不 resume 父 handler**，远端终态即本层终态。工具调用式 a2a_delegate（如 AgentCore rail）不设 `resume=false`（保持默认 `resume=true`），维持原有 forward-once + resume 父 handler 语义。
+- **runtime 核心 module（`agent-service-app`）改动严格限定为 a2a_delegate 路径扩展 + SPI 改造**：`InterruptData` 新增 `responseContent` 字段 + `RemoteAgentCaller` / `RemoteAgentCardResolver` SPI 接口 + `RemoteAgentCall` 值对象 + `A2ARemoteAgentClient`/`A2AAgentCardDiscovery` SPI 化（逻辑等价）+ `A2AEnabledServeOrchestrator.handleA2ADelegate` 消费 `resume=false` 与 `responseContent`、构造 `RemoteAgentCall` 并通过 `RemoteAgentCaller` SPI 转发（复用 `callRemoteAndCapture` + `handleRemoteInputRequired`，含 shadow task 保存）；**三字段检测、messages 追加、新 `ServeRequest` 构造、A2A Gateway 路由、进程内联调不在 runtime 核心 module**。
+- **`A2AEnabledServeOrchestrator.handleA2ADelegate` 改动范围**：SPI 依赖迁移（`A2ARemoteAgentClient` → `RemoteAgentCaller`、`A2AAgentCardDiscovery` → `RemoteAgentCardResolver`）+ 从 interrupt payload 读取 `agentName`/`responseContent`/`resume=false`/`_interrupt_kind=a2a_delegate` + 构造 `RemoteAgentCall` + 调用 `RemoteAgentCaller.call()` + 远端返回处理（纯答案→透传不 resume；a2a_delegate envelope→递归继续转发；INPUT_REQUIRED→存 shadow task 透传 interrupt；ERROR→透传错误）；其他能力（Task 状态机交互、observer 透传、错误处理等）保持不变。**orchestrator 不检测三字段 envelope、不追加 messages、不构造跨层新 `ServeRequest`——三字段检测在 Versatile Adapter（产出 a2a_delegate interrupt），messages 追加在 Caller 实现内部。**
+- **`messages` 追加与新 `ServeRequest` 构造职责归属 Caller SPI 实现**（部署模块 `versatile-intent-boot`）：`A2AGatewayRemoteAgentCaller`、`InProcessRemoteAgentCaller`、`LocalHttpRemoteAgentCaller` 消费 `RemoteAgentCall.responseContent`，在 `call()` 内部构造新 `ServeRequest`（在 `messages` 末尾追加 `{role:"assistant", content: response_content}`）后转发。`A2ARemoteAgentClient`（基线 Caller）忽略 `responseContent`，不追加 messages。
+- 基线实现 `A2ARemoteAgentClient` / `A2AAgentCardDiscovery` **承诺与原 `A2ARemoteAgentClient` / `A2AAgentCardDiscovery` 逻辑等价**：URL 构造、Agent Card 查询、A2A SDK `Client.builder(card).withTransport(JSONRPCTransport.class, config)` 调用、chunk 流回、错误处理与异常分类等行为完全不变；迁移不引入新行为（`responseContent` 被忽略、不追加 messages、不重写 URL 模板、不改变错误语义）。**这两个实现放在 runtime 核心 module（`agent-service-app`），作为基线实现，用于非 Versatile 意图识别的原有转发场景。**
+- A2A Gateway 实现 `A2AGatewayRemoteAgentCaller` / `A2AGatewayCardResolver`：**消费 `responseContent` 做 messages 追加**（跨层转发场景必需），URL 模板按 `gatewayBaseUrl + "/" + agentId + jsonRpcPath`，其余逻辑（A2A SDK 调用、chunk 流回、错误处理）与基线对齐。**这两个实现放在部署模块 `versatile-intent-boot`，属于生产部署形态，runtime 核心 module 不硬依赖。**
 - InProcess 实现 `InProcessRemoteAgentCaller` 放在部署模块 `versatile-intent-boot`（开发联调 scope）：**消费 `responseContent` 做 messages 追加**后，从 Spring `ApplicationContext` 查找目标 `AgentHandler` Bean 直调，不走 HTTP；属于开发联调形态。
+- LocalHttp 实现 `LocalHttpRemoteAgentCaller` 放在部署模块 `versatile-intent-boot`（本地多端口联调 scope）：**消费 `responseContent` 做 messages 追加**后，按 `localhost:port` 走 A2A SDK 转发，用于验证完整 HTTP/SSE 链路（header 透传、SSE 编码、Agent Card 解析）。
 
 #### 4.9.3 关键处理流程
 
@@ -774,65 +811,77 @@ A2AEnabledServeOrchestrator 通过 SPI 调用 Caller，messages 追加在 Caller
         │   (agent_id 指向二层,    │                          │                              │
         │    response_content      │                          │                              │
         │    为一层输出)           │                          │                              │
-        │<── 返回三字段 ───────────│                          │                              │
-        │                          │── 从 result 提取         │                              │
-        │                          │   agent_id +             │                              │
-        │                          │   response_content       │                              │
+        │── 产出 a2a_delegate      │                          │                              │
+        │   interrupt:             │                          │                              │
+        │   {agentName=agent_id,   │                          │                              │
+        │    responseContent,      │                          │                              │
+        │    resume=false,         │                          │                              │
+        │    context._interrupt_kind                              │                          │
+        │     ="a2a_delegate"}     │                          │                              │
+        │── TYPE_INTERRUPT chunk ─>│                          │                              │
+        │   (Adapter 侧结束)       │                          │                              │
+        │                          │── handleA2ADelegate:     │                              │
+        │                          │   resolveInterruptData   │                              │
+        │                          │   读取 agentName +       │                              │
+        │                          │   responseContent +      │                              │
+        │                          │   resume=false           │                              │
         │                          │── 构造 RemoteAgentCall:  │                              │
-        │                          │   {agent_id,             │                              │
+        │                          │   {agentId=agentName,    │                              │
         │                          │    原 ServeRequest,      │                              │
-        │                          │    response_content}     │                              │
+        │                          │    responseContent}      │                              │
         │                          │── call(remoteAgentCall,  │                              │
         │                          │   observer) ─────────────>│                              │
-        │                          │                          │── 消费 response_content      │
+        │                          │                          │── 消费 responseContent       │
         │                          │                          │── 构造新 ServeRequest:       │
         │                          │                          │   保留原 conversationId/     │
         │                          │                          │   userId/tenantId/metadata   │
         │                          │                          │   + 原 messages 会话历史     │
         │                          │                          │   末尾追加 {role:            │
         │                          │                          │    "assistant",             │
-        │                          │                          │    content: response_content}│
+        │                          │                          │    content: responseContent} │
         │                          │                          │   lastUserQuery() 不变       │
-        │                          │                          │── resolveUrl(agent_id)       │
+        │                          │                          │── resolveUrl(agentId)        │
         │                          │                          │   = gatewayBaseUrl + "/"     │
-        │                          │                          │     + agent_id + jsonRpcPath │
+        │                          │                          │     + agentId + jsonRpcPath  │
         │                          │                          │── 按 A2A SDK 发起调用         │
-        │                          │                          │   (SDK 调用/chunk 流回/错误  │
-        │                          │                          │    处理与 Default 对齐)      │
         │                          │                          │── 转发新 ServeRequest ──────>│
         │                          │                          │   (query=用户本轮输入不变,    │
         │                          │                          │    messages 已含一层输出)     │
         │                          │                          │<── chunk 流 ─────────────────│
         │                          │<── chunk 流 ─────────────│                              │
         │                          │   (透传给原 observer)    │                              │
+        │                          │── resume=false:          │                              │
+        │                          │   远端终态即本层终态,     │                              │
+        │                          │   不 resume 父 handler   │                              │
 ```
 
-- 一层/二层 Adapter 在 `streamQuery` 完成三字段提取后**直接返回**（含 `agent_id` + `response_content` + `intent_id`）；Adapter 不检测 `agent_id` 是否指向下一层，也不调用 `RemoteAgentCaller`，不依赖 `versatile-intent-boot`。
-- runtime 核心 module 改动仅含 SPI 改造；`A2AEnabledServeOrchestrator` 的改动含 SPI 依赖迁移 + 从 `QueryResponse.result` 提取 `response_content` 构造 `RemoteAgentCall(agentId, originalRequest, responseContent)` + 调用 `Caller.call()`；**orchestrator 不追加 messages、不构造跨层新 `ServeRequest`**——messages 追加在 Caller 实现内部完成。
-- `A2AGatewayRemoteAgentCaller`（部署模块 `versatile-intent-boot`，通过 Spring Bean 注入为 `RemoteAgentCaller` SPI 实现）在 `call()` 内部消费 `responseContent`，构造新 `ServeRequest`：保留原 `conversationId`/`userId`/`tenantId`/`metadata` 与 `messages` 会话历史；在 `messages` 末尾追加 `{role:"assistant", content: response_content}`；`lastUserQuery()` 不变（仍是用户本轮输入）；然后按 `gatewayBaseUrl + "/" + agentId + jsonRpcPath` 通过 A2A SDK 转发。
-- `DefaultRemoteAgentCaller`（runtime 核心 module，用于非 Versatile 意图识别的原有转发场景）忽略 `responseContent`，按原 `A2ARemoteAgentClient` 逻辑转发（不追加 messages）。
+- 一层/二层 Adapter 在 `streamQuery` 完成三字段提取后**产出 `a2a_delegate` interrupt**（`resume=false` + `agentName=agent_id` + `responseContent=response_content`），Adapter 侧执行结束；Adapter 不检测 `agent_id` 是否指向下一层，也不调用 `RemoteAgentCaller`，不依赖 `versatile-intent-boot`。
+- runtime 核心 module 改动为 `handleA2ADelegate` 路径扩展：从 interrupt payload 读取 `agentName`/`responseContent`/`resume=false` 构造 `RemoteAgentCall(agentId=agentName, originalRequest, responseContent)` + 调用 `Caller.call()`；**orchestrator 不追加 messages、不构造跨层新 `ServeRequest`**——messages 追加在 Caller 实现内部完成。
+- `A2AGatewayRemoteAgentCaller`（部署模块 `versatile-intent-boot`，通过 Spring Bean 注入为 `RemoteAgentCaller` SPI 实现）在 `call()` 内部消费 `responseContent`，构造新 `ServeRequest`：保留原 `conversationId`/`userId`/`tenantId`/`metadata` 与 `messages` 会话历史；在 `messages` 末尾追加 `{role:"assistant", content: responseContent}`；`lastUserQuery()` 不变（仍是用户本轮输入）；然后按 `gatewayBaseUrl + "/" + agentId + jsonRpcPath` 通过 A2A SDK 转发。
+- `A2ARemoteAgentClient`（runtime 核心 module，保留类名，签名升级为 `implements RemoteAgentCaller`，用于非 Versatile 意图识别的原有转发场景）忽略 `responseContent`，按原 `A2ARemoteAgentClient` 逻辑转发（不追加 messages）。
 - 二层 Adapter 收到转发后的 `ServeRequest`：`query = lastUserQuery()`（用户本轮输入）；`messages` 数组 = 会话历史 + 一层 `response_content`（assistant 消息）。
-- 若 `agent_id` 指向最终业务工作流且当前 Adapter 即下游，则 orchestrator 不触发 `Caller.call()`；Adapter 按 4.3 节正常产出结果。
-- 重新分类场景：业务工作流 Adapter 提取到指向一层 `agent_id` 的三字段后返回；orchestrator 构造 `RemoteAgentCall`（含业务工作流 `response_content`）；`A2AGatewayRemoteAgentCaller` 在 `call()` 内部构造新 `ServeRequest`：`messages` 最后一条 user 消息 content 为业务工作流 `response_content`（重分类上下文），同时业务工作流 `response_content` 也作为 assistant 消息追加到 `messages` 末尾；一层 Adapter 通过 `lastUserQuery()` 取重分类上下文作为 `query`。
+- 远端返回处理：纯答案 → orchestrator 透传给原 observer，因 `resume=false` 不再调用一层 Adapter；a2a_delegate envelope → orchestrator 递归 `handleA2ADelegate` 继续转发到下一层；INPUT_REQUIRED → 存 shadow task 透传 interrupt chunk；ERROR → 透传错误。
+- 若 `agent_id` 指向最终业务工作流且当前 Adapter 即下游，则一层 Adapter 不产出 a2a_delegate interrupt（`agent_id` 指向自身 handler），按 4.3 节正常产出结果。
+- 重新分类场景：业务工作流 Adapter 提取到指向一层 `agent_id` 的三字段后产出 `a2a_delegate` interrupt（`responseContent` = 重分类上下文）；orchestrator `handleA2ADelegate` 构造 `RemoteAgentCall`；`A2AGatewayRemoteAgentCaller` 在 `call()` 内部构造新 `ServeRequest`：`messages` 最后一条 user 消息 content **应**为业务工作流 `response_content`（重分类上下文），同时业务工作流 `response_content` 也作为 assistant 消息追加到 `messages` 末尾；一层 Adapter 通过 `lastUserQuery()` 取重分类上下文作为 `query`。**⚠️ 已知 gap：当前 `ForwardedServeRequests.build()` 仅追加 assistant 消息，未做 `messages.last`（user 消息）替换——无法区分"正常跨层转发"与"重新分类"。Caller 收到的 `RemoteAgentCall` 字段在两种场景下完全相同。完整修复需要 orchestrator 在重新分类时传递场景信号（如设置 `call.message()=responseContent`）或由 orchestrator 直接构造替换后的 ServeRequest。此 gap 由 follow-up issue 跟踪（跨仓库：agent-runtime-java + spring-ai-ascend），见 §8。**
 
 #### 4.9.4 SPI 范围边界
 
 | 在 SPI 范围内（Caller 实现职责） | 不在 SPI 范围内（orchestrator / 其他组件职责） |
 |---|---|
 | URL 模板构造（Default：`baseUrl + jsonRpcPath`；Gateway：`gatewayBaseUrl + "/" + agentId + jsonRpcPath`） | 业务匹配/兜底/候选选择 |
-| **messages 追加（A2AGateway / InProcess 实现消费 `responseContent`，在 `call()` 内部构造新 `ServeRequest`）** | 跳转/重新分类循环保护 |
-| **重新分类场景 `messages.last`（user 消息）替换为重分类上下文（A2AGateway / InProcess 实现内部完成）** | Task 终态收敛、跨 Runtime Task 所有权 |
+| **messages 追加（A2AGateway / InProcess / LocalHttp 实现消费 `responseContent`，在 `call()` 内部构造新 `ServeRequest`）** | 跳转/重新分类循环保护 |
+| **重新分类场景 `messages.last`（user 消息）替换为重分类上下文** — ⚠️ **当前未实现（follow-up gap，见 §4.9.3 与 §8）** | Task 终态收敛、跨 Runtime Task 所有权 |
 | Agent Card 查询（按 `agentId` 解析 card URL） | 父 Task 去重、用户消息投影 |
 | chunk 流透传（含 `TYPE_INTERRUPT` / `TYPE_ERROR`） | 多候选 agent_id 的策略选择（由 Adapter 按 4.3.3 完成，SPI 只接收最终 agentId） |
 | 取消级联（`observer.isCancelled()` 传播到下游） | 原有 orchestrator 编排逻辑（Task 状态机交互、observer 透传等，保持不变） |
-| A2A SDK 调用与错误分类（Default 与原 `A2ARemoteAgentClient` 逻辑等价；A2AGateway / InProcess 在此基础上追加 messages） | 从 `QueryResponse.result` 提取 `response_content` 构造 `RemoteAgentCall`（**由 orchestrator 完成**） |
+| A2A SDK 调用与错误分类（Default 与原 `A2ARemoteAgentClient` 逻辑等价；A2AGateway / InProcess / LocalHttp 在此基础上追加 messages） | 从 `a2a_delegate` interrupt payload 提取 `agentName`/`responseContent`/`resume=false` 构造 `RemoteAgentCall`（**由 orchestrator `handleA2ADelegate` 完成**） |
 
-- Caller 实现承担"按 agentId 解析 URL、（A2AGateway / InProcess）消费 `responseContent` 追加 messages 构造新 `ServeRequest`、通过 A2A SDK 发起调用、把 chunk 流回 observer、传播取消"的机制职责；**Default 实现不追加 messages（逻辑等价）**。
-- `messages` 追加、重新分类场景的 `ServeRequest` 构造在 **A2AGateway / InProcess Caller 实现的 `call()` 内部**完成；Default 实现不做此处理。
-- runtime 核心 module 改动仅含 SPI 改造；`A2AEnabledServeOrchestrator` 的改动含 SPI 依赖迁移 + 从 `QueryResponse.result` 提取 `response_content` 构造 `RemoteAgentCall` 入参 + 调用 `Caller.call()`；原有编排逻辑（Task 状态机交互、observer 透传、错误处理等）保持不变。
+- Caller 实现承担"按 agentId 解析 URL、（A2AGateway / InProcess / LocalHttp）消费 `responseContent` 追加 messages 构造新 `ServeRequest`、通过 A2A SDK 发起调用、把 chunk 流回 observer、传播取消"的机制职责；**Default 实现不追加 messages（逻辑等价）**。
+- `messages` 追加在 **A2AGateway / InProcess / LocalHttp Caller 实现的 `call()` 内部**完成；Default 实现不做此处理。重新分类场景的 `messages.last`（user 消息）替换**当前未实现**（follow-up gap）。
+- runtime 核心 module 改动为 `handleA2ADelegate` 路径扩展 + SPI 改造；`A2AEnabledServeOrchestrator` 的改动含 SPI 依赖迁移 + 从 `a2a_delegate` interrupt payload 提取 `agentName`/`responseContent`/`resume=false` 构造 `RemoteAgentCall` 入参 + 调用 `Caller.call()` + 远端返回处理（纯答案/a2a_delegate/INPUT_REQUIRED/ERROR 分支）；原有编排逻辑（Task 状态机交互、observer 透传、错误处理等）保持不变。
 - 业务决策（匹配/未匹配/澄清/跳转/重新分类）由客户工作流产生，循环保护由 runtime 下游调用能力负责。
 - `agentId` 来源：工作流直接返回的 `agent_id`，或 `intent-agent-mapping`（1:N）+ 策略查得的 `agentCard`（见 4.3.3）；二者都是 A2A Gateway 的 `agentCard` 路径段，SPI 不区分来源。
-- **SPI 的调用方是 `A2AEnabledServeOrchestrator`（runtime 核心），不是 Versatile Adapter，也不是部署模块的独立组件**；Adapter 完成三字段提取后即返回，不感知 SPI 的存在；部署模块的 Caller 实现通过 Spring Bean 注入到 orchestrator，不主动调用 orchestrator。
+- **SPI 的调用方是 `A2AEnabledServeOrchestrator.handleA2ADelegate`（runtime 核心），不是 Versatile Adapter，也不是部署模块的独立组件**；Adapter 完成 a2a_delegate interrupt 产出后即结束，不感知 SPI 的存在；部署模块的 Caller 实现通过 Spring Bean 注入到 orchestrator，不主动调用 orchestrator。
 
 #### 4.9.5 配置
 
@@ -851,14 +900,16 @@ openjiuwen:
 
 #### 4.9.6 落地范围
 
-- **runtime 核心 module（`agent-runtime-java/service/agent-service-app`）改动严格限定为 SPI 改造**：新增 `RemoteAgentCaller` / `RemoteAgentCardResolver` SPI 接口 + `RemoteAgentCall` 值对象（含 `agentId` + `ServeRequest` + `responseContent`）+ `Default*` 基线实现（迁移自现有代码，忽略 `responseContent`，逻辑等价）+ `A2AEnabledServeOrchestrator` 的 SPI 依赖迁移与 `RemoteAgentCall` 入参构造；**其他能力不在此 module**。
-- **`DefaultRemoteAgentCaller` / `DefaultCardResolver` 与原 `A2ARemoteAgentClient` / `A2AAgentCardDiscovery` 逻辑等价**：URL 构造（`baseUrl + /.well-known/agent-card.json` + `jsonRpcPath`）、Agent Card 查询、A2A SDK `Client.builder(card).withTransport(JSONRPCTransport.class, config)` 调用、chunk 流回、错误处理与异常分类等行为完全不变；`responseContent` 被忽略，不追加 messages；用于非 Versatile 意图识别的原有转发场景。
-- **`A2AEnabledServeOrchestrator` 改动范围**：SPI 依赖迁移（`A2ARemoteAgentClient` → `RemoteAgentCaller` SPI、`A2AAgentCardDiscovery` → `RemoteAgentCardResolver` SPI）+ 从 `QueryResponse.result` 提取 `response_content` 构造 `RemoteAgentCall(agentId, originalRequest, responseContent)` + 调用 `Caller.call()`；其他能力（Task 状态机交互、原有转发决策、observer 透传、错误处理等）保持不变。**orchestrator 不追加 messages、不构造跨层新 `ServeRequest`——messages 追加在 Caller 实现内部完成。**
-- **部署模块 `versatile-intent-boot` 承担 SPI 之外的其他能力**（通过 Spring Bean 注入为 `RemoteAgentCaller` SPI 实现）：
-  - `A2AGatewayRemoteAgentCaller` / `A2AGatewayCardResolver`（新增）：A2A Gateway 路由实现，**消费 `responseContent` 做 messages 追加**（跨层转发场景必需），URL 模板按 `gatewayBaseUrl + "/" + agentId + jsonRpcPath`，其余逻辑与 Default 对齐；重新分类场景的 `messages.last` 替换也在此实现；属于生产部署形态。
-  - `InProcessRemoteAgentCaller`（新增）：开发联调实现，**消费 `responseContent` 做 messages 追加**后，从 Spring `ApplicationContext` 查找目标 `AgentHandler` Bean 直调，不走 HTTP；属于开发联调形态（test/dev scope）。
+- **runtime 核心 module（`agent-runtime-java/service/agent-service-app`）改动严格限定为 a2a_delegate 路径扩展 + SPI 改造**：`InterruptData` 新增 `responseContent` 字段 + `RemoteAgentCaller` / `RemoteAgentCardResolver` SPI 接口 + `RemoteAgentCall` 值对象（含 `agentId` + `ServeRequest` + `responseContent` + legacy 兼容字段）+ `A2ARemoteAgentClient`/`A2AAgentCardDiscovery` SPI 化（迁移自现有代码，忽略 `responseContent`，逻辑等价）+ `A2AEnabledServeOrchestrator.handleA2ADelegate` 消费 `resume=false` + `responseContent` + `agentName` 构造 `RemoteAgentCall` 并通过 `RemoteAgentCaller` SPI 转发（复用 `callRemoteAndCapture` + `handleRemoteInputRequired`，含 shadow task 保存）；**三字段检测、messages 追加、新 `ServeRequest` 构造、A2A Gateway 路由、进程内联调不在此 module**。
+- **`A2ARemoteAgentClient` / `A2AAgentCardDiscovery` 与原实现逻辑等价**：URL 构造（`baseUrl + /.well-known/agent-card.json` + `jsonRpcPath`）、Agent Card 查询、A2A SDK `Client.builder(card).withTransport(JSONRPCTransport.class, config)` 调用、chunk 流回、错误处理与异常分类等行为完全不变；`responseContent` 被忽略，不追加 messages；用于非 Versatile 意图识别的原有转发场景。
+- **`A2AEnabledServeOrchestrator.handleA2ADelegate` 改动范围**：SPI 依赖迁移（`A2ARemoteAgentClient` → `RemoteAgentCaller` SPI、`A2AAgentCardDiscovery` → `RemoteAgentCardResolver` SPI）+ 从 `a2a_delegate` interrupt payload 读取 `agentName`/`responseContent`/`resume=false` + 构造 `RemoteAgentCall` + 调用 `RemoteAgentCaller.call()` + 远端返回处理（纯答案→透传不 resume；a2a_delegate envelope→递归继续转发；INPUT_REQUIRED→存 shadow task 透传 interrupt；ERROR→透传错误）；其他能力（Task 状态机交互、observer 透传、错误处理等）保持不变。**orchestrator 不检测三字段 envelope、不追加 messages、不构造跨层新 `ServeRequest`。**
+- **`handleA2ADelegate` 修复 a2a_delegate 转发 INPUT_REQUIRED resume 断链**：远端返回 INPUT_REQUIRED 时存 shadow task（而非静默吞掉），续接 `findPending` 均能命中 shadow task，恢复远端任务。
+- **部署模块 `versatile-intent-boot` 承担 SPI 之外的其他能力**（通过 Spring Bean 注入）：
+  - `A2AGatewayRemoteAgentCaller` / `A2AGatewayCardResolver`：A2A Gateway 路由实现，**消费 `responseContent` 做 messages 追加**（跨层转发场景必需），URL 模板按 `gatewayBaseUrl + "/" + agentId + jsonRpcPath`，其余逻辑与基线对齐；属于生产部署形态。`@AutoConfiguration(before = A2AAutoConfiguration.class)` + `@ConditionalOnProperty(a2a-gateway.enabled=true)` 装配。
+  - `InProcessRemoteAgentCaller`：开发联调实现，**消费 `responseContent` 做 messages 追加**后，从 Spring `ApplicationContext` 查找目标 `AgentHandler` Bean 直调，不走 HTTP；属于开发联调形态（test/dev scope）。
+  - `LocalHttpRemoteAgentCaller`：本地多端口联调实现，**消费 `responseContent` 做 messages 追加**后，按 `localhost:port` 走 A2A SDK 转发，验证完整 HTTP/SSE 链路；属于本地联调形态。
 - 部署模块（`versatile-intent-boot`）通过配置 + Spring Profile 选择注入哪个 Caller 实现，不修改 SPI；runtime 核心 module 不硬依赖部署模块中的任何实现。
-- **`VersatileAgentHandler`（`agent-service-adapters-versatile` 模块）不引入对 `RemoteAgentCaller` SPI 的依赖，也不依赖 `versatile-intent-boot`**；Adapter 与 runtime 编排层之间的契约只有 `QueryResponse.result` 中的三字段。
+- **`VersatileAgentHandler`（`agent-service-adapters-versatile` 模块）不引入对 `RemoteAgentCaller` SPI 的依赖，也不依赖 `versatile-intent-boot`**；Adapter 与 runtime 编排层之间的契约是 `a2a_delegate` interrupt payload（`agentName` + `responseContent` + `resume=false` + `_interrupt_kind=a2a_delegate`）。
 
 ---
 
@@ -1021,26 +1072,51 @@ agent-solution-zyw/common/example/
 ├── versatile-a2a-adapter-demo/           # 现有通用 Versatile A2A demo（保留）
 └── versatile-intent-boot/                # 新增：意图识别工作流统一部署单元
     ├── src/main/java/
-    │   └── .../VersatileIntentApplication.java          # 单一启动类
-    │   └── .../a2a/
-    │       ├── A2AGatewayRemoteAgentCaller.java         # 新增：A2A Gateway 路由实现（消费 responseContent
-    │       │                                              #   追加 messages + xxxx/{agentCard} 模式，生产形态）
-    │       ├── A2AGatewayCardResolver.java              # 新增：A2A Gateway card URL 解析
-    │       └── A2AGatewayAutoConfiguration.java         # 新增：@ConditionalOnProperty(a2a-gateway.enabled=true) 注入
+    │   └── .../versatile/intent/
+    │       ├── VersatileIntentApplication.java          # 单一启动类
+    │       ├── VersatileIntentAutoConfiguration.java    # 自动装配入口
+    │       ├── a2a/
+    │       │   ├── A2AGatewayRemoteAgentCaller.java     # A2A Gateway 路由实现（消费 responseContent
+    │       │   │                                        #   追加 messages + xxxx/{agentCard} 模式，生产形态）
+    │       │   ├── A2AGatewayCardResolver.java          # A2A Gateway card URL 解析
+    │       │   ├── A2AGatewayProperties.java            # a2a-gateway.* 配置属性
+    │       │   ├── A2AGatewayAutoConfiguration.java     # @ConditionalOnProperty(a2a-gateway.enabled=true) 注入
+    │       │   ├── ForwardedServeRequests.java          # 共用工具：构造转发 ServeRequest（追加 assistant 消息）
+    │       │   ├── LocalHttpRemoteAgentCaller.java      # 本地多端口联调 Caller（消费 responseContent
+    │       │   │                                        #   追加 messages, 走 localhost A2A SDK）
+    │       │   ├── LocalMappingCardRegistrar.java       # 本地 agentCard → localhost:port 映射注册
+    │       │   └── LocalMappingProperties.java          # 本地映射配置属性
+    │       └── mock/
+    │           ├── MockA2AGatewayController.java        # mock A2A Gateway（/{agentId} 路由 + SSE 回放）
+    │           └── MockVersatileController.java         # mock Versatile 工作流（按 intent_id 回放 SSE）
     ├── src/test/java/
-    │   └── .../a2a/
-    │       └── InProcessRemoteAgentCaller.java          # 新增：进程内直调实现（消费 responseContent
-    │                                                      #   追加 messages 后直调 AgentHandler，开发联调形态）
+    │   └── .../versatile/intent/
+    │       ├── ProfileLayer1LoadTest.java               # layer1 profile 上下文加载测试
+    │       ├── ProfileLayer2LoadTest.java               # layer2 profile 上下文加载测试
+    │       ├── ProfileDownstreamLoadTest.java           # downstream profile 上下文加载测试
+    │       └── a2a/
+    │           ├── A2AGatewayCardResolverTest.java      # card URL 解析单测
+    │           └── A2AGatewayRemoteAgentCallerTest.java # caller messages 追加 + 转发单测
+    ├── scripts/
+    │   ├── local-e2e.sh                                 # 方案 B 三进程三场景 e2e 联调脚本
+    │   └── local-e2e-a2a-gateway.sh                     # A2A Gateway 模式 e2e 联调脚本（含 header 透传断言）
+    ├── README.md                                        # 部署模块使用指南
     └── src/main/resources/
         ├── application.yml                              # 公共配置（server.port、logging 等）
         ├── application-layer1.yml                        # 一层 Profile 配置
         ├── application-layer2.yml                        # 二层 Profile 配置
-        └── application-downstream.yml                    # 下游业务工作流 Profile 配置
+        ├── application-downstream.yml                    # 下游业务工作流 Profile 配置
+        ├── application-dev.yml                           # 开发联调公共覆盖（mock-versatile include）
+        ├── application-mock-versatile.yml                # mock Versatile 工作流 profile
+        ├── application-mock-a2a-gateway.yml              # mock A2A Gateway profile
+        └── application-a2a-gateway-test.yml              # A2A Gateway 测试 profile
 ```
 
 > 单一 jar 三个 Profile，通过 `--spring.profiles.active=layer1|layer2|downstream` 切换部署层级；也可以在同一 host 上以不同端口并行启动三个实例。
 >
-> **runtime 核心 module（`agent-service-app`）改动严格限定为 SPI 改造**：新增 SPI 接口 + `RemoteAgentCall` 值对象（含 `responseContent`）+ `Default*` 基线实现（忽略 `responseContent`，逻辑等价）+ `A2AEnabledServeOrchestrator` 的 SPI 依赖迁移与 `RemoteAgentCall` 入参构造。**其他能力由部署模块 `versatile-intent-boot` 承担**：`A2AGatewayRemoteAgentCaller` / `A2AGatewayCardResolver`（A2A Gateway 路由实现，消费 `responseContent` 追加 messages，生产形态）、`InProcessRemoteAgentCaller`（进程内直调，消费 `responseContent` 追加 messages，开发联调形态）。runtime 核心 module 不硬依赖这些实现，通过 Spring Bean 注入为 `RemoteAgentCaller` SPI 实现按需装配。
+> **实现偏差说明**：设计阶段曾规划 `InProcessRemoteAgentCaller`（进程内直调，跳过 HTTP），落地实现改为 `LocalHttpRemoteAgentCaller`（走 localhost A2A SDK）以覆盖完整 HTTP/SSE 链路验证（header 透传、SSE 编码、Agent Card 解析）。`InProcessRemoteAgentCaller` 作为未来扩展点保留在设计文档 §5.5.3 方案 A 中，当前未实现。
+>
+> **runtime 核心 module（`agent-service-app`）改动严格限定为 a2a_delegate 路径扩展 + SPI 改造**：`InterruptData` 新增 `responseContent` 字段 + `RemoteAgentCaller` / `RemoteAgentCardResolver` SPI 接口 + `RemoteAgentCall` 值对象（含 `responseContent`）+ 既有 `A2ARemoteAgentClient`/`A2AAgentCardDiscovery` 签名升级为 SPI 实现（保留类名，忽略 `responseContent`，逻辑等价）+ `A2AEnabledServeOrchestrator.handleA2ADelegate` 消费 `resume=false` + `responseContent` + `agentName` 构造 `RemoteAgentCall` 并通过 `RemoteAgentCaller` SPI 转发。**其他能力由部署模块 `versatile-intent-boot` 承担**：`A2AGatewayRemoteAgentCaller` / `A2AGatewayCardResolver`（A2A Gateway 路由实现，消费 `responseContent` 追加 messages，生产形态）、`InProcessRemoteAgentCaller`（进程内直调，消费 `responseContent` 追加 messages，开发联调形态）、`LocalHttpRemoteAgentCaller`（本地多端口联调，消费 `responseContent` 追加 messages，走 localhost A2A SDK）。runtime 核心 module 不硬依赖这些实现，通过 Spring Bean 注入为对应 SPI 实现按需装配。
 
 #### 5.4.2 模块依赖（pom 要点）
 
@@ -1133,7 +1209,7 @@ Versatile 意图工作流与 A2A Gateway 仅生产环境存在，开发环境无
 | 依赖 | 生产环境 | 开发环境替身 | 切换方式 |
 |------|---------|-------------|---------|
 | Versatile 意图工作流 | 客户低码平台部署的 HTTP/SSE 服务 | 本地 mock HTTP/SSE 服务（WireMock stub 或 SpringBoot mock endpoint） | `openjiuwen.service.versatile.url-template` 指向 `localhost` |
-| A2A Gateway | 生产 Gateway 域名（`xxxx/{agentCard}` 路由） | (a) 进程内 `InProcessRemoteAgentCaller` 直调下一层 Handler；(b) 多端口本地 runtime 实例 + `DefaultRemoteAgentCaller` 走 localhost | `openjiuwen.service.a2a-gateway.enabled=false` + 选择 caller 实现 |
+| A2A Gateway | 生产 Gateway 域名（`xxxx/{agentCard}` 路由） | (a) 进程内 `InProcessRemoteAgentCaller` 直调下一层 Handler；(b) 多端口本地 runtime 实例 + `A2ARemoteAgentClient` 走 localhost | `openjiuwen.service.a2a-gateway.enabled=false` + 选择 caller 实现 |
 
 开发配置通过 `application-dev.yml` 覆盖 `application-{layer}.yml` 中的 URL 与 Gateway 配置，同一层级部署单元可在 dev/prod 切换。
 
@@ -1167,7 +1243,9 @@ mock 场景覆盖（必须）：
 
 #### 5.5.3 A2A Gateway 本地替身
 
-**方案 A：进程内直连（推荐单元测试与 SPI 验证）**
+**方案 A：进程内直连（设计备选，当前未实现）**
+
+> **落地状态**：方案 A 在当前实现中**未落地**。落地实现选择了方案 B（`LocalHttpRemoteAgentCaller` + 多端口本地 runtime 实例），以覆盖完整 HTTP/SSE 链路（header 透传、SSE 编码、Agent Card 解析）。方案 A 作为未来扩展点保留，适用于纯 SPI 验证、跳过 HTTP 序列化的快速单测场景。
 
 新增 `InProcessRemoteAgentCaller` 实现 `RemoteAgentCaller` SPI，不发起 HTTP 调用，从 Spring `ApplicationContext` 中直接查找目标 `AgentHandler` Bean 并调用。该实现放在部署模块 `versatile-intent-boot` 的 test/dev scope（不属于 runtime 核心 module）：
 
@@ -1200,7 +1278,7 @@ public class InProcessRemoteAgentCaller implements RemoteAgentCaller {
 
 **方案 B：多端口本地 runtime 实例（推荐本地联调）**
 
-启动多个 `versatile-intent-boot` 进程，分别激活 `layer1`/`layer2`/`downstream` Profile，监听不同端口（8081/8082/8083）；不启用 A2A Gateway，使用 `DefaultRemoteAgentCaller` 走 `localhost:808x`：
+启动多个 `versatile-intent-boot` 进程，分别激活 `layer1`/`layer2`/`downstream` Profile，监听不同端口（8081/8082/8083）；不启用 A2A Gateway，使用 `A2ARemoteAgentClient` 走 `localhost:808x`：
 
 ```yaml
 # application-dev.yml (公共开发配置)
@@ -1225,10 +1303,12 @@ openjiuwen:
 | Profile 组合 | 用途 | Versatile 来源 | 转发方式 |
 |---|---|---|---|
 | `layer1,dev` + WireMock | 一层 Adapter 单元测试 | WireMock stub | 不涉及（一层测试不转发） |
-| `layer1,dev,mock-versatile` + `dev-inprocess` | 一层→二层→下游进程内全链路 | SpringBoot mock endpoint | `InProcessRemoteAgentCaller` |
-| `layer1,dev,mock-versatile` + `layer2,dev,mock-versatile` + `downstream,dev,mock-versatile`（多端口） | 本地 HTTP 联调 | SpringBoot mock endpoint | `DefaultRemoteAgentCaller` 走 localhost |
+| `layer1,dev,mock-versatile` + `layer2,dev,mock-versatile` + `downstream,dev,mock-versatile`（多端口） | 本地 HTTP 联调（**已落地**） | SpringBoot mock endpoint | `LocalHttpRemoteAgentCaller` 走 localhost A2A SDK |
+| `layer1,dev,mock-versatile` + `mock-a2a-gateway` | A2A Gateway 模式单进程联调（**已落地**） | SpringBoot mock endpoint | `A2AGatewayRemoteAgentCaller` + `MockA2AGatewayController` |
 | `layer1,prod` | 一层生产 | 客户低码平台 Versatile | `A2AGatewayRemoteAgentCaller` |
 | `layer2,prod` / `downstream,prod` | 二层/下游生产 | 同上 | 同上 |
+
+> 方案 A（`InProcessRemoteAgentCaller` 进程内直连）未落地；如需纯 SPI 验证可后续补齐。
 
 `application-dev.yml` 模板：
 
@@ -1254,10 +1334,13 @@ openjiuwen:
 |------|--------|------|
 | 单元测试 | `VersatileResponseExtractorTest` | 三字段提取、`intent-agent-mapping` 查找、显式中断分离、异常断流、契约违反错误 |
 | 单元测试 | `VersatileRequestExtractorTest` | 三字段组装、`intents` 数组序列化、`messages` 数组序列化、必填校验 |
-| 单元测试 | `InProcessRemoteAgentCallerTest` | 进程内转发、agentId 查找失败、chunk 流透传 |
-| 集成测试 | `VersatileIntentFlowIntegrationTest` | WireMock + `InProcessRemoteAgentCaller`，覆盖一层→二层→下游完整链路 |
+| 单元测试 | `IntentAgentResolverTest` | `first`/`priority`/`round-robin` 策略、cursor 隔离、空白 agentCard |
+| 单元测试 | `A2AGatewayCardResolverTest` | `xxxx/{agentCard}` card URL 与 json-rpc URL 构造 |
+| 单元测试 | `A2AGatewayRemoteAgentCallerTest` | messages 追加、`responseContent` 透传、取消传播、错误分类 |
+| 集成测试 | `ProfileLayer1LoadTest` / `ProfileLayer2LoadTest` / `ProfileDownstreamLoadTest` | 各 profile Spring 上下文加载、bean 装配校验 |
 | 契约测试 | `VersatileSseContractTest` | 录制生产 Versatile SSE 响应样本（脱敏）作为 golden file；生产 Versatile 升级时检测 Adapter 兼容性 |
-| 联调脚本 | `scripts/local-e2e.sh` | 启动三个本地进程，发送 curl 请求验证全链路 |
+| 联调脚本 | `scripts/local-e2e.sh` | 方案 B：启动三个本地进程，发送 curl 请求验证全链路（三场景） |
+| 联调脚本 | `scripts/local-e2e-a2a-gateway.sh` | A2A Gateway 模式 e2e：业务输出 + 两跳 + 7 项 header 透传 + caller 激活断言 |
 
 #### 5.5.6 边界
 
@@ -1448,7 +1531,8 @@ curl -s -X POST http://runtime-a:8080/query \
 |------|---------|---------|
 | 单 runtime 实例只适配一个意图工作流 | 无法在单个实例内编排一层、二层和下游 | 由 runtime 下游调用能力串行调用；本 Adapter 不参与编排 |
 | FEAT-008 resume 入口由 runtime 处理，Adapter 不感知 | Adapter 不区分新调用与 resume；runtime 负责把 resume 上下文转换为标准 `ServeRequest` | Adapter 侧已就绪；若工作流恢复端点需要特殊请求体，通过 `interrupt.resume-request-template` 配置外置 |
-| Runtime 转发能力 SPI 化（依赖项，不在 Adapter 内） | runtime 编排组件当前转发硬编码 `/.well-known/agent-card.json` + `jsonRpcPath`，无 `{agentCard}` 占位符，且不追加上一层 `response_content` 到 `messages` | 本特性 4.9 节描述 runtime 编排层的 SPI 化改造，支持 `xxxx/{agentCard}` 路由并在转发前把上一层 `response_content` 作为 assistant 消息追加到 `messages` 末尾；Versatile Adapter 本身不参与转发，不依赖 `RemoteAgentCaller` SPI |
+| Runtime 转发能力 a2a_delegate 路径扩展 + SPI 化（依赖项，不在 Adapter 内） | runtime 编排组件当前转发硬编码 `/.well-known/agent-card.json` + `jsonRpcPath`，无 `{agentCard}` 占位符，且不追加上一层 `response_content` 到 `messages` | 本特性 4.9 节描述 runtime 编排层的 a2a_delegate 路径扩展 + SPI 化改造，支持 `xxxx/{agentCard}` 路由并在转发前把上一层 `response_content` 作为 assistant 消息追加到 `messages` 末尾；Versatile Adapter 产出 `a2a_delegate` interrupt（`resume=false`），不参与转发，不依赖 `RemoteAgentCaller` SPI |
+| 重新分类场景 `messages.last` 替换未实现 | `ForwardedServeRequests.build()` 当前仅追加 assistant 消息，未把 `messages` 最后一条 user 消息 content 替换为 `responseContent`（重分类上下文）；Caller 收到的 `RemoteAgentCall` 在"正常跨层转发"与"重新分类"两种场景下字段完全相同，无法区分 | 由 follow-up issue 跟踪（跨仓库：agent-runtime-java + spring-ai-ascend）；完整修复需要 orchestrator 在重新分类时传递场景信号（如设置 `call.message()=responseContent`）或由 orchestrator 直接构造替换后的 `ServeRequest`，并同步更新本设计文档 §4.9.3 契约；当前重新分类场景依赖 PRD TBD-13/14 客户确认，非阻塞 |
 | 下游直接用户消息投影链路（FEAT-012/013/014）契约待确认 | Adapter 产出的 `TYPE_CHUNK` 如何投影到原客户端、用户响应如何直达 Task owner 未定 | 等 PRD TBD-07/08/11 落地；Adapter 侧已具备 `TYPE_CHUNK` 输出 |
 | 跳转/重新分类事件契约待确认 | 三字段结果通过现有 A2A/Bus 终态事件 payload 还是新增专用事件类型未定（PRD TBD-09） | Adapter 侧三字段已写入 `QueryResponse.result`；事件载体由 runtime 下游调用能力与 Agent Bus 决定 |
 | 当前代码"无 terminal event 即关闭"映射为 `TYPE_INTERRUPT` | 与本特性"异常断流不得伪造中断"冲突，属破坏性变更 | 升级时确认现有部署是否依赖此行为；按 4.4.3 改造 |
