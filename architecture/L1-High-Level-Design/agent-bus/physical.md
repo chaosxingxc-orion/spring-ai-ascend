@@ -60,7 +60,7 @@ S2C envelope 已携带 `tenantId`（Stage 2 契约层迁移，commit `d894f494`�
 
 以下内容不属于当前 L1 草案的已实现事实：
 
-- Kafka / NATS / 自研 broker。
+- broker 选型已定 **RocketMQ**（FEAT-013/014 pub/sub 两跳，见 [`feat-013`](../../L2-Low-Level-Design/agent-bus/feat-013-client-invocation-event-forwarding.md) §5 / [`feat-014`](../../L2-Low-Level-Design/agent-bus/feat-014-a2a-call-event-forwarding.md) §5）；Kafka / NATS / 自研 broker 不采用。
 - control/data/rhythm 三通道的具体 broker 映射。
 - mailbox 存储。
 - DLQ 和 replay 存储。

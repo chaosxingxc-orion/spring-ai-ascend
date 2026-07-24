@@ -164,3 +164,23 @@ status: active
 | 失败结果 | `route_not_found`、`tenant_mismatch`、`delivery_timeout`、`receiver_unavailable`、`backpressure_rejected`、`duplicate_suppressed`、`payload_ref_invalid`、`remote_task_failed`（远程 agent 终态业务失败 FAILED/CANCELED/REJECTED，non-retryable → 直达 DLQ，不消耗 retry 预算）。 |
 | 不变量 | 不改变远端 Task lifecycle owner；envelope 有载荷时只携带 `payloadRef`（条件必填，MI5-003 方案 B）、不携带 payload body / token stream / Task execution state；纯控制消息可省略 `payloadRef`；大载荷走 data reference path。 |
 | 缺口 | 运行态转发底座（outbox / inbox / dispatcher / retry / breaker / 真实 A2A 投递）已落地且 Stage 17（happy-path）/ Stage 18（失败路径）/ Stage 19（重投往返生命周期）/ Stage 20（验证回填：租约过期 reclaim + 断路器真实链路）/ Stage 21（多 worker 并发验证）/ Stage 22（时间驱动的终态与续约）/ Stage 23（payloadRef 端到端传递）/ Stage 24（RLS 接线闭合跨租户纵深防御，adapter 首次引入事务管理）端到端验证通过（200 tests green）；Stage 25 已裁决投递模型 T4 hybrid（outbox + broker，`adopted-t4`，无生产代码，见 [`transport-decision`](../../../docs/architecture/l0/10-governance/review-packets/agent-bus-forwarding-runtime-transport-decision.md)）：保留 outbox + relay produce broker + receiver pull，解除 §6.1 第 1 项引 broker、守 §6.2 精神；broker 产品 **Stage 26 锁定 RocketMQ + SPI 骨架落地（`transport.broker` 子包，217 tests green）**；真实 broker 物理接线 / relay adapter / receiver consumer / `AWAITING_ACK` 状态机 deferred Stage 27+。 |
+
+## SC-013：客户端调用事件转发（FEAT-013）
+
+| 项目 | 内容 |
+|---|---|
+| 参与者 | client、gateway 单元、event-bus 单元、`agent-runtime` |
+| 入口 | gateway A2A HTTP → `CLIENT_INVOCATION_REQUESTED` 经 broker |
+| 契约 | [`FEAT-013`](../../L2-Low-Level-Design/agent-bus/feat-013-client-invocation-event-forwarding.md) |
+| 流程 | gateway 经 RocketMQ 两跳（gateway→event-bus→agent-runtime）投递调用事件；event-bus 治理中继；响应对称回流；SSE 由 gateway 桥接。 |
+| 不变量 | gateway 不写 Task；token chunk 不进 broker；三单元可替换。 |
+
+## SC-014：A2A 调用事件转发（FEAT-014）
+
+| 项目 | 内容 |
+|---|---|
+| 参与者 | 调用方 `agent-runtime`、event-bus 单元、被调用方 `agent-runtime` |
+| 入口 | `A2A_CALL_REQUESTED` 经 broker |
+| 契约 | [`FEAT-014`](../../L2-Low-Level-Design/agent-bus/feat-014-a2a-call-event-forwarding.md) |
+| 流程 | 调用方 runtime 经 RocketMQ 两跳（调用方→event-bus→被调用方）投递 A2A 调用事件；event-bus 不拥有跨服务 Task tree；A2A SSE 点对点；远端结果经 FEAT-005 interrupt/resume 回灌。 |
+| 不变量 | event-bus→agent-runtime 不走 a2a push；bus 不写任一端 Task；编排所有权归调用方 runtime / 未来编排智能体。 |

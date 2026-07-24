@@ -1,20 +1,13 @@
 ---
-version: 0719
+scope: v0730
 module: agent-runtime
 feature_type: functional
 feature_id: FEAT-009
 status: active
-updated: 2026-07-19
-authority:
-  - README.md
-  - FEAT-001-standardized-agent-service-entrypoint.md
-  - FEAT-006-standard-agent-client-invocation.md
-  - FEAT-007-local-tool-registration-and-execution.md
-  - FEAT-008-user-interaction-interrupt-response.md
-  - FEAT-010-task-level-dynamic-tool-visibility-and-handoff.md
+updated: 2026-07-21
 ---
 
-# 运行时通过响应调用客户端本地工具 - 当前版本事实要求
+# 运行时通过响应调用客户端本地工具
 
 ## 1. 特性定位
 

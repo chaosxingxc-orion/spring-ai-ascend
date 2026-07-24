@@ -1,18 +1,13 @@
 ---
-version: 0719
+scope: v0730
 module: agent-core
 feature_type: functional
 feature_id: FEAT-010
 status: active
-updated: 2026-07-19
-authority:
-  - README.md
-  - FEAT-006-standard-agent-client-invocation.md
-  - FEAT-007-local-tool-registration-and-execution.md
-  - FEAT-009-client-side-tool-response.md
+updated: 2026-07-21
 ---
 
-# 任务级动态工具可见性与调用移交 - 当前版本事实要求
+# 任务级动态工具可见性与调用移交
 
 ## 1. 特性定位
 

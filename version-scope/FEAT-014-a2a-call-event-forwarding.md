@@ -1,23 +1,13 @@
 ---
-version: 0715
+scope: v0730
 module: agent-bus
 feature_type: functional
 feature_id: FEAT-014
-status: draft
-related_docs:
-  - ../architecture/L0-Top-Level-Design/boundaries.md
-  - ../architecture/L0-Top-Level-Design/glossary.md
-  - ../architecture/L1-High-Level-Design/agent-bus/README.md
-  - ../architecture/L1-High-Level-Design/agent-bus/logical.md
-  - ../architecture/L1-High-Level-Design/agent-bus/process.md
-  - ../architecture/L1-High-Level-Design/agent-bus/scenarios.md
-  - ../architecture/L1-High-Level-Design/agent-bus/features/README.md
-  - ./FEAT-001-standardized-agent-service-entrypoint.md
-  - ./FEAT-004-remote-agent-orchestration.md
-  - ./FEAT-013-client-invocation-event-forwarding.md
+status: active
+updated: 2026-07-21
 ---
 
-# A2A 调用事件转发特性文档
+# 总线支持 A2A 调用事件转发
 
 ## 1. 特性定位
 
@@ -31,11 +21,11 @@ FEAT-014 定义 `agent-bus` 逻辑域中 event-bus 单元承载智能体服务�
 
 本特性面向以下角色：
 
-- 调用方智能体服务端：在本地 Task 执行过程中发起远端 A2A 调用、查询、取消或订阅。
-- 被调用方智能体服务端：消费 A2A 调用事件，按自身 Task 生命周期创建、查询、取消或订阅 Task，并发布响应事件。
+- 调用方智能体服务端：在本地 Task 执行过程中发起远端 A2A 调用、查询或订阅。
+- 被调用方智能体服务端：消费 A2A 调用事件，按自身 Task 生命周期创建、查询或订阅 Task，并发布响应事件。
 - `agent-bus` event-bus 单元：承载 A2A 调用事件与响应事件的转发、correlation、幂等、投递治理和审计线索。
 - `agent-bus` registry-discovery-center 单元：为调用方或 event-bus 提供 route handle、服务能力路由和健康信息支撑，但不直接定义 Agent Card 发现或生产 / 消费本文的调用事件。
-- `agent-runtime` / `agent-core` 实现方：把远端 A2A 响应映射为本地执行继续、挂起、失败、查询、取消或订阅，但这些本地回灌细节不由本文定义。
+- `agent-runtime` / `agent-core` 实现方：把远端 A2A 响应映射为本地执行继续、挂起、失败、查询或订阅，但这些本地回灌细节不由本文定义。
 - 平台集成方：在跨服务、跨部署或跨信任边界场景下，用 event-bus 承载服务间 A2A 调用控制面。
 - 测试与验收团队：按本文定义的黑盒行为验证服务间 A2A 调用事件转发、幂等、超时、流准备、重试和租户隔离。
 
@@ -60,8 +50,8 @@ FEAT-014 定义 `agent-bus` 逻辑域中 event-bus 单元承载智能体服务�
 | 远端创建幂等 | MUST | 被调用方服务端必须以 `tenantId + idempotencyKey` 为创建类调用幂等键；重复投递或调用方重试不得创建多个远端 Task，已创建时应返回同一个 `taskId` 或等价接受事实。 |
 | bus 投递幂等 | MUST | event-bus 必须用事件 ID、消息 ID、correlation 或幂等键约束事件投递副作用，避免重复投递导致重复可见响应。 |
 | 调用方重试幂等 | MUST | 调用方服务端重试同一远端 A2A 调用时，必须复用或传递同一 `idempotencyKey`，使被调用方能够幂等返回同一远端 Task。 |
-| 标准 Task 查询与订阅 | MUST | `GetTask`、`CancelTask` 与 `SubscribeToTask` 仍必须基于被调用方返回的远端 `taskId`；当前版本不定义基于调用方本地 Task ID、tool call ID 或 remote invocation ID 的跨 bus 查询。 |
-| A2A 查询、取消和订阅控制事件 | MUST | event-bus 必须支持面向远端 Task 的查询、取消和订阅控制事件转发；这些事件不得隐式创建新 Task。 |
+| 标准 Task 查询与订阅 | MUST | `GetTask` 仍必须基于被调用方返回的远端 `taskId`；当前版本不定义基于调用方本地 Task ID、tool call ID 或 remote invocation ID 的跨 bus 查询。 |
+| A2A 查询和订阅控制事件 | MUST | event-bus 必须支持面向远端 Task 的查询、取消和订阅控制事件转发；这些事件不得隐式创建新 Task。 |
 | Agent Card 发现排除 | MUST | 本特性不定义 Agent Card 发现、能力发现、版本选择或服务健康发现；这些能力由 registry-discovery-center 相关特性承载。 |
 | route handle 消费 | MUST | A2A 调用事件可以消费 registry-discovery-center 产生的 route handle 或等价路由引用；事件转发不得向调用方暴露物理 endpoint，也不得绕过 route handle 直接绑定物理地址为外部契约。 |
 | 大载荷引用 | MUST | event-bus 不承载大对象正文、多模态正文、artifact 大正文或 token 流；需要携带大载荷时必须使用 `payloadRef` 或等价数据引用。 |
@@ -76,7 +66,6 @@ FEAT-014 定义 `agent-bus` 逻辑域中 event-bus 单元承载智能体服务�
 |---|---|---|
 | `AgentBusEventEnvelope` | event envelope | 必须承载事件类型、事件 ID、租户、correlation、trace、幂等、deadline、源服务、目标路由引用和 payload 描述。它是调用方服务端、event-bus 与被调用方服务端之间的跨单元契约；字段命名可由 L2 固化，但这些治理语义必须存在。 |
 | `A2A_CALL_REQUESTED` | source runtime to target runtime event | 表达调用方服务端发起一次远端 A2A 调用或推进远端 Task。payload 可以是 A2A JSON-RPC request envelope 或 payload 引用。 |
-| `A2A_CALL_CANCEL_REQUESTED` | source runtime to target runtime event | 表达调用方服务端请求取消已有远端 Task；payload 必须可映射到 A2A `CancelTask` 或等价 Task 引用。 |
 | `A2A_CALL_QUERY_REQUESTED` | source runtime to target runtime event | 表达调用方服务端查询远端 Task；payload 必须可映射到 A2A `GetTask` 或等价查询语义。 |
 | `A2A_STREAM_SUBSCRIBE_REQUESTED` | source runtime to target runtime event | 表达调用方服务端希望订阅已有远端 Task 的 A2A SSE 流；必须基于被调用方返回的远端 `taskId`，不得以调用方本地 Task ID、tool call ID 或 remote invocation ID 替代。 |
 | `A2A_CALL_ACCEPTED` | target runtime to source runtime event | 表达被调用方已接受调用并创建或复用远端 Task；必须携带远端 `taskId`、correlation、idempotency 结果和必要的 Task 可见元数据。 |
@@ -100,7 +89,6 @@ FEAT-014 定义 `agent-bus` 逻辑域中 event-bus 单元承载智能体服务�
 | UNKNOWN 后幂等重试 | 调用方无法确认远端是否已创建 Task | 调用方使用同一 `idempotencyKey` 重新发起原 A2A 调用 | 如果远端已经创建 Task，必须幂等返回同一远端 `taskId`；如果未创建，则按新投递创建或明确拒绝。 |
 | 服务间流式 A2A 调用建立 | 调用方发起流式远端调用，目标服务支持 A2A SSE | 调用方发布 `A2A_CALL_REQUESTED`；被调用方发布 `A2A_CALL_ACCEPTED` 和 `A2A_STREAM_READY` | 调用方根据远端 `taskId` 和 stream 引用与被调用方建立点对点 A2A SSE 通道；event-bus 不转发 token chunk。 |
 | 流式调用接受超时后重连 | 首次流式调用返回 `UNKNOWN` 或连接中断，调用方之后持有远端 `taskId` 或通过幂等重试获得远端 `taskId` | 调用方发布 `A2A_STREAM_SUBSCRIBE_REQUESTED` | 被调用方返回 `A2A_STREAM_READY` 后，调用方点对点订阅远端 A2A SSE。 |
-| 取消远端任务 | 调用方已获得远端 `taskId` | 调用方发布 `A2A_CALL_CANCEL_REQUESTED` | 被调用方按 A2A `CancelTask` 语义处理并发布响应事件；远端 Task 状态仍由被调用方拥有。 |
 | 查询远端任务状态 | 调用方已获得远端 `taskId` | 调用方发布 `A2A_CALL_QUERY_REQUESTED` | 被调用方返回 A2A 兼容 Task 快照响应。 |
 | 被调用方拒绝调用 | 被调用方因鉴权、租户、能力、输入、策略或版本原因拒绝调用 | 被调用方发布 `A2A_CALL_REJECTED` | 调用方收到可编程拒绝响应；不得把拒绝伪造成远端 Task 已创建。 |
 | 被调用方终态通知 | 远端 Task 完成、失败或取消 | 被调用方发布 `A2A_CALL_TERMINAL` | 调用方可用于收尾、审计和恢复提示；实时流内容仍以 A2A SSE 或 Task 查询为准。 |
@@ -155,7 +143,6 @@ FEAT-014 定义 `agent-bus` 逻辑域中 event-bus 单元承载智能体服务�
 - 调用方服务端负责远端调用重试幂等。重试同一远端调用时，调用方必须复用或传递同一 `idempotencyKey`。
 - `UNKNOWN` 后调用方可以使用同一 `idempotencyKey` 重试原调用；被调用方如果已经创建 Task，必须返回同一个远端 `taskId` 或等价接受事实。
 - `messageId` / `eventId` 用于 bus 投递去重与审计；`idempotencyKey` 用于远端创建类调用幂等；二者不得混为同一个唯一语义。
-- `SubscribeToTask` / `A2A_STREAM_SUBSCRIBE_REQUESTED` 不得暗中创建新远端 Task；它只订阅已有远端 `taskId` 的 A2A SSE。
 
 #### 5.1.7 响应状态语义
 
@@ -223,5 +210,5 @@ FEAT-014 定义 `agent-bus` 逻辑域中 event-bus 单元承载智能体服务�
 - `architecture/L1-High-Level-Design/agent-bus/scenarios.md`
 - `architecture/L1-High-Level-Design/agent-bus/features/README.md`
 - `version-scope/FEAT-001-standardized-agent-service-entrypoint.md`
-- `version-scope/FEAT-004-remote-agent-orchestration.md`
+- `version-scope/FEAT-004-task-driven-remote-agent-communication.md`
 - `version-scope/FEAT-013-client-invocation-event-forwarding.md`
