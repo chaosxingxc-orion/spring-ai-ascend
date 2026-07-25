@@ -30,7 +30,7 @@ dependency:
 >
 > 最后更新：2026-07-25
 >
-> 当前状态：设计已接受，生产代码已落地，已接入 agent-bus runtime role，等待跨进程联调
+> 当前状态：功能代码已落地并接入 agent-bus runtime role，等待跨进程功能联调；生产持久化与多实例 DFX 后续实施
 
 ---
 
@@ -68,10 +68,21 @@ FEAT-017 的代码实施基线和目标代码仓均为 `agent-solution`，预期
 | Spring 装配 | 已有 `AgentCoreExtAutoConfiguration`、`VersatileAutoConfiguration` 和 AutoConfiguration imports | 新增独立的 bus consumer auto-configuration，按配置和所需具体组件条件激活，不侵入现有 adapter 装配 |
 | 总线消费 | agent-bus PR 124 已提供 runtime role；FEAT-017 已实现请求事件适配、信封校验和消费确认 | SDK 自动提供 `runtimeRequestConsumer`；`AgentBusBrokerDeliveryPort` 与 `BrokerDeliveryLoop` 完成事件接收和 `ACK_CONSUMED` / `ACK_REJECTED` / `RETRY` 裁决 |
 | 响应投影 | agent-bus PR 124 已提供 `runtimeResponseProducer` direct produce；FEAT-017 已实现 `INVOCATION_*` / `A2A_CALL_*` 状态投影发布 | Task 投影协调和 `BusResponseProjectionStore` 负责投影幂等/重试，`AgentBusResponsePublisher` 通过 SDK producer 直发 `resp_in` |
-| 幂等与恢复 | 当前没有 bus receipt、Task admission 或响应投影幂等存储 | 对接 agent-bus inbox 去重，并增加 Task admission 与响应投影两层 runtime 幂等记录 |
+| 幂等与恢复 | 已提供内存 admission/projection store，能够验证单进程幂等、投影去重和 relay；上游 TaskStore 已支持可选 Redis | 当前阶段以内存 Store 闭合功能；admission/projection 的 Redis 持久化、跨重启和多实例原子性作为后续 DFX |
 | broker 接线 | agent-bus SDK 按 `agent-bus.role.runtime.enabled=true` 自动提供请求 consumer 和响应 producer | Demo 只提供 `AgentHandler` 和部署配置，不创建 RocketMQ、Topic resolver、consumer、producer 或 dispatcher |
 
 因此，本文后续出现的 `RuntimeBus*`、`Bus*` 和 `ProjectingTaskStore` 均是 `agent-solution` 的目标设计类型，不是 `spring-ai-ascend` 中已有类，也不是当前已运行能力；其与上游 runtime 的具体方法签名必须以 `agent-runtime-java` 0.1.0 对外 API 和最终编译验证为准。
+
+本阶段交付边界优先闭合创建、查询、取消、订阅、Task 状态观察和响应投影等功能链路。
+`BusTaskAdmissionStore` 与 `BusResponseProjectionStore` 暂时使用内存实现，功能验证环境显式配置
+`allow-ephemeral-state=true`。这两类状态只保证当前进程存活期间有效，不声明跨重启可靠性或
+多实例一致性。上游 `RuntimeRedisClient` 目前缺少多 Key 条件更新、CAS/Lua 和带租约 claim，
+不能仅用普通 `GET + SET` 满足 admission 状态转换与 projection 顺序的原子要求；Redis
+持久化保留为后续 DFX，不阻塞当前功能验收。
+
+上述两个 Store 接口是 FEAT-017 的内部实现边界，不是开发者 SPI。自动装配无条件创建 SDK
+内置实现，不使用 `@ConditionalOnMissingBean` 允许业务应用替换；未来持久化实现也由 SDK
+内部提供和切换。
 
 ### 1.3 设计目标
 
@@ -146,7 +157,10 @@ FEAT-017 的代码实施基线和目标代码仓均为 `agent-solution`，预期
 | `BusResponseProjectionStore` | 保存待发布/已发布投影及稳定 eventId，支持失败补发 | 成为 Task 真相源 |
 | `AgentBusResponsePublisher` | 把 runtime-neutral 响应投影转换成 `BrokerOutboundMessage`，通过 SDK 的 `runtimeResponseProducer` 直发 `resp_in` | 创建 RocketMQ producer、选择 Topic 或管理 broker 生命周期 |
 
-Task 状态观察采用目标类型 `ProjectingTaskStore` 装饰 A2A SDK 公共 `TaskStore`：委托原读写后，把发生 revision 变化的 Task 快照交给 `BusTaskProjectionCoordinator`。它不得另起 consumer 与 A2A SDK 的 `MainEventBusProcessor` 竞争同一内部队列；启动 repair scan 只补偿持久化 TaskStore 中已经存在但缺少投影的 revision。
+Task 状态观察采用目标类型 `ProjectingTaskStore` 装饰 A2A SDK 公共 `TaskStore`：委托原读写后，把发生 revision 变化的 Task 快照交给 `BusTaskProjectionCoordinator`。它不得另起 consumer 与 A2A SDK 的 `MainEventBusProcessor` 竞争同一内部队列。当前 repair scan 只在本进程存活期间补偿仍能从 admission/projection 内存状态关联的 Task revision；跨重启扫描持久化 TaskStore 并恢复缺失投影，需要后续持久化 admission/projection Store 配合。
+
+`BusTaskAdmissionStore` 和 `BusResponseProjectionStore` 虽以 Java 接口表达，但只用于 SDK
+内部解耦 consumer、coordinator、relay 与存储实现。开发者不注册这两个接口的 Bean。
 
 `TaskStore` 接口本身可由扩展层实现，但上游默认 store 由 `A2AAutoConfiguration` 通过 `@ConditionalOnMissingBean` 创建。实施前必须用编译/启动 PoC 确认包装方式：优先由扩展模块提供完整的 `TaskStore` bean 并组合 delegate；若无法在不复制上游默认构造逻辑的前提下完成包装，则向上游增加 `TaskStore` customizer/decorator 扩展点。禁止依赖运行期 bean 替换或形成两个并列 `TaskStore`。
 
@@ -307,13 +321,18 @@ public record BusConsumptionDecision(Type type, String reason) {
 }
 ```
 
-两种 `ACK_*` 都表示该消息不应因 Agent 长时间执行而继续占用 broker delivery，delivery loop 对二者执行 `commit`；`ACK_REJECTED` 是 runtime 的确定性业务裁决，不调用 broker `reject`。只有 `RETRY` 才映射为 `reject(PROCESSING_FAILED)`，由 agent-bus 决定后续重试或死信处理：
+两种 `ACK_*` 都表示该消息不应因 Agent 长时间执行而继续占用 broker delivery，delivery loop 对二者执行 `commit`；`ACK_REJECTED` 是 runtime 的确定性业务裁决，不调用 broker `reject`。只有 `RETRY` 才映射为 `reject(PROCESSING_FAILED)`，由 agent-bus 决定后续重试或死信处理。当前单进程功能阶段的 ACK 边界是：
 
-- Task 已可靠进入控制面；或
-- 请求已被确定性拒绝，拒绝/失败投影已可靠记录；或
-- 重复消息已被安全抑制并可恢复等价投影。
+- Task 已进入控制面，且响应投影已写入当前进程的 projection store；或
+- 请求已被确定性拒绝，拒绝/失败投影已写入当前进程的 projection store；或
+- 重复消息已在当前 admission 状态中被抑制。
 
-`RETRY` 只用于进入上述稳定边界之前的瞬时故障，例如 admission store 不可用、payloadRef 暂时不可取、投影记录无法持久化。业务 Task 终态失败不是消息投递重试理由。
+`RETRY` 只用于进入上述边界之前的瞬时处理故障，例如 admission 操作失败、A2A bridge
+暂时不可用或投影无法写入当前 store。只有 `payloadRef` 而无 inline payload 在本阶段属于
+确定性不可解析，不作为瞬时故障重试。业务 Task 终态失败也不是消息投递重试理由。
+
+上述 ACK 边界用于验证功能语义，不代表已经具备跨进程崩溃的 exactly-once 保证。inbox、
+持久化 admission/projection 与 broker commit 的一致时序属于后续 DFX。
 
 FEAT-015/016 的 registry `serviceId` 接入 runtime 之前，目标服务身份临时直接读取
 `spring.application.name`。FEAT-017 不依赖 `AgentServiceIdentity`，不新增身份 SPI，也不要求重复配置
@@ -402,9 +421,9 @@ hash(tenantId, causationMessageId, taskId-or-none, projectionKind, projectionRev
 
 同一事实重放得到相同 eventId；`append` 必须幂等。Task 状态发生新 revision 时产生新的投影，重复观察同 revision 不重复产生可见副作用。
 
-投影发布失败不回滚已创建 Task。请求 consumer 在投影已写入 `BusResponseProjectionStore` 后可 ACK；独立的 `BusResponseRelay` 重试发布。该存储是 runtime 的投影交接日志，不暴露或复制 agent-bus outbox/inbox 物理模型。
+投影发布失败不回滚已创建 Task。请求 consumer 在投影已写入 `BusResponseProjectionStore` 后可 ACK；独立的 `BusResponseRelay` 重试发布。该存储是 runtime 的投影交接日志，不暴露或复制 agent-bus outbox/inbox 物理模型。当前内存实现只能在进程存活期间提供该交接能力。
 
-生产可靠性 profile 下，`TaskStore`、`BusTaskAdmissionStore` 和 `BusResponseProjectionStore` 都必须跨进程重启持久化：admission store 提供唯一约束/CAS，projection store 提供 claim 与幂等 append。三者不要求共享物理数据库；稳定 taskId 与 repair 流程用于闭合跨存储崩溃窗口。in-memory 实现只允许 contract test 和显式本地开发 profile，不能作为 FEAT-017 可靠消费验收证据。当前 agent-bus runtime role 按 PR 124 的范围采用 direct produce；`AgentBusResponsePublisher` 仅在 broker 返回 `ACCEPTED` 后把投影标记为已发布，失败由 `BusResponseRelay` 基于投影存储重试。
+后续生产 DFX 目标仍要求 `TaskStore`、`BusTaskAdmissionStore` 和 `BusResponseProjectionStore` 跨进程重启持久化：admission store 提供唯一约束/CAS，projection store 提供带租约 claim 与幂等 append。三者不要求共享物理数据库；稳定 taskId 与 repair 流程用于闭合跨存储崩溃窗口。实现 Redis Store 前必须先补齐服务端原子更新能力，并完成多实例和故障注入验证，不能把简单 `GET + SET` 实现作为生产可靠性证据。当前 agent-bus runtime role 按 PR 124 的范围采用 direct produce；`AgentBusResponsePublisher` 仅在 broker 返回 `ACCEPTED` 后把投影标记为已发布，失败由 `BusResponseRelay` 基于当前 Store 做进程内重试。
 
 ---
 
@@ -435,7 +454,7 @@ agent-bus       consumer       validator/admission      RequestHandler      proj
 3. 对创建类请求按 `(tenantId,idempotencyKey)` reserve；重复请求复用 reservation 的 `taskId`。
    对携带已有 taskId 的 continuation，reservation 绑定并核对该 taskId，不另行分配。
 4. 经 `RequestHandlerBusA2aBridge` 进入标准 A2A Task 控制面。
-5. 创建成功或复用后，先持久化 `*_ACCEPTED` 投影，再返回 ACK。
+5. 创建成功或复用后，先把 `*_ACCEPTED` 投影写入当前 Store，再返回 ACK；本阶段内存 Store 不保证重启恢复。
 6. 阻塞窗口内完成则追加 `*_RESPONSE`；流可订阅则追加 `*_STREAM_READY`。
 7. Task 后续进入 INPUT_REQUIRED 或终态时，由 projection coordinator 发布对应投影，不再占用原消息 delivery。
 
@@ -448,7 +467,7 @@ REQUESTED(taskId)
        query      -> RESPONSE(Task snapshot)
        cancel     -> RESPONSE + later TERMINAL(CANCELED)
        subscribe  -> STREAM_READY(taskId, new-or-current streamRef)
-  -> 投影可靠记录
+  -> 投影写入当前 Store
   -> ACK
 ```
 
@@ -457,6 +476,9 @@ REQUESTED(taskId)
 - subscribe 不启动新 Task；终态 Task 是否仍允许读取历史 SSE 由现有 A2A 能力决定，不支持时返回 `STREAM_NOT_AVAILABLE`。
 
 ### 5.3 重复投递与崩溃恢复
+
+当前阶段使用内存 admission/projection Store，只保证同一进程内的重复请求抑制、稳定 eventId
+去重和 relay 重试。下表是后续生产 DFX 的恢复目标，不是本阶段已具备的跨重启能力：
 
 | 恢复点 | 重放行为 |
 |---|---|
@@ -471,12 +493,14 @@ REQUESTED(taskId)
 
 | 处理结果 | 消费裁决 | 原因 |
 |---|---|---|
-| Task 已创建/复用且 ACCEPTED 已记录 | `ACK_CONSUMED` | 后续执行与原 delivery 解耦 |
-| 非创建控制请求已处理且响应投影已记录 | `ACK_CONSUMED` | 已形成稳定结果 |
+| Task 已创建/复用且 ACCEPTED 已写入当前 Store | `ACK_CONSUMED` | 当前进程内后续执行与原 delivery 解耦 |
+| 非创建控制请求已处理且响应投影已写入当前 Store | `ACK_CONSUMED` | 已形成当前进程可继续发布的结果 |
 | 信封非法、过期、tenant/target 不匹配 | `ACK_REJECTED` | 确定性失败，重投无意义；字段可信且足以关联时记录失败投影 |
-| bus inbox 已判定重复，runtime 可恢复等价投影 | `ACK_CONSUMED` | 不重复副作用；adapter/inbox 仍可保留 `DUPLICATE_SUPPRESSED` 审计状态 |
+| 当前 admission 已判定重复 | `ACK_CONSUMED` | 同一进程内不重复执行副作用 |
 | admission/projection store 瞬时不可用 | RETRY | 尚未进入稳定接收边界 |
 | Agent 执行失败或进入 INPUT_REQUIRED | 不改变原 `ACK_CONSUMED` | 属于 Task 生命周期，不是投递失败 |
+
+agent-bus inbox 去重、持久化投影恢复与 broker commit 的一致时序在后续 DFX 中冻结。
 
 ---
 
@@ -505,9 +529,10 @@ ABSENT ─reserve─> RESERVED ─dispatch─> ADMITTED
 ```
 
 - `RESERVED` 必须保存稳定 taskId、source family、correlation、request digest 和创建时间。
-- `ADMITTED` 表示 Task 已存在或已被控制面可靠接受，不表示 Agent 已完成。
+- `ADMITTED` 表示 Task 已存在或已被控制面接受，不表示 Agent 已完成。
 - 只有 admission 前的确定拒绝进入 `REJECTED`；已有 Task 的执行失败体现在 Task/terminal projection 中。
-- 超时 `RESERVED` 不能直接删除；repairer 必须先按 taskId 查询 TaskStore，再决定重驱或补齐。
+- 当前进程内发现超时 `RESERVED` 时，repairer 先按 taskId 查询 TaskStore，再决定重驱或补齐；
+  跨重启处理依赖后续持久化 Store。
 
 ### 6.3 投影顺序
 
@@ -613,7 +638,7 @@ broker-specific adapter 不进入上述包，也不让 `agent-bus` 生产模块�
 
 缺少必需组件时应启动失败并列出缺失 bean，不能悄悄启用只能消费不能响应的半功能。如果实际收到只有 `payloadRef` 的事件，必须返回确定性 `PAYLOAD_EMPTY`，不能把引用字符串当作 A2A JSON。`enabled=false` 时不要求任何 bus 依赖，保持现有纯 HTTP runtime 可用。
 
-生产 profile 还必须通过 durability capability 检查，拒绝把默认 `InMemoryTaskStore` 或 in-memory admission/projection store 用于可靠订阅。只有显式本地开发配置可以放宽该检查，并在 readiness、日志和健康端点中标记 `ephemeral_bus_state=true`。
+生产可靠性 profile 仍应通过 durability capability 检查，拒绝把默认 `InMemoryTaskStore` 或 in-memory admission/projection store 当作跨重启可靠实现。本阶段功能联调使用显式 `allow-ephemeral-state=true`；该配置表示接受进程重启后 admission/projection 状态丢失，不能作为生产可靠性验收证据。
 
 ### 8.3 配置表面
 
@@ -679,7 +704,7 @@ openjiuwen:
           repair-interval: 5s
 ```
 
-上述参数均有代码默认值，部署者不填写时采用示例所列默认值。repair 每轮扫描上限当前固定为 100，admission 锁分片数固定为 64，不属于配置表面。`allow-ephemeral-state` 仅用于本地开发和测试，普通生产配置不得启用：
+上述参数均有代码默认值，部署者不填写时采用示例所列默认值。repair 每轮扫描上限当前固定为 100，admission 锁分片数固定为 64，不属于配置表面。当前功能联调需要显式允许内存状态：
 
 ```yaml
 openjiuwen:
@@ -697,7 +722,9 @@ openjiuwen:
 2. runtime readiness 进入 ready 后启动 projection relay，再启动 subscription。
 3. drain 时先停止接收新 delivery，等待已进入 admission 的短临界区完成。
 4. 不等待所有 Agent Task 终态；Task 按现有 runtime 生命周期继续或由部署策略处理。
-5. 最后停止 response relay，并保留 pending projection 供下次启动恢复。
+5. 最后停止 response relay；当前内存实现只在本次进程 drain 期间尽量处理 pending
+   projection，进程退出后不能恢复。后续持久化 Store 应保留 pending projection 供下次启动
+   或其他实例继续处理。
 
 ---
 
@@ -732,13 +759,14 @@ span 边界及跨 broker 的 trace 上下文格式。
 |---|---|
 | envelope validator | schema、target、tenant、deadline、inline/ref 互斥、大小限制 |
 | event mapper | 8 种请求事件映射到正确 `RequestHandler` 方法；错误 family 不混用 |
-| admission store contract | 同 key 同摘要复用 taskId；同 key 不同摘要冲突；tenant 隔离；并发唯一 |
-| response projection store contract | eventId 幂等；revision 有序；claim/retry/markPublished 可恢复 |
+| admission store contract | 内存实现验证同 key 同摘要复用 taskId、同 key 不同摘要冲突、tenant 隔离和进程内并发唯一 |
+| response projection store contract | 内存实现验证 eventId 幂等、revision 有序、pending/retry/markPublished；跨重启 claim 后续验证 |
 | stream reference | 不含 endpoint；tenant/task/expiry/signature 校验；key rotation |
 | consume disposition | admission/投影交接后 ACK；稳定边界前瞬时失败 RETRY；不等待 Task 终态 |
 | payload 处理 | inline payload 原样进入 bridge；只有 `payloadRef` 时确定性失败，引用字符串不得被当作 A2A JSON |
 
-所有 SPI 必须提供 in-memory contract fixture；in-memory 只作为测试替身，不作为生产可靠性证明。
+两个 Store 保留 in-memory contract fixture，作为当前功能实现和测试替身；Redis 原子性、跨重启
+恢复和多实例 claim 属于后续 DFX，不纳入本阶段功能完成条件。
 
 ### 10.2 集成测试
 
@@ -749,9 +777,13 @@ span 边界及跨 broker 的 trace 上下文格式。
 5. Task 进入 INPUT_REQUIRED → 对应 family 的 INPUT_REQUIRED 投影。
 6. query/cancel/subscribe 使用真实 taskId；不存在、跨 tenant 和错误本地 ID 不创建 Task。
 7. 相同 messageId 重投、不同 messageId + 相同 idempotencyKey 重试均只创建一个 Task。
-8. Task 创建后模拟 publisher 失败：原 delivery ACK，relay 恢复后补发相同 eventId。
-9. 在 reservation、Task 创建、投影 append 和 publish 各崩溃点重启，验证恢复表。
-10. runtime drain：停止新消费，不等待长 Task 终态，不丢 pending projection。
+8. Task 创建后模拟 publisher 短暂失败：原 delivery ACK，在同一进程内由 relay 补发相同
+   eventId。
+9. runtime drain：停止新消费，不等待长 Task 终态；在允许的 drain 时间内处理已进入 relay
+   的投影。
+
+以下故障注入归入后续 DFX：在 reservation、Task 创建、投影 append 和 publish 各崩溃点
+重启，验证持久化恢复表及 pending projection 不丢失。
 
 ### 10.3 跨模块验收
 
@@ -767,7 +799,12 @@ gateway/source runtime
   -> gateway/source runtime projection consumer
 ```
 
-必须覆盖：客户端创建/查询/取消/订阅、A2A 创建/查询/取消/订阅、重复投递、接受后长任务、INPUT_REQUIRED、流重连、终态失败、tenant 隔离、只有 payloadRef 时的确定性失败、adapter 不可用、响应重投和 DLQ 审计。跨模块测试还必须用消息体扫描断言 token chunk、SSE frame、物理 endpoint 和 Task execution state 未进入总线。
+当前功能验收必须覆盖：客户端创建/查询/取消/订阅、A2A 创建/查询/取消/订阅、同一进程内
+重复投递、接受后长任务、INPUT_REQUIRED、流重连、终态失败、tenant 隔离、只有 payloadRef
+时的确定性失败、adapter 短暂不可用和同一进程内响应重投。跨模块测试还必须用消息体扫描
+断言 token chunk、SSE frame、物理 endpoint 和 Task execution state 未进入总线。
+
+跨重启响应补发、持久化去重和 DLQ 审计归入后续 DFX 验收。
 
 ---
 
@@ -784,7 +821,7 @@ gateway/source runtime
 | 稳定 streamRef | §3.4 | stream reference contract |
 | ACK 到接收边界 | §4.1、§5.4 | long-running Task test |
 | bus 去重与 Task 幂等分离 | §4.3、§6.1 | duplicate/concurrency tests |
-| 响应发布幂等与补发 | §4.4、§5.3 | crash/retry tests |
+| 响应发布幂等与补发 | §4.4、§5.3 | 当前同进程 retry tests；后续 crash recovery tests |
 | tenant 隔离 | §3.1、§7 | cross-tenant negative tests |
 | token 流不进总线 | §1.1、§3.4、§10 | captured-message scan |
 | broker 透明 | §2、§4、§8 | ArchUnit dependency rule |
@@ -799,21 +836,26 @@ gateway/source runtime
 1. **上游扩展面编译/启动 PoC**：以 `agent-runtime-java` 0.1.0 和 A2A SDK 1.0.0.Final 为基线，确认扩展模块可注入同一个 `RequestHandler`、`TaskStore` 与 `ServerCallContext` 相关类型；验证 `ProjectingTaskStore` 的唯一 bean 包装和自动装配顺序。公开扩展面不足时先形成具体上游接口诉求，PoC 未通过不得进入后续切片。
 2. 中立事件/响应模型、validator、mapper 和 SPI contract fixture。
 3. `RequestHandlerBusA2aBridge`，完成八种事件与 A2A `RequestHandler` 语义一致性测试，并区分当前 HTTP controller 已暴露与仅 SDK 已具备的方法。
-4. admission store 与稳定 taskId 恢复，完成创建幂等和崩溃点测试。
-5. projection store、relay 和 Task projection coordinator。
+4. 使用内存 admission store 完成当前进程内的创建幂等；稳定 taskId 的协议恢复继续按未闭环项推进。
+5. 使用内存 projection store 完成 relay 和 Task projection coordinator 功能链。
 6. streamRef、INPUT_REQUIRED、终态 repair。
 7. Spring auto-configuration、readiness/drain 和 ArchUnit 规则；专用可观测性能力留待后续实现。
-8. 与 `agent-bus` adapter 联调及跨模块 E2E。
+8. 与 `agent-bus` adapter 联调及跨模块功能 E2E。
+9. 后续 DFX：补齐 Redis 原子更新能力，实现 admission/projection 持久化、跨重启恢复、
+   多实例 claim/租约、streamRef 多实例和故障注入。
 
 ### 12.2 设计完成条件
 
 - 不新增 bus 专用 Task 状态机或 HTTP loopback。
 - runtime 公共模型和配置不出现具体 broker 产品概念。
 - 八种入站事件和七类响应投影均有可执行 contract test。
-- 创建 admission、投影交接和 ACK 顺序经过故障注入验证。
+- 创建 admission、投影交接和 ACK 顺序完成单进程功能验证。
 - Task 创建、查询、取消、订阅全程 tenant scoped。
 - 总线捕获测试证明无 token、SSE frame、大正文和物理 endpoint。
 - README 的实现状态只有在生产代码与跨模块验收通过后才从“设计已接受、代码待落地”更新为 active。
+
+以下不作为当前功能完成的阻塞条件，统一进入后续 DFX：Redis admission/projection Store、
+跨进程重启恢复、多实例原子 claim、streamRef 共享状态、专用指标/Trace 和容量压测。
 
 ---
 
