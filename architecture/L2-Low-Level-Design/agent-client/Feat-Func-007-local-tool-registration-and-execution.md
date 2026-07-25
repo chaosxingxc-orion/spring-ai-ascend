@@ -12,7 +12,7 @@ dependency:
   - ../../L1-High-Level-Design/agent-client/process.md
   - ../../L1-High-Level-Design/agent-client/development.md
   - ./Feat-Func-006-standard-agent-client-invocation.md
-  - ../agent-runtime/Feat-Func-009-调用端侧工具响应-新增支持带有端侧工具的请求.md
+  - ../agent-runtime/Feat-Func-009-runtime-response-client-side-tool-calling.md
   - ../agent-bus/feat-011-l2_V3.0.md
   - ../../../agent-client/docs/proposals/agent-client-v1-design.md
   - ../../../agent-client/examples/cloud-client/README.md
