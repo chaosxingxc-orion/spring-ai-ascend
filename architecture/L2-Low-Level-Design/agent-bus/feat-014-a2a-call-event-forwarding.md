@@ -58,14 +58,14 @@ FEAT-014 把 `version-scope/FEAT-014` 在外部行为层定义的"A2A 调用事�
 
 | 子特性 | 职责 | 关键抽象 | 状态 |
 |---|---|---|---|
-| 调用方 runtime 发起远端 A2A 调用 | 调用方把远端调用封装为事件投递 event-bus | `A2A_CALL_REQUESTED` + `BrokerForwardingRelayPort`（调用方 runtime 侧 producer） | ⬜ 外仓 caller producer（in-flight；可复用 in-repo `requestRelay` role-agnostic bean，见 §3.1/§5） |
+| 调用方 runtime 发起远端 A2A 调用 | 调用方把远端调用封装为事件投递 event-bus | `A2A_CALL_REQUESTED` + `BrokerForwardingProducerPort`（调用方 runtime 侧 producer） | ⬜ 外仓 caller producer（in-flight；可复用 in-repo `requestProducer` role-agnostic bean，见 §3.1/§5） |
 | 被调用方 runtime 消费/建 Task | 目标 runtime 消费调用事件，按自身 Task 生命周期处理 | `BrokerForwardingConsumerPort` + `ServeOrchestrator.query/streamQuery` | ⬜ 外仓 agent-runtime consumer（in-flight；in-repo `RocketMqBrokerForwardingConsumer`/`responseConsumer` 可复用） |
 | 响应事件回传 | 被调用方把接受/响应/流准备/终态回传调用方 | tap `AgentEmitter` 回调 → `A2A_CALL_*` 响应事件 | ⬜ 外仓 agent-runtime producer（in-flight） |
 | 远端 taskId 返回 | 创建类调用被接受时返回远端 taskId | `A2A_CALL_ACCEPTED(taskId)` | ⬜ 依赖 agent-runtime producer（in-flight） |
 | UNKNOWN + 同键重试 | 接受窗口未知态 + 幂等重试 | `InvocationResponseStatus.UNKNOWN` + `idempotencyKey`（共享 FEAT-013） | ✅ `InvocationResponseStatus` 已落地（共享 FEAT-013）/ ⬜ 调用方 accept window 外仓 |
 | A2A SSE 点对点 | 调用方按远端 taskId + stream 引用直连被调用方 SSE | `A2A_STREAM_READY` + 点对点 SSE（不进 broker） | ⬜ net-new（依赖 agent-runtime 侧） |
 | 远端结果本地回灌 | 调用方把远端结果回灌本地执行 | 复用 `A2AEnabledServeOrchestrator` a2a_delegate interrupt/resume + shadow task | ✅ 复用 FEAT-005 机制 / ⬜ transport 改 broker（外仓 in-flight） |
-| event-bus 治理中继（service-to-service 两跳） | `A2A_CALL_*`/`A2A_STREAM_*` 族经 event-bus 两跳转发 + 治理 | `EventBusRelayConfiguration`/`Worker`（与 FEAT-013 共享 relay）+ `AgentBusEventType` FEAT-014 族 | ✅ 已落地（in-repo，与 FEAT-013 共享 relay/broker 平面，见 §3.1/§4.1） |
+| event-bus 治理中继（service-to-service 两跳） | `A2A_CALL_*`/`A2A_STREAM_*` 族经 event-bus 两跳转发 + 治理 | `AgentBusRelayRoleAutoConfiguration`/`Worker`（与 FEAT-013 共享 relay）+ `AgentBusEventType` FEAT-014 族 | ✅ 已落地（in-repo，与 FEAT-013 共享 relay/broker 平面，见 §3.1/§4.1） |
 
 ---
 
@@ -168,18 +168,20 @@ com.openjiuwen.bus.forwarding.                  # 复用（agent-solution 仓 co
   spi.                                        #   ForwardingEnvelope(扩展) / AgentBusEventType(含 A2A_CALL_*/A2A_STREAM_* 族) /
                                               #   InvocationResponseStatus / ForwardingOutboxPort / InboxPort / Dispatcher / FailureCode / RouteHandle
     └── broker.                               #   broker 转发 SPI 端口（P-06：BrokerControlDescriptor 已删除，控制面走一级字段）
-  common.                                     #   AgentBusInfrastructureConfiguration（共享 brokerClientProperties/outbox/inbox，无 @Profile）+ AgentBusBrokerProperties
+  common.                                     #   AgentBusReliabilityAutoConfiguration（@ConditionalOnClass(DataSource.class)：outbox/inbox，无 @Profile）+ AgentBusBrokerProperties
   runtime.
     transport.broker.                         #   broker-common（BrokerClientProperties/BrokerOutboundMessage/BrokerMessageHeaders）+ rocketmq 子包
-    │   └── rocketmq.                          #     RocketMqBrokerForwardingConsumer/Relay + RocketMqBrokerClientConfiguration
-    │                                          #     （无 @Profile，role-agnostic：defaultProducer/requestRelay("req")/responseConsumer("resp_out")）
+    │   └── rocketmq.                          #     RocketMqBrokerForwardingConsumer/Producer + 角色 autoconfig（@AutoConfiguration，无 @Profile）：
+    │                                          #     AgentBusBrokerClientBaseAutoConfiguration（base：defaultProducer+brokerClientProperties，无 JDBC）+
+    │                                          #     AgentBusCallerRoleAutoConfiguration（role.caller.enabled=true：requestProducer("req")+responseConsumer("resp_out")）+
+    │                                          #     AgentBusRuntimeRoleAutoConfiguration（role.runtime.enabled=true：runtimeRequestConsumer("deliver")+runtimeResponseProducer("resp_in")）
     transport.a2a.                             #   既有 A2aForwardingDeliveryPort（T1 push，本特性不用于 event-bus→agent-runtime）
-    relay.                                    #   EventBusRelayConfiguration(@Profile("eventbus"))/Worker/RelayScheduler(SmartLifecycle)
+    relay.                                    #   AgentBusRelayRoleAutoConfiguration(@AutoConfiguration，@ConditionalOnProperty role.relay.enabled=true)/Worker/RelayScheduler(SmartLifecycle)
     persistence.jdbc.                         #   JdbcForwardingOutbox/Inbox/SqlCodec（V1+V3+V4 migration）
   （registry.runtime 平面未迁入 agent-bus 生产代码（main 零依赖）：`AgentDiscoveryService` 仅 `GatewayRuntimeService` test 范围注入；`resolveRouteHandle`/`RouteHandleCodec` 属 registry 平面；topic 由 `DefaultBrokerTopicResolver` 按 `AgentBusEventType` 派生，opaque routeHandle T4 穿透不解封）
 ```
 
-> **as-built（5193972e）**：FEAT-014 与 FEAT-013 共享同一 event-bus 转发底座与 broker 拓扑（`EventBusRelayConfiguration`/`Worker` + `RocketMqBrokerClientConfiguration` role-agnostic client bean），仅事件族（`A2A_CALL_*`/`A2A_STREAM_*`，由 `AgentBusEventType` 判别）+ topic（`ascend_bus_a2a_*`）不同。caller agent-runtime（外仓）可复用 in-repo 的 `requestRelay`/`responseConsumer` role-agnostic bean（de-gateway-ification 的设计意图——任一 caller 产生同一 `req` topic、消费同一 `resp_out` topic），无需自声明。
+> **as-built（5193972e）**：FEAT-014 与 FEAT-013 共享同一 event-bus 转发底座与 broker 拓扑（`AgentBusRelayRoleAutoConfiguration`/`Worker` + 角色 autoconfig：`AgentBusBrokerClientBaseAutoConfiguration`（base：`defaultProducer`+props）/`AgentBusCallerRoleAutoConfiguration`（`requestProducer`/`responseConsumer`）/`AgentBusRuntimeRoleAutoConfiguration`（`runtimeRequestConsumer`/`runtimeResponseProducer`）），仅事件族（`A2A_CALL_*`/`A2A_STREAM_*`，由 `AgentBusEventType` 判别）+ topic（`ascend_bus_a2a_*`）不同。caller agent-runtime（外仓）可复用 in-repo 的 `requestProducer`/`responseConsumer` role bean（de-gateway-ification 的设计意图——任一 caller 产生同一 `req` topic、消费同一 `resp_out` topic，`agent-bus.role.caller.enabled=true` 激活），无需自声明。角色 autoconfig 通过 `META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports` 自动加载，免 `@Import`；属性激活（`agent-bus.role.{caller,runtime,relay}.enabled`），非 Spring Profile。
 
 **agent-runtime 侧（外仓 `agent-runtime-java/service/agent-service-app`，net-new）**：
 
@@ -213,7 +215,7 @@ ServeOrchestrator              BrokerAutoConfiguration           BrokerForwardin
             │                                                                                  │
             │  BrokerResponseProducer <── tap AgentEmitter(startWork/addArtifact/requiresInput/complete/fail/cancel)
             │       │
-            │       └── produce(direct-tap 重载 produce(BrokerOutboundMessage,long)，不经 outbox) A2A_CALL_ACCEPTED / A2A_CALL_RESPONSE / A2A_STREAM_READY / A2A_CALL_TERMINAL ──> BrokerForwardingRelayPort
+            │       └── produce(direct-tap 重载 produce(BrokerOutboundMessage,long)，不经 outbox) A2A_CALL_ACCEPTED / A2A_CALL_RESPONSE / A2A_STREAM_READY / A2A_CALL_TERMINAL ──> BrokerForwardingProducerPort
 ```
 
 ### 3.3 SDK 生产/消费接口（agent-bus-sdk + agent-bus-spi，与 FEAT-013 共享）
@@ -222,13 +224,13 @@ ServeOrchestrator              BrokerAutoConfiguration           BrokerForwardin
 
 | FEAT-014 角色 | SDK 角色 | 调用接口 | 事件族 |
 |---|---|---|---|
-| 调用方 runtime（caller） | 生产方 | `ForwardingOutboxPort.enqueue` → `ForwardingOutboxClaimPort.claimDue` → `BrokerForwardingRelayPort.produce`（复用 `requestRelay`，`req` 后缀） | `A2A_CALL_REQUESTED` / `_CANCEL_REQUESTED` / `_QUERY_REQUESTED` / `A2A_STREAM_SUBSCRIBE_REQUESTED` |
+| 调用方 runtime（caller） | 生产方 | `ForwardingOutboxPort.enqueue` → `ForwardingOutboxClaimPort.claimDue` → `BrokerForwardingProducerPort.produce`（复用 `requestProducer`，`req` 后缀） | `A2A_CALL_REQUESTED` / `_CANCEL_REQUESTED` / `_QUERY_REQUESTED` / `A2A_STREAM_SUBSCRIBE_REQUESTED` |
 | 被调用方 runtime（target） | 消费方 | `BrokerForwardingConsumerPort.subscribe`+`poll`（`DeliveryFilter.forRuntime(tenant, targetServiceId)`）→ `ForwardingInboxPort.receive` → `commit`/`reject` | （消费 `A2A_CALL_*` 请求） |
-| 被调用方 runtime（target） | 生产方（响应） | tap `AgentEmitter` → `BrokerForwardingRelayPort.produce`（**direct-tap 重载 `produce(BrokerOutboundMessage, long)`，不经 outbox**） → `T_a2a_resp_in` | `A2A_CALL_ACCEPTED` / `_REJECTED` / `_FAILED` / `_RESPONSE` / `A2A_STREAM_READY` / `A2A_CALL_TERMINAL` |
+| 被调用方 runtime（target） | 生产方（响应） | tap `AgentEmitter` → `BrokerForwardingProducerPort.produce`（**direct-tap 重载 `produce(BrokerOutboundMessage, long)`，不经 outbox**） → `T_a2a_resp_in` | `A2A_CALL_ACCEPTED` / `_REJECTED` / `_FAILED` / `_RESPONSE` / `A2A_STREAM_READY` / `A2A_CALL_TERMINAL` |
 | 调用方 runtime（caller） | 消费方（响应） | `BrokerForwardingConsumerPort`（复用 `responseConsumer`，`resp_out` 后缀）→ `ForwardingInboxPort.receive` → `commit` | （消费 `A2A_CALL_*` 响应，按 `correlationId` 匹配回灌） |
 | event-bus relay | 治理中继（消费+生产） | forward relay：消费 `T_a2a_req` → `inbox.receive`+correlation match → re-publish `T_a2a_deliver`；response relay：消费 `T_a2a_resp_in` → re-publish `T_a2a_resp_out` | （转发两族事件，不改 eventType） |
 
-> 生产方/消费方只需依赖 `agent-bus-sdk`（+ `agent-bus-spi`）、按类型注入所需端口，broker client 由 sdk 装配（`AgentBusInfrastructureConfiguration` + `RocketMqBrokerClientConfiguration`，无 `@Profile`、role-agnostic）。caller runtime 可复用 in-repo `requestRelay`/`responseConsumer` role-agnostic bean（de-gateway-ification 设计意图），target runtime 可复用 `RocketMqBrokerForwardingConsumer` 或自声明。
+> 生产方/消费方只需依赖 `agent-bus-sdk`（+ `agent-bus-spi`）、按类型注入所需端口，broker client 由 sdk 装配（`AgentBusBrokerClientBaseAutoConfiguration`（base：props+`defaultProducer`，无 JDBC）+ `AgentBusReliabilityAutoConfiguration`（`@ConditionalOnClass(DataSource.class)`：outbox/inbox）+ 角色 autoconfig（`AgentBusCallerRoleAutoConfiguration`/`AgentBusRuntimeRoleAutoConfiguration`，`agent-bus.role.{caller,runtime}.enabled=true` 激活），无 `@Profile`、role-agnostic）。caller runtime 可复用 in-repo `requestProducer`/`responseConsumer` role bean（de-gateway-ification 设计意图），target runtime 可复用 `runtimeRequestConsumer` 或自声明 `RocketMqBrokerForwardingConsumer`。
 
 ---
 
@@ -273,7 +275,7 @@ sequenceDiagram
 ### 4.2 调用方 runtime 生产 / 消费（复用 FEAT-005 回灌）
 
 **生产（发起远端调用）**：
-- 调用方 runtime 在本地 Task 执行中遇到 `a2a_delegate` interrupt（FEAT-005 `RemoteA2aInterruptRail` 已有此点）→ **改造 transport**：从 `A2ARemoteAgentClient.callStreaming/callSync`（HTTP A2A SDK client）改为构造 `ForwardingEnvelope`(eventType=`A2A_CALL_REQUESTED`, source=callerServiceId, target=经 registry route handle 解析的 targetServiceId) → enqueue 调用方 runtime outbox → `BrokerForwardingRelayPort.produce` → RocketMQ。
+- 调用方 runtime 在本地 Task 执行中遇到 `a2a_delegate` interrupt（FEAT-005 `RemoteA2aInterruptRail` 已有此点）→ **改造 transport**：从 `A2ARemoteAgentClient.callStreaming/callSync`（HTTP A2A SDK client）改为构造 `ForwardingEnvelope`(eventType=`A2A_CALL_REQUESTED`, source=callerServiceId, target=经 registry route handle 解析的 targetServiceId) → enqueue 调用方 runtime outbox → `BrokerForwardingProducerPort.produce` → RocketMQ。
 - `idempotencyKey` 由调用方生成并复用于重试。
 
 **消费（响应回灌）**：
@@ -297,7 +299,7 @@ sequenceDiagram
   - `requiresInput`（`INPUT_REQUIRED`）→ 发布 `A2A_CALL_INPUT_REQUIRED`（携带远端 taskId + 可恢复上下文引用），不终态；调用方 runtime 经 FEAT-005 shadow-task 续接（事件负责及时通知，shadow task 负责回灌恢复）。FEAT-017 MUST：不得只藏在后续 Task 查询结果中。
   - `complete` → `A2A_CALL_RESPONSE` + `A2A_CALL_TERMINAL`（完成）。
   - `fail`/`cancel` → `A2A_CALL_TERMINAL`（失败/取消，映射 `ForwardingFailureCode.REMOTE_TASK_FAILED` non-retryable）。
-- produce 经 `BrokerForwardingRelayPort` 的 **direct-tap 重载** `produce(BrokerOutboundMessage, long)`（不经 outbox 直投 `T_a2a_resp_in`；FEAT-017 §5.1.4：receive 边界 ack，发布失败由 TaskStore/状态投影/GetTask 恢复）——`default` 抛 `UnsupportedOperationException`，RocketMQ adapter 覆写之。
+- produce 经 `BrokerForwardingProducerPort` 的 **direct-tap 重载** `produce(BrokerOutboundMessage, long)`（不经 outbox 直投 `T_a2a_resp_in`；FEAT-017 §5.1.4：receive 边界 ack，发布失败由 TaskStore/状态投影/GetTask 恢复）——`default` 抛 `UnsupportedOperationException`，RocketMQ adapter 覆写之。
 
 ### 4.4 调用响应状态机
 
@@ -417,7 +419,7 @@ openjiuwen:
 //   target=AgentCardDto.serviceId from A2ARemoteAgentCardRegistry（opaque routeHandle 穿透不解封；
 //   T1 物理端点经 ForwardingEndpointResolver 解析，agent-bus main 零依赖、T1 解析为 caller/gateway 职责）
 //   （as-built agent-solution：ForwardingEndpointResolver impl=MapEndpointResolver @Deprecated T1 PoC；registry 生产集成后由 registry-resolver 提供）
-//   → enqueue caller outbox → BrokerForwardingRelayPort.produce（topic 由 DefaultBrokerTopicResolver 按 eventType 派生）
+//   → enqueue caller outbox → BrokerForwardingProducerPort.produce（topic 由 DefaultBrokerTopicResolver 按 eventType 派生）
 // 响应经 BrokerResponseConsumer poll T_a2a_resp_out → correlation 匹配 →
 //   A2AEnabledServeOrchestrator.buildResumeRequest → reject(resumeInput) 回灌（FEAT-005 既有）
 ```
@@ -515,11 +517,11 @@ sequenceDiagram
 | 项 | 落点 | 状态 |
 |---|---|---|
 | `AgentBusEventType` FEAT-014 族 | `forwarding.spi`（与 FEAT-013 同枚举） | ✅ 已落地（`A2A_CALL_*`/`A2A_STREAM_*`） |
-| event-bus 治理中继（service-to-service 两跳） | `forwarding.runtime.relay`（`EventBusRelayConfiguration`/`Worker`/`RelayScheduler`，与 FEAT-013 共享） | ✅ 已落地（in-repo，见 §3.1/§4.1） |
-| RocketMQ 具体 adapter | `forwarding.runtime.transport.broker.rocketmq`（`RocketMqBrokerForwardingConsumer`/`Relay` + `RocketMqBrokerClientConfiguration`，与 FEAT-013 共用） | ✅ 已落地 |
-| `BrokerForwardingRelayPort` direct-tap 重载 `produce(BrokerOutboundMessage, long)` | `forwarding.spi.broker`（`default` UnsupportedOperationException；RocketMQ adapter + InMemoryBroker 覆写） | ✅ 已落地（FEAT-017/014 target runtime 响应 producer 不经 outbox 直投 `resp_in`；见 feat-013 §3.3.1） |
+| event-bus 治理中继（service-to-service 两跳） | `forwarding.runtime.relay`（`AgentBusRelayRoleAutoConfiguration`/`Worker`/`RelayScheduler`，与 FEAT-013 共享） | ✅ 已落地（in-repo，见 §3.1/§4.1） |
+| RocketMQ 具体 adapter | `forwarding.runtime.transport.broker.rocketmq`（`RocketMqBrokerForwardingConsumer`/`RocketMqBrokerForwardingProducer` + 角色 autoconfig：base/caller/runtime 三 `@AutoConfiguration`，与 FEAT-013 共用） | ✅ 已落地 |
+| `BrokerForwardingProducerPort` direct-tap 重载 `produce(BrokerOutboundMessage, long)` | `forwarding.spi.broker`（`default` UnsupportedOperationException；RocketMQ adapter + InMemoryBroker 覆写） | ✅ 已落地（FEAT-017/014 target runtime 响应 producer 不经 outbox 直投 `resp_in`；见 feat-013 §3.3.1） |
 | registry-discovery-center 集成（Option B，与 FEAT-013 共享） | `BrokerTopicResolver` SPI + `DefaultBrokerTopicResolver`（`A2A_*` 族→`ascend_bus_a2a_*` topic）+ `subscribe(consumerServiceId, AgentBusEventType, DeliveryFilter)` + `GatewayRuntimeService` test 范围注入 `AgentDiscoveryService` | ✅ 已落地（agent-bus **main** 对 registry **零依赖**；FEAT-014 `A2A_*` 族经 eventType 派生 a2a topic、opaque routeHandle T4 穿透不解封）；⬜ agent-runtime caller 侧 T1 endpoint 解析 + gateway 生产模块（`RegistryEndpointResolver`/`SseBridgeService`）留待后续波次 |
-| agent-runtime broker consumer/producer | 外仓 `agent-runtime-java/service/agent-service-app`：`controller.broker`（`BrokerInvocationConsumer`/`BrokerResponseProducer`）+ `autoconfigure.BrokerAutoConfiguration` | ⬜ 外仓 in-flight（tap `AgentEmitter`；复用 `ServeOrchestrator`/`A2AEnabledServeOrchestrator`；可复用 in-repo `responseConsumer`/`requestRelay`） |
+| agent-runtime broker consumer/producer | 外仓 `agent-runtime-java/service/agent-service-app`：`controller.broker`（`BrokerInvocationConsumer`/`BrokerResponseProducer`）+ `autoconfigure.BrokerAutoConfiguration` | ⬜ 外仓 in-flight（tap `AgentEmitter`；复用 `ServeOrchestrator`/`A2AEnabledServeOrchestrator`；可复用 in-repo `responseConsumer`/`requestProducer`） |
 | 调用方 runtime 从 HTTP A2A client 改 broker produce | `agent-runtime-ext-java` FEAT-005 `RemoteA2aInterruptRail`/`A2ARemoteAgentClient` 调用点 | ⬜ 外仓 in-flight（interrupt/resume + shadow task 机制不变，只换 transport） |
 | `ServeRequest` additive `idempotencyKey`/`correlationId` | `agent-service-spec/dto/ServeRequest.java` | ⬜ 外仓 in-flight |
 | 远端创建幂等 `tenantId+idempotencyKey` | agent-runtime `RedisTaskStore`/`WriteThrottlingTaskStore` | ⬜ 外仓 in-flight |
@@ -529,7 +531,7 @@ sequenceDiagram
 ### 8.2 复用项
 
 - event-bus 转发底座（outbox/inbox/worker/状态机/JDBC/RLS/relay/broker，443 green / 14 skip——含 FEAT-013/014 接线 + E2E IT）。
-- broker-agnostic SPI（`BrokerForwardingRelayPort`/`ConsumerPort` + message types + `InMemoryBroker` 契约测试）。
+- broker-agnostic SPI（`BrokerForwardingProducerPort`/`ConsumerPort` + message types + `InMemoryBroker` 契约测试）。
 - FEAT-005 `A2AEnabledServeOrchestrator` 的 `a2a_delegate` interrupt/resume + shadow task 回灌机制（`buildResumeRequest`/`tryResumePending`/`syncResumePending`）。
 - FEAT-005 `RemoteA2aInterruptRail` / `A2ARemoteAgentCardRegistry` / `A2ARemoteAgentClient` 的调用点与 card 发现（transport 改 broker）。
 - SDK `AgentEmitter` 回调（`startWork`/`addArtifact`/`requiresInput`/`complete`/`fail`/`cancel`）作为 producer tap 点。
@@ -540,7 +542,7 @@ sequenceDiagram
 
 - 本 L2 为 FEAT-014 本期决定接线方向，**非推翻** Stage 1→26 叙事。Stage 25 裁决 T4 hybrid（outbox + broker，`adopted-t4`）；Stage 26 落 broker-agnostic SPI 骨架 + 锁定 RocketMQ。
 - **本期 event-bus→agent-runtime 取代 `A2aForwardingDeliveryPort` 的 a2a push**：T1 HTTP sync push 路径（Stage 15 落地、Stage 17/18 端到端验证）在本特性范围内被 broker pub/sub 取代；T1 PoC 保留共存/灰度切换（Stage 30 T1→T4 切换）。FEAT-014 投产路径 = broker。
-- 本 L2 推进的 Stage 27+ 事项（FEAT-014 范围内）**已落地（5193972e，in-repo 部分）**：relay adapter 接 worker（`EventBusRelayConfiguration`/`EventBusRelayWorker`，与 FEAT-013 共享）、模型 B 反向 ack（`RocketMqBrokerForwardingConsumer` ack-after-consume）、生产 TickSource（`RelayScheduler` `SmartLifecycle` subscribe-before-poll）。`AWAITING_ACK` 第 7 态未引入（复用 `DISPATCHING`+长 lease）。agent-runtime 侧 receiver consumer/producer 仍 ⬜ 外仓 in-flight（见 §8.1）。
+- 本 L2 推进的 Stage 27+ 事项（FEAT-014 范围内）**已落地（5193972e，in-repo 部分）**：relay adapter 接 worker（`AgentBusRelayRoleAutoConfiguration`/`EventBusRelayWorker`，与 FEAT-013 共享）、模型 B 反向 ack（`RocketMqBrokerForwardingConsumer` ack-after-consume）、生产 TickSource（`RelayScheduler` `SmartLifecycle` subscribe-before-poll）。`AWAITING_ACK` 第 7 态未引入（复用 `DISPATCHING`+长 lease）。agent-runtime 侧 receiver consumer/producer 仍 ⬜ 外仓 in-flight（见 §8.1）。
 
 ### 8.4 不承诺项（对齐 FEAT-014 §5.2）
 
