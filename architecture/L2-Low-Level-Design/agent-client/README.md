@@ -41,7 +41,7 @@ dependency:
 
 - L1 视图：`architecture/L1-High-Level-Design/agent-client/{overview,logical,scenarios,development,process,physical}.md`
 - SDK 设计提案：`agent-client/docs/proposals/agent-client-v1-design.md`
-- runtime 侧对齐基线：`architecture/L2-Low-Level-Design/agent-runtime/Feat-Func-009-调用端侧工具响应-新增支持带有端侧工具的请求.md`
+- runtime 侧对齐基线：`architecture/L2-Low-Level-Design/agent-runtime/Feat-Func-009-runtime-response-client-side-tool-calling.md`
 - 端侧接入最佳实践与测试：`agent-client/docs/getting-started.md`
 - 设备可移植性与 V1 交付形态：`agent-client/docs/device-portability-and-v1-delivery.md`
 - 参照实现（可运行原型）：`agent-client/examples/cloud-client/`

@@ -4,7 +4,7 @@ module: agent-client
 feature_type: functional
 feature_id: FEAT-007
 status: active
-updated: 2026-07-21
+updated: 2026-07-24
 ---
 # 客户端本地工具注册与执行
 
@@ -40,9 +40,9 @@ FEAT-007 定义 `agent-client` 当前版本承载客户端本地工具接入的�
 | 本地执行状态 | MUST | SDK 必须为每次工具请求投影维护本地执行状态和执行记录；该状态只用于客户端执行、UI 展示和本地审计。 |
 | 本地工具执行 | MUST | Client 收到工具请求后，只能执行已注册、已暴露、当前可用且权限允许的本地工具，并返回最小必要结果、授权引用、审计引用或结构化拒绝。 |
 | 本地授权与审批 | MUST | 无需授权的工具可由 client 自动执行；需要授权、确认或审批的 Action 工具必须进入 client / 业务应用本地治理流程，服务端不得远程驱动客户端内部审批步骤。 |
-| 结果提交 | MUST | 工具执行结果必须通过 Gateway / IngressGateway 主动提交给 runtime；该提交是同一业务 invocation 下的 client 内部恢复请求，不是业务应用感知的新 invocation。 |
+| 结果提交 | MUST | 工具执行结果必须通过 Gateway / IngressGateway 主动提交给 runtime；业务 facade 创建新的 continuation invocation 并关联原 invocation，SDK 内部使用原 taskRef 恢复同一服务端 Task。 |
 | 单次最终结果 | MUST | 一次工具请求投影在协议闭环上最多接受一个最终结果；重复提交必须幂等返回同一结果或明确冲突。 |
-| 工具执行结果错误结构化 | MUST | 未声明工具、工具不可用、权限拒绝、上下文过期、参数非法、超时、重复提交和执行失败必须有结构化错误。 |
+| 工具执行结果错误结构化 | MUST | 未声明工具、工具不可用、权限拒绝、上下文过期、参数非法、超时、重复提交和执行失败必须在 client 本地形成结构化 `ToolExecutionRecord`；当前 wire 只提交其渲染后的 observation 文本或受治理引用。 |
 | 状态边界 | MUST | SDK 只保存本地工具目录、暴露策略、执行状态、审计引用和 invocation 到 taskRef 的必要映射，不拥有服务端 Task 权威状态，也不决定 runtime Task 是否恢复或终态。 |
 
 ## 3. 外部接口与入口要求
@@ -55,9 +55,9 @@ FEAT-007 定义 `agent-client` 当前版本承载客户端本地工具接入的�
 | 本地工具注册 SPI | SDK SPI | 业务应用在集成开发阶段实现并注册本地工具 handler；SDK 必须校验声明完整性和 toolId 唯一性。 |
 | `ToolExposurePolicy` | SDK facade / 配置对象 | 业务应用显式声明 conversation 级或 invocation 级可暴露工具范围、拒绝范围、过期时间、最大使用次数、Action 授权模式、数据最小化和脱敏策略。默认策略为空视图。 |
 | `ToolView` | client 能力投影 | client 基于本地工具目录和暴露策略生成，随 FEAT-006 invocation 上报给 Gateway / runtime。ToolView 只表达当前可见客户端能力，不是服务端工具目录，也不得包含未授权工具。 |
-| 工具请求投影消费 | SDK 消费语义 | SDK 必须能识别 Gateway / runtime 投影中的工具调用请求，校验 toolId、参数 schema、conversation / invocation 关联、权限、过期和 ToolView 可见性；本文不定义该请求的服务端契约主权。 |
+| 工具请求投影消费 | SDK 消费语义 | SDK 必须能识别 Gateway / runtime 投影中的工具调用请求，按原 invocation 的不可变 ToolView 快照用唯一 toolName 解析本地 toolId，并校验参数 schema、conversation / invocation 关联、权限、过期和 ToolView 可见性；toolId 无须出现在 wire 投影中。 |
 | `ToolExecutionRecord` | client 本地状态对象 | 记录工具请求关联、本地执行状态、授权结果、执行结果摘要、拒绝原因、错误、幂等键和本地审计 / 证据引用。 |
-| 工具结果提交 facade | SDK 内部恢复请求 | client 主动提交结果、拒绝或结构化错误，必须携带工具请求关联、执行 outcome、最小必要 payload 或 payloadRef、幂等键和本地审计 / 证据引用；runtime 是否恢复 Task 不属于本特性决定。 |
+| 工具结果提交 facade | SDK continuation facade | client 本地保留 outcome、payload / payloadRef、幂等键和审计 / 证据引用；facade 创建新的 continuation invocation，wire 仅提交带工具调用关联的 observation 文本或最小受治理引用。runtime 不解析这些本地结构化字段，是否恢复 Task 不属于本特性决定。 |
 
 ## 4. 场景与用户旅程
 
@@ -69,7 +69,7 @@ FEAT-007 定义 `agent-client` 当前版本承载客户端本地工具接入的�
 | 服务端请求本地工具 | runtime 基于 ToolView 判断需要端侧工具参与 | runtime / Gateway 通过服务流、Task 投影或等价消息投影工具请求 | client 识别工具请求投影，校验该工具已注册、已暴露、参数匹配、上下文有效且权限允许；未通过校验时返回结构化拒绝。 |
 | 自动执行 Observation 工具 | 工具为只读 Observation，策略允许自动执行 | client 调用本地 Observation handler | client 执行数据范围、脱敏、租户隔离和可见性校验后返回最小必要观测结果或引用，并记录本地执行证据。 |
 | 执行 Action 工具 | 工具会产生业务副作用 | client 根据策略触发本地授权、审批、幂等和审计流程 | 授权通过后执行 Action handler；拒绝、超时或失败必须作为结构化结果返回。服务端不得远程驱动客户端内部审批步骤。 |
-| 工具结果提交闭环 | 本地工具执行完成、拒绝或失败 | client 通过内部恢复请求提交工具结果 | client 携带工具请求关联、outcome、payload / payloadRef、幂等键和审计引用，经 Gateway 提交 runtime；runtime 校验后决定是否恢复、继续等待、失败或取消 Task。 |
+| 工具结果提交闭环 | 本地工具执行完成、拒绝或失败 | client 创建新的 continuation invocation | client 在本地保存结构化执行记录，并经 Gateway 提交带工具调用关联的 observation 文本或受治理引用；SDK 内部映射回原 taskRef，runtime 校验后决定是否恢复或失败。 |
 | 幻觉或越权工具调用 | 服务端请求未在 ToolView 中暴露的工具，或请求超出授权范围 | client 收到工具请求投影 | client 不执行、不动态注册，返回 tool_not_declared、permission_denied 或等价结构化拒绝信号。 |
 | 工具目录更新 | 业务应用升级或撤销本地工具 SPI | 后续 invocation 使用新的工具目录和暴露策略计算 ToolView | 服务端只感知随 invocation 上报的 ToolView；历史 invocation 的工具请求按其关联上下文校验，不因本地目录变化自动获得新工具能力。 |
 
@@ -82,7 +82,7 @@ FEAT-007 定义 `agent-client` 当前版本承载客户端本地工具接入的�
 - 客户端本地工具必须由业务应用在集成开发阶段通过 SDK SPI 显式实现和注册，不能由模型或服务端任意创建。
 - 本地工具目录是 client 本地事实，不是服务端可见工具目录。
 - SDK 必须保留工具版本、schema、策略和 handler 绑定信息，使后续 ToolView 和工具请求校验可追溯。
-- 工具标识必须包含稳定 toolId；name 和 description 可用于模型理解和 UI 展示，但不得替代 toolId 作为执行匹配主键。
+- `toolId` 是 client 本地注册表与 handler 的稳定执行主键，不上 wire；`name` 是模型可见名称和原 ToolView 快照中的唯一 wire 匹配键；`toolCallId` 是服务端为单次调用生成的实例关联与本地去重键。client 先按历史快照把 `name` 解析为 `toolId`，再绑定本地 handler。
 
 #### 5.1.1 工具暴露与 ToolView 语义
 
@@ -103,15 +103,15 @@ FEAT-007 定义 `agent-client` 当前版本承载客户端本地工具接入的�
 #### 5.1.3 远端驱动语义
 
 - 服务端只能通过受治理消息请求 ToolView 中可见的客户端工具，不能直接访问客户端本地资源。
-- 工具请求投影必须可与某个 invocation、ToolView、toolId、参数和 correlation 对齐。
+- 工具请求投影必须可与某个 invocation、原 ToolView 快照中的唯一 toolName、参数和 correlation 对齐；client 再由该历史快照解析本地 toolId，wire 不强制携带 toolId。
 - Client 只能对已注册、已暴露且当前可用的工具执行调用；未声明、未暴露、过期、无权限或参数非法的工具必须返回结构化错误。
 - 如果模型因上下文幻觉请求未在 ToolView 中的工具，client 必须拒绝并返回结构化拒绝信号，不得动态注册或执行。
 
 #### 5.1.4 本地执行与结果提交语义
 
 - 客户端工具执行结果是外部输入，不是服务端事实，runtime 必须校验后才能决定是否推进 Task。
-- 无需授权的本地工具执行可以由 client 在同一业务 invocation 下自行完成；工具结果提交是 client 内部恢复请求，不是业务应用感知的新 invocation。
-- 权限不足、工具不可用、上下文过期、参数非法和执行失败都应作为结构化结果提交，而不是静默丢弃。
+- 无需授权的本地工具执行可以由 client 自行完成；结果提交在业务 facade 上形成新的 continuation invocation，并由 SDK 内部映射到原服务端 Task，不创建新的 Task owner。
+- 权限不足、工具不可用、上下文过期、参数非法和执行失败都应形成 client 本地结构化结果，再渲染为 wire observation 文本或受治理引用提交，不得静默丢弃。
 - 一次工具请求投影在协议闭环上最多接受一个最终结果；本地执行过程可以有本地中间状态、审批、进度和重试，但不得要求服务端直接驱动客户端内部步骤。
 - 重复结果提交必须通过幂等键返回同一结果或明确冲突。
 - runtime 是否恢复、继续等待、失败或取消 Task 不属于 client 决策范围。
