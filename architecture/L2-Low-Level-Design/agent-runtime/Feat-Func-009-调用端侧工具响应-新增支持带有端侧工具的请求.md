@@ -77,13 +77,13 @@ dependency:
 | 子特性 | 职责 | 关键抽象 | 状态 |
 |---|---|---|---|
 | A2A 能力视图接收 | 从 `params.metadata.clientTools` 接收本次工具目录 | `A2aJsonRpcController`, `ServeRequest.metadata` | ⚠️ 基础透传已存在，端侧工具校验待实现 |
-| 请求级 rail 绑定 | 从 metadata 创建 rail，执行前注册、结束后注销 | `JiuwenCoreAgentExtHandler`, `ClientToolSupport` | ⬜ 计划中 |
+| 请求级 rail 绑定 | 从 metadata 创建 rail，执行前注册、结束后注销 | `JiuwenCoreAgentExtHandler`, `ClientToolRail.bind()` | ⬜ 计划中 |
 | 动态工具可见性 | 只向本次 `ModelCallInputs.tools` 添加 ToolInfo | `ClientToolRail#beforeModelCall` | ⬜ 计划中 |
 | 调用移交 | Session 过滤后复用基类，将端侧工具调用转换为 Core interrupt | `ClientToolRail#beforeToolCall`, `BaseInterruptRail` | ⬜ 计划中 |
 | Task 等待投影 | 单 interaction map / 多 `items[]` 原样进入 A2A `INPUT_REQUIRED` | `JiuwenCoreAgentHandler`, `A2AAgentExecutor` | ✅ 通用投影已存在；本需求适配当前 Handler 输出 |
 | continuation 编排分流 | 已恢复的全量 `client_tool` `_interrupt` 跳过 remote batch resume，定向结果到达 ExtHandler | `A2AEnabledServeOrchestrator` | ⬜ 本需求最小修改；其他形态和 coordinator 不改 |
 | 客户端结果回灌 | resume TextPart 由基类 rail 转成原 ToolCall observation | `BaseInterruptRail`, `ClientToolRail#resolveInterrupt` | ⬜ 计划中 |
-| ReActAgent / DeepAgent 覆盖 | 每次请求将 rail 绑定到实际执行的 ReActAgent | `ClientToolSupport` | ⬜ 本需求实现；DeepAgent 仅验收显式启用 task-loop、默认 completion policy 且无已排队 follow-up 的场景 |
+| ReActAgent / DeepAgent 覆盖 | 每次请求将 rail 绑定到实际执行的 ReActAgent | `ClientToolRail.bind()` | ⬜ 本需求实现；DeepAgent 仅验收显式启用 task-loop、默认 completion policy 且无已排队 follow-up 的场景 |
 
 ---
 
@@ -298,12 +298,11 @@ common/agent-runtime-ext-java/
     └── src/main/java/com/openjiuwen/service/adapters/agentcore/ext/
         ├── agentfw/
         │   └── JiuwenCoreAgentExtHandler.java     # 请求前绑定 rail，finally 注销
-        └── external/clienttool/
-            ├── ClientToolSupport.java             # metadata 解析、目标定位和请求级绑定生命周期
-            └── ClientToolRail.java                # 模型注入、Session 过滤、复用基类中断恢复
+        └── external/
+            └── ClientToolRail.java                # 请求解析与绑定、模型注入、Session 过滤和中断恢复
 ```
 
-Solution 只新增上述两个生产文件。`ClientToolSupport` 内部定义 `RequestContext` 和实现 `AutoCloseable` 的 `Binding`，不把一次请求的中间结构拆成公共 DTO 或独立文件；`ClientToolRail` 因承载独立的 Core callback 行为和优先级，保留为单独类型。
+Solution 只在既有 `external` 包直接新增 `ClientToolRail.java` 一个生产文件，并修改既有 `JiuwenCoreAgentExtHandler`；单文件无需再创建 `external.clienttool` 子包。`ClientToolRail` 除承载 Core callback 行为外，还以静态 `bind(agent, request)` 收口 metadata/pending 解析、目标定位、名称冲突检查和注册生命周期；`RequestContext`、`SessionMatchMode` 与实现 `AutoCloseable` 的 `Binding` 均为该文件内的私有或嵌套类型，不新增公共 DTO、Support 类或 Spring Bean。这样保留一个清晰的 client-tool 功能边界，避免把约束解析细节堆入通用 Handler。
 
 ### 3.3 agent-core-java
 
@@ -337,17 +336,16 @@ DeepAgent
 JiuwenCoreAgentHandler
         ▲
         │ extends
-JiuwenCoreAgentExtHandler ───── bind(agent, request) ─────▶ ClientToolSupport
-        │                                                       │
-        │ try/finally                                           │ parse + resolve target
-        ▼                                                       ▼
-super.query/streamQuery()                              ReActAgent / DeepAgent.getAgent()
-        │                                                       │
-        │                                               registerRail(ClientToolRail)
-        │                                                       │
-        └──── return/interrupt/error ──▶ Support.Binding.close()
-                                                                │
-                                                      unregisterRail(exact rail)
+JiuwenCoreAgentExtHandler ── ClientToolRail.bind(agent, request) ──▶ parse + resolve target
+        │                                                                  │
+        │ try/finally                                                      ▼
+        ▼                                                        ReActAgent / DeepAgent.getAgent()
+super.query/streamQuery()                                                  │
+        │                                                        registerRail(ClientToolRail)
+        │                                                                  │
+        └──── return/interrupt/error ──▶ ClientToolRail.Binding.close() ────┘
+                                                                           │
+                                                                 unregisterRail(exact rail)
 
 ClientToolRail extends BaseInterruptRail
 ├── beforeModelCall()：只向当前 Session 注入 ToolInfo
@@ -381,7 +379,7 @@ ClientToolRail extends BaseInterruptRail
 @Override
 public void streamQuery(ServeRequest request, QueryStreamObserver observer) {
     installBeforeRun(); // 既有 Remote A2A + SkillHub 行为
-    try (var binding = clientToolSupport.bind(getAgent(), request)) {
+    try (var binding = ClientToolRail.bind(getAgent(), request)) {
         super.streamQuery(request, observer);
     }
 }
@@ -389,7 +387,7 @@ public void streamQuery(ServeRequest request, QueryStreamObserver observer) {
 @Override
 public QueryResponse query(ServeRequest request) {
     installBeforeRun(); // 既有 Remote A2A + SkillHub 行为
-    try (var binding = clientToolSupport.bind(getAgent(), request)) {
+    try (var binding = ClientToolRail.bind(getAgent(), request)) {
         return super.query(request);
     }
 }
@@ -402,8 +400,8 @@ public QueryResponse query(ServeRequest request) {
 - `BaseAgent` 已公开 `registerRail()` 和 `unregisterRail()`。
 - `JiuwenCoreAgentHandler#query()` 同步返回最终结果或中断结果。
 - `JiuwenCoreAgentHandler#streamQuery()` 在当前调用栈内同步消费 Iterator；DeepAgent 即使在 `deep-agent-stream-*` 后台线程生产数据，Handler 仍阻塞到 `postRun()` 写入 `END_FRAME`、迭代结束或抛出异常后才返回。
-- `ClientToolSupport.Binding#close()` 只注销当前 rail 实例；`ClientToolRail#getTools()` 为空，因此不会增删 `AbilityManager` 中的 ToolCard。
-- `ClientToolSupport` 以原始 Agent 对象作为生命周期锁：普通 `BaseAgent` 锁定自身；DeepAgent 锁定外层 `DeepAgent`，在同一临界区内调用 `ensureInitialized()`、取得内部 ReActAgent并注册 rail。`Binding#close()` 使用同一锁注销，避免同一共享 Agent 上请求并发开始/结束时 callback 列表变更交错；锁只保护注册表变更，不包围 Agent 执行。DeepAgent 的通用首次初始化并发治理属于 Core 生命周期，本需求不额外实现或验收。
+- `ClientToolRail.Binding#close()` 只注销当前 rail 实例；`ClientToolRail#getTools()` 为空，因此不会增删 `AbilityManager` 中的 ToolCard。
+- `ClientToolRail.bind()` 以原始 Agent 对象作为生命周期锁：普通 `BaseAgent` 锁定自身；DeepAgent 锁定外层 `DeepAgent`，在同一临界区内调用 `ensureInitialized()`、取得内部 ReActAgent并注册 rail。`Binding#close()` 使用同一锁注销，避免同一共享 Agent 上请求并发开始/结束时 callback 列表变更交错；锁只保护注册表变更，不包围 Agent 执行。DeepAgent 的通用首次初始化并发治理属于 Core 生命周期，本需求不额外实现或验收。
 
 无 `clientTools` 且无 pending `client_tool` 中断时，`bind()` 返回 no-op binding。
 
@@ -413,10 +411,10 @@ public QueryResponse query(ServeRequest request) {
 
 ### 4.2 目标 Agent 与请求范围
 
-`ClientToolSupport` 复用 `RemoteA2aToolInstaller` 的目标解析模式，同时保留目标类型和生命周期锁，供 Session guard 与并发注册选择规则。直接传入的 ReActAgent 属于 `BaseAgent`；DeepAgent 不继承 `BaseAgent`，而是组合并持有内部 ReActAgent。metadata 解析先形成内部 `RequestContext`，初始化、冲突检查和注册在同一个生命周期锁内完成：
+`ClientToolRail.bind()` 复用 `RemoteA2aToolInstaller` 的目标解析模式，同时保留目标类型和生命周期锁，供 Session guard 与并发注册选择规则。直接传入的 ReActAgent 属于 `BaseAgent`；DeepAgent 不继承 `BaseAgent`，而是组合并持有内部 ReActAgent。metadata 解析先形成同文件内的 `RequestContext`，初始化、冲突检查和注册在同一个生命周期锁内完成：
 
 ```java
-Binding bind(Object agent, ServeRequest request) {
+public static Binding bind(Object agent, ServeRequest request) {
     RequestContext context = prepare(request);
     if (context.isEmpty()) {
         return Binding.noop();
@@ -439,9 +437,9 @@ Binding bind(Object agent, ServeRequest request) {
 }
 ```
 
-`prepare()`、`installLocked()`、`RequestContext` 和 `Binding` 都是 `ClientToolSupport` 的内部实现。`installLocked()` 在已持有 lifecycle lock 的前提下完成名称冲突检查、rail 创建和 `registerRail()`，并把同一个 lock owner 交给 `Binding#close()`。
+`prepare()`、`installLocked()`、`RequestContext` 和 `Binding` 都收口在 `ClientToolRail.java`；除 Handler 需要使用的 `bind()` 和可关闭的 `Binding` 外，其余均不对外暴露。`installLocked()` 在已持有 lifecycle lock 的前提下完成名称冲突检查、rail 创建和 `registerRail()`，并把同一个 lock owner 交给 `Binding#close()`。
 
-`ClientToolSupport` 从内部 `RequestContext` 构造以下不可变数据：
+`ClientToolRail.bind()` 从内部 `RequestContext` 构造以下不可变数据：
 
 - `visibleTools`：当前 `metadata.clientTools` 的完整工具定义，只供 `beforeModelCall` 注入。
 - `visibleToolNames`：`visibleTools` 的名称集合，决定哪些新 ToolCall 可以被识别为本次客户端工具调用。
@@ -477,7 +475,7 @@ ClientToolRail.visibleTools
 
 `ClientToolRail` 构造时显式 `setPriority(70)`。当前 `AgentCallbackManager` 按优先级从高到低执行；已有 `ProgressiveToolRail` 为 90、`AgentModeRail` 为 85，且二者会过滤 `ModelCallInputs.tools`。client rail 必须在这些既有过滤完成后追加当前 ToolView，否则 DeepAgent 首次初始化时的 rail 注册先后会决定端侧工具是否被误删。优先级只固定当前代码中的回调顺序，不修改任何既有 rail。
 
-工具定义保存在请求级 rail 的不可变字段中，不写入 Session、callback extra 或 Agent 全局状态，也不把 `ToolInfo` 反向包装成 `ToolCard`。`installBeforeRun()` 先完成既有 Remote A2A/SkillHub 安装，随后 `ClientToolSupport` 仅针对本次新声明的 `visibleTools`，以已初始化目标 ReActAgent 的 `AbilityManager.listToolInfo()` 检查客户端名称是否与服务端、Remote A2A 或 SkillHub 工具冲突；`beforeModelCall` 再对当次 `ModelCallInputs.tools` 做防御性冲突检查。若同一视图内重名或任一层冲突，当前执行失败并返回可诊断错误；禁止覆盖或拦截已有工具。从历史 `_interrupt` 恢复出的 pending-only 名称只用于完成原 ToolCall 的结果回灌，不重新声明或暴露工具，也不因恢复时出现新的同名服务端工具而绕过既有 Session + `toolCallId` 恢复点。
+工具定义保存在请求级 rail 的不可变字段中，不写入 Session、callback extra 或 Agent 全局状态，也不把 `ToolInfo` 反向包装成 `ToolCard`。`installBeforeRun()` 先完成既有 Remote A2A/SkillHub 安装，随后 `ClientToolRail.bind()` 仅针对本次新声明的 `visibleTools`，以已初始化目标 ReActAgent 的 `AbilityManager.listToolInfo()` 检查客户端名称是否与服务端、Remote A2A 或 SkillHub 工具冲突；`beforeModelCall` 再对当次 `ModelCallInputs.tools` 做防御性冲突检查。若同一视图内重名或任一层冲突，当前执行失败并返回可诊断错误；禁止覆盖或拦截已有工具。从历史 `_interrupt` 恢复出的 pending-only 名称只用于完成原 ToolCall 的结果回灌，不重新声明或暴露工具，也不因恢复时出现新的同名服务端工具而绕过既有 Session + `toolCallId` 恢复点。
 
 ### 4.4 `beforeToolCall`：范围过滤后复用基类
 
@@ -610,12 +608,12 @@ agent-client continuation invocation
   -> A2AEnabledServeOrchestrator 确认已恢复的 _interrupt 为全量 client_tool
   -> 跳过 RemoteInvocationBatchCoordinator.resume()，直接进入 Handler
   -> A2AEnabledServeOrchestrator 原样转发 client_tool resume
-  -> ClientToolSupport 将单 map / 多 items[] 解析为 pending 列表
+  -> ClientToolRail.bind() 将单 map / 多 items[] 解析为 pending 列表
   -> 校验结果集合与当前 client_tool pending items 完整且一一对应
   -> 多 pending：校验 runtime.remoteToolInputs 后转成 runtime.remoteToolResults
   -> 单 pending：无 toolCallId 时保留普通文本，由 ReActAgent 定向到唯一 pending ToolCall；带 ID 时按多目标路径校验并转换
   -> JiuwenCoreAgentHandler 沿用现有逻辑构造 InteractiveInput.userInputs
-  -> ClientToolSupport 读取全部 pending client_tool 的 toolCallId -> toolName
+  -> ClientToolRail.bind() 读取全部 pending client_tool 的 toolCallId -> toolName
   -> 创建请求级 ClientToolRail(baseInterceptToolNames = visible names + pending names)
   -> ReActAgent 根据 ToolInterruptionState 将每个输入关联到对应 pending ToolCall
   -> ClientToolRail.beforeToolCall() 过滤 Session，并按 visible name 或 pending ID + name 放行后调用 super
@@ -673,7 +671,7 @@ ReAct Session B 或 DeepAgent 派生 Session B_<数字> callback
   └── rail B: 命中并处理
 ```
 
-`AgentCallbackManager` 按 rail 实例记录 callback，`ClientToolSupport.Binding#close()` 只移除自己的注册。同一目标 Agent 的 client rail 注册和注销使用第 4.1.2 节的生命周期锁串行化，callback 执行不持锁；不同请求仍可并发执行，并由 Session guard 隔离。同一请求内多个 ToolCall 可以并行进入同一个 `ClientToolRail`；rail 只读取不可变工具集合和 callback 自身的 ToolCall/resume input，不保存批次完成计数或共享结果，因此不得增加需要锁保护的 client-tool 批次状态。
+`AgentCallbackManager` 按 rail 实例记录 callback，`ClientToolRail.Binding#close()` 只移除自己的注册。同一目标 Agent 的 client rail 注册和注销使用第 4.1.2 节的生命周期锁串行化，callback 执行不持锁；不同请求仍可并发执行，并由 Session guard 隔离。同一请求内多个 ToolCall 可以并行进入同一个 `ClientToolRail`；rail 只读取不可变工具集合和 callback 自身的 ToolCall/resume input，不保存批次完成计数或共享结果，因此不得增加需要锁保护的 client-tool 批次状态。
 
 当前 Core interruption state 本身以 Session 为恢复边界，因此同一 Session 的并行 Agent invocation 不在本特性并发承诺内；runtime 应维持同一 A2A context 的顺序执行约束。不同 contextId 之间应覆盖 `ctx` 与 `ctx_1` 等容易混淆的隔离测试：DeepAgent rail 只匹配各自完整派生 Session，不匹配任何原始 ID。
 
@@ -1000,10 +998,9 @@ L1 已定义 client 不暴露 server-to-client webhook，而是从 Task 状态�
 
 | 文件/类 | 修改 |
 |---|---|
-| `JiuwenCoreAgentExtHandler` | 保留 `installBeforeRun()` 的 Remote A2A/SkillHub 行为；`query/streamQuery` 前调用 `ClientToolSupport.bind(agent, request)`，`finally` 通过 try-with-resources 关闭绑定；不包装输出、不改写单/多 wire 形态，不覆盖 `runnerSession()` |
-| `ClientToolSupport` | 单文件承载 metadata/pending 解析、带 ID 结果集合校验与 Map 转换、ReActAgent/DeepAgent 目标定位、名称冲突检查和请求级 rail 注册/注销；内部定义 `RequestContext` 与 `Binding`，`Binding#close()` 在同一 lifecycle lock 内精确注销 rail并提供 no-op 实现；不新增公共 DTO 或 Spring Bean |
-| `ClientToolRail` | 继承 `BaseInterruptRail` 并设置 priority 70，确保在当前 ProgressiveTool/AgentMode 工具过滤后注入；实现 `beforeModelCall`、Session 过滤和调用身份门控；新调用按 `visibleToolNames` 放行，pending-only 恢复按 `toolCallId + toolName` 放行，再复用基类读取 resume input 和回灌 ToolMessage；不保存批次可变状态 |
-| `AgentCoreExtAutoConfiguration` | **不修改**；`ClientToolSupport` 无外部依赖，由 ExtHandler 直接持有实例，不新增 Bean |
+| `JiuwenCoreAgentExtHandler` | 保留 `installBeforeRun()` 的 Remote A2A/SkillHub 行为；`query/streamQuery` 前调用 `ClientToolRail.bind(agent, request)`，`finally` 通过 try-with-resources 关闭绑定；不持有 Support 实例、不包装输出、不改写单/多 wire 形态，不覆盖 `runnerSession()` |
+| `ClientToolRail` | **唯一新增生产类**。静态 `bind()` 承载 metadata/pending 解析、带 ID 结果集合校验与 Map 转换、ReActAgent/DeepAgent 目标定位、名称冲突检查和请求级注册/注销；嵌套 `RequestContext` 与 `Binding` 不拆文件。rail 本身继承 `BaseInterruptRail` 并设置 priority 70，实现 `beforeModelCall`、Session 过滤和调用身份门控，再复用基类读取 resume input 和回灌 ToolMessage；不保存批次可变状态 |
+| `AgentCoreExtAutoConfiguration` | **不修改**；`ClientToolRail` 无外部依赖，由 ExtHandler 静态调用，不新增 Bean |
 
 `RemoteA2aToolInstaller` 和 `RemoteA2aInterruptRail` 不修改，只增加共存测试。
 
@@ -1108,7 +1105,7 @@ ToolCall
   -> JiuwenCoreAgentHandler.toInterruptData()
   -> Task status message metadata._interrupt（单 map / 多 items[]）
   -> copyStoredInterrupt()
-  -> ClientToolSupport pendingCallsById[toolCallId] = toolName
+  -> ClientToolRail.bind() pendingCallsById[toolCallId] = toolName
   -> TextPart.metadata.toolCallId
   -> InteractiveInput.userInputs[toolCallId]
 ```
