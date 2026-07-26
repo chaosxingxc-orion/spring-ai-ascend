@@ -28,7 +28,7 @@ dependency:
 >
 > 目标模块：`agent-runtime`
 >
-> 最后更新：2026-07-25
+> 最后更新：2026-07-26
 >
 > 当前状态：功能代码已落地并接入 agent-bus runtime role，等待跨进程功能联调；生产持久化与多实例 DFX 后续实施
 
@@ -58,31 +58,34 @@ agent-bus ──> RuntimeBusEventAdapter ┘              └─> A2AAgentExecut
 
 FEAT-017 的代码实施基线和目标代码仓均为 `agent-solution`，预期落点位于 `common/agent-runtime-ext-java`。`spring-ai-ascend` 在本特性中只保存 version-scope 与 L0/L1/L2 架构文档；其中存在的同名 runtime 或 bus 验证代码不属于本特性的当前生产实现事实，不作为类名、包结构或完成度判断依据。
 
-`agent-solution/common/agent-runtime-ext-java` 是 `agent-runtime-java` 的扩展层。它当前通过 Maven 依赖使用 `com.openjiuwen:agent-service-spec`、`agent-service-app` 和 `agent-service-adapters-agentcore` 0.1.0，因此 A2A Task 控制面由上游 `agent-runtime-java` 提供，FEAT-017 在 `agent-solution` 中基于这些公开类型和 Spring 扩展接缝完成接入，不复制或修改上游 Task 状态机。
+`agent-solution/common/agent-runtime-ext-java` 是 `agent-runtime-java` 的扩展层。A2A HTTP 入口和 Task 控制面由上游 `agent-runtime-java` 的 `agent-service-app` 提供；FEAT-017 直接依赖公开 A2A SDK，并通过 Spring AOP 在现有 `RequestHandler` 调用边界增加 streamRef 校验，不复制或修改上游 Task 状态机。由于生产代码不引用 `agent-service-app` 或 `agent-service-spec` 类型，FEAT-017 POM 不声明这两个非必要依赖，也不通过 exclusions 人为修改其他模块的传递依赖；FEAT-017 不使用 `AgentServiceIdentity` 推导 serviceId。
 
 | 范围 | `agent-solution` 当前代码事实 | FEAT-017 目标设计 |
 |---|---|---|
 | 代码位置 | 已有 `common/agent-runtime-ext-java` 聚合工程，包含 AgentCore 增强与 Versatile adapter | 在该扩展工程下新增 `agent-service-bus-consumer` 模块；不把生产代码放入 `spring-ai-ascend` |
-| 上游 runtime 依赖 | runtime host 通过 0.1.0 依赖消费 `agent-service-spec`、`agent-service-app`、`agent-service-adapters-agentcore` | FEAT-017 模块只直接依赖公开 A2A SDK，复用 `RequestHandler`、`TaskStore` 和标准 Task 生命周期；通过配置类全名声明与 `A2AAutoConfiguration` 的装配顺序，不直接或传递依赖 `agent-service-spec`；如公开扩展面不足，先形成明确的上游接口诉求，不复制内部实现 |
+| 上游 runtime 依赖 | runtime host 通过 0.1.0 依赖消费 `agent-service-app` 及其上游依赖 | FEAT-017 直接复用公开 A2A SDK 的 `RequestHandler`、`TaskStore` 和标准 Task 生命周期；`agent-service-app` 只补充标准 `SubscribeToTask` 协议分发，不增加 FEAT-017 专有接口、字段或请求头处理。FEAT-017 的 `StreamReferenceSubscriptionAspect` 在 `/a2a SubscribeToTask` 调用 `RequestHandler` 前读取当前 HTTP 请求头并校验 streamRef |
 | Agent 执行接入 | `JiuwenCoreAgentExtHandler` 继承上游 `JiuwenCoreAgentHandler`；另有 `VersatileAgentHandler` adapter | 总线入口进入同一 Serve/A2A 执行链，保持现有 handler 对事件来源无感知 |
 | Spring 装配 | 已有 `AgentCoreExtAutoConfiguration`、`VersatileAutoConfiguration` 和 AutoConfiguration imports | 新增独立的 bus consumer auto-configuration，按配置和所需具体组件条件激活，不侵入现有 adapter 装配 |
 | 总线消费 | agent-bus PR 124 已提供 runtime role；FEAT-017 已实现请求事件适配、信封校验和消费确认 | SDK 自动提供 `runtimeRequestConsumer`；`AgentBusBrokerDeliveryPort` 与 `BrokerDeliveryLoop` 完成事件接收和 `ACK_CONSUMED` / `ACK_REJECTED` / `RETRY` 裁决 |
-| 响应投影 | agent-bus PR 124 已提供 `runtimeResponseProducer` direct produce；FEAT-017 已实现 `INVOCATION_*` / `A2A_CALL_*` 状态投影发布 | Task 投影协调和 `BusResponseProjectionStore` 负责投影幂等/重试，`AgentBusResponsePublisher` 通过 SDK producer 直发 `resp_in` |
+| 响应投影 | agent-bus PR 124 已提供 `runtimeResponseProducer` direct produce；FEAT-017 已实现 `INVOCATION_*` / `A2A_CALL_*` 状态投影发布 | Task 投影协调和 SDK 内置 `InMemoryBusResponseProjectionStore` 负责进程内投影幂等/重试，`AgentBusResponsePublisher` 通过 SDK producer 直发 `resp_in` |
 | 幂等与恢复 | 已提供内存 admission/projection store，能够验证单进程幂等、投影去重和 relay；上游 TaskStore 已支持可选 Redis | 当前阶段以内存 Store 闭合功能；admission/projection 的 Redis 持久化、跨重启和多实例原子性作为后续 DFX |
 | broker 接线 | agent-bus SDK 按 `agent-bus.role.runtime.enabled=true` 自动提供请求 consumer 和响应 producer | Demo 只提供 `AgentHandler` 和部署配置，不创建 RocketMQ、Topic resolver、consumer、producer 或 dispatcher |
 
 因此，本文后续出现的 `RuntimeBus*`、`Bus*` 和 `ProjectingTaskStore` 均是 `agent-solution` 的目标设计类型，不是 `spring-ai-ascend` 中已有类，也不是当前已运行能力；其与上游 runtime 的具体方法签名必须以 `agent-runtime-java` 0.1.0 对外 API 和最终编译验证为准。
 
-本阶段交付边界优先闭合创建、查询、取消、订阅、Task 状态观察和响应投影等功能链路。
-`BusTaskAdmissionStore` 与 `BusResponseProjectionStore` 暂时使用内存实现，功能验证环境显式配置
-`allow-ephemeral-state=true`。这两类状态只保证当前进程存活期间有效，不声明跨重启可靠性或
-多实例一致性。上游 `RuntimeRedisClient` 目前缺少多 Key 条件更新、CAS/Lua 和带租约 claim，
-不能仅用普通 `GET + SET` 满足 admission 状态转换与 projection 顺序的原子要求；Redis
-持久化保留为后续 DFX，不阻塞当前功能验收。
+本阶段交付边界优先闭合创建、查询、订阅、Task 状态观察和响应投影等功能链路。FEAT-001
+当前标准入口没有交付 `CancelTask`，因此 FEAT-017 同步裁剪取消能力：不订阅
+`CLIENT_INVOCATION_CANCEL_REQUESTED` 或 `A2A_CALL_CANCEL_REQUESTED`，也不通过内部 bridge
+绕过 FEAT-001 调用 SDK 的 `onCancelTask`。agent-bus 可以保留并转发这两个协议事件，但目标
+runtime 在 FEAT-001 补齐取消能力前不声明消费支持。
+`InMemoryBusTaskAdmissionStore` 与 `InMemoryBusResponseProjectionStore` 由 SDK 自动装配。这两类
+状态只保证当前进程存活期间有效，不声明跨重启可靠性或多实例一致性。上游
+`RuntimeRedisClient` 目前缺少多 Key 条件更新、CAS/Lua 和带租约 claim，不能仅用
+普通 `GET + SET` 满足 admission 状态转换与 projection 顺序的原子要求；Redis 持久化和生产级
+durability capability 检查保留为后续 DFX，不阻塞当前功能验收。
 
-上述两个 Store 接口是 FEAT-017 的内部实现边界，不是开发者 SPI。自动装配无条件创建 SDK
-内置实现，不使用 `@ConditionalOnMissingBean` 允许业务应用替换；未来持久化实现也由 SDK
-内部提供和切换。
+上述两个 Store 是 FEAT-017 的 SDK 内部具体实现，不是开发者 SPI，也不要求业务应用提供
+Bean。未来持久化能力由 SDK 内部实现和切换。
 
 ### 1.3 设计目标
 
@@ -122,7 +125,7 @@ FEAT-017 的代码实施基线和目标代码仓均为 `agent-solution`，预期
 │  RuntimeBusEventConsumer                                                  │
 │    ├─ BusEnvelopeValidator                                                │
 │    ├─ inline payload reader                                               │
-│    ├─ BusTaskAdmissionStore                                               │
+│    ├─ InMemoryBusTaskAdmissionStore                                       │
 │    └─ RequestHandlerBusA2aBridge ────────┐                                 │
 │                                          ▼                                 │
 │                               A2A RequestHandler                           │
@@ -135,7 +138,7 @@ FEAT-017 的代码实施基线和目标代码仓均为 `agent-solution`，预期
 │                                          ▼                                 │
 │                              BusTaskProjectionCoordinator                  │
 │                                          │                                 │
-│                              BusResponseProjectionStore                    │
+│                              InMemoryBusResponseProjectionStore            │
 │                                          │                                 │
 │                              AgentBusResponsePublisher                     │
 └──────────────────────────────────────────┼─────────────────────────────────┘
@@ -151,16 +154,16 @@ FEAT-017 的代码实施基线和目标代码仓均为 `agent-solution`，预期
 | `RuntimeBusEventConsumer` | 编排校验、幂等 admission、A2A bridge、初始投影和消费结果 | 执行业务 Agent；实现 broker retry |
 | `BusEnvelopeValidator` | 校验 schema、tenant、target、deadline、事件族和 payload 描述 | 解析 broker header |
 | inline payload reader | 从已规范化信封中读取 inline payload；遇到只有 `payloadRef` 的事件时返回确定性不可解析结果 | 猜测引用协议；把引用字符串当作 A2A JSON |
-| `BusTaskAdmissionStore` | 以 `(tenantId,idempotencyKey)` 保证创建类 Task admission 唯一；保存 `taskId` 与请求摘要 | 代替 bus inbox 去重 |
-| `RequestHandlerBusA2aBridge` | 将事件映射到 `RequestHandler` 的 send/get/cancel/subscribe 语义 | HTTP 回环；私有 Task 状态机 |
+| `InMemoryBusTaskAdmissionStore` | 以 `(tenantId,idempotencyKey)` 保证当前进程内创建类 Task admission 唯一；保存 `taskId` 与请求摘要 | 代替 bus inbox 去重；提供跨重启持久化 |
+| `RequestHandlerBusA2aBridge` | 将事件映射到 `RequestHandler` 的 send/get/subscribe 语义 | HTTP 回环；私有 Task 状态机；FEAT-001 未支持的 CancelTask |
 | `BusTaskProjectionCoordinator` | 观察 A2A 返回值和 Task 状态，形成响应事件族 | 通过 bus 发布 token chunk |
-| `BusResponseProjectionStore` | 保存待发布/已发布投影及稳定 eventId，支持失败补发 | 成为 Task 真相源 |
+| `InMemoryBusResponseProjectionStore` | 保存当前进程内待发布/已发布投影及稳定 eventId，支持失败补发 | 成为 Task 真相源；提供跨重启持久化 |
 | `AgentBusResponsePublisher` | 把 runtime-neutral 响应投影转换成 `BrokerOutboundMessage`，通过 SDK 的 `runtimeResponseProducer` 直发 `resp_in` | 创建 RocketMQ producer、选择 Topic 或管理 broker 生命周期 |
 
 Task 状态观察采用目标类型 `ProjectingTaskStore` 装饰 A2A SDK 公共 `TaskStore`：委托原读写后，把发生 revision 变化的 Task 快照交给 `BusTaskProjectionCoordinator`。它不得另起 consumer 与 A2A SDK 的 `MainEventBusProcessor` 竞争同一内部队列。当前 repair scan 只在本进程存活期间补偿仍能从 admission/projection 内存状态关联的 Task revision；跨重启扫描持久化 TaskStore 并恢复缺失投影，需要后续持久化 admission/projection Store 配合。
 
-`BusTaskAdmissionStore` 和 `BusResponseProjectionStore` 虽以 Java 接口表达，但只用于 SDK
-内部解耦 consumer、coordinator、relay 与存储实现。开发者不注册这两个接口的 Bean。
+consumer、coordinator、relay 和 streamRef 校验直接使用 SDK 内置的两个内存 Store。这里
+不提供 Store 接口或应用侧替换点，普通 Agent 开发者不需要实现任何 FEAT-017 存储类型。
 
 `TaskStore` 接口本身可由扩展层实现，但上游默认 store 由 `A2AAutoConfiguration` 通过 `@ConditionalOnMissingBean` 创建。实施前必须用编译/启动 PoC 确认包装方式：优先由扩展模块提供完整的 `TaskStore` bean 并组合 delegate；若无法在不复制上游默认构造逻辑的前提下完成包装，则向上游增加 `TaskStore` customizer/decorator 扩展点。禁止依赖运行期 bean 替换或形成两个并列 `TaskStore`。
 
@@ -203,7 +206,7 @@ public record AgentBusEventEnvelope(
 
 字段约束：
 
-| 字段 | 创建 | 查询/取消/订阅 | 约束 |
+| 字段 | 创建 | 查询/订阅 | 约束 |
 |---|---:|---:|---|
 | `schemaVersion` | 必填 | 必填 | 只接受受支持 major version |
 | `messageId` | 必填 | 必填 | bus receipt 去重与审计标识 |
@@ -223,16 +226,21 @@ public record AgentBusEventEnvelope(
 |---|---|---|---:|---|
 | `CLIENT_INVOCATION_REQUESTED` | `onMessageSend` / `onMessageSendStream` | `MessageSendParams` 或 A2A JSON-RPC request | 是/推进已有 Task | `INVOCATION_ACCEPTED`，可追加 RESPONSE/STREAM_READY |
 | `CLIENT_INVOCATION_QUERY_REQUESTED` | `onGetTask` | `taskId` + query params | 否 | `INVOCATION_RESPONSE` |
-| `CLIENT_INVOCATION_CANCEL_REQUESTED` | `onCancelTask` | `taskId` | 否 | `INVOCATION_RESPONSE`，随后 TERMINAL |
-| `CLIENT_STREAM_SUBSCRIBE_REQUESTED` | `onSubscribeToTask` 的可订阅性检查 | `taskId` | 否 | `INVOCATION_STREAM_READY` |
+| `CLIENT_STREAM_SUBSCRIBE_REQUESTED` | `onGetTask` 的可订阅性检查；HTTP 接续时调用 `onSubscribeToTask` | `taskId` | 否 | `INVOCATION_STREAM_READY` |
 | `A2A_CALL_REQUESTED` | `onMessageSend` / `onMessageSendStream` | `MessageSendParams` 或 A2A JSON-RPC request | 是/推进已有 Task | `A2A_CALL_ACCEPTED`，可追加 RESPONSE/STREAM_READY |
 | `A2A_CALL_QUERY_REQUESTED` | `onGetTask` | 远端 `taskId` + query params | 否 | `A2A_CALL_RESPONSE` |
-| `A2A_CALL_CANCEL_REQUESTED` | `onCancelTask` | 远端 `taskId` | 否 | `A2A_CALL_RESPONSE`，随后 TERMINAL |
-| `A2A_STREAM_SUBSCRIBE_REQUESTED` | `onSubscribeToTask` 的可订阅性检查 | 远端 `taskId` | 否 | `A2A_STREAM_READY` |
+| `A2A_STREAM_SUBSCRIBE_REQUESTED` | `onGetTask` 的可订阅性检查；HTTP 接续时调用 `onSubscribeToTask` | 远端 `taskId` | 否 | `A2A_STREAM_READY` |
 
-创建事件中的 payload 决定阻塞或流式 send 语义；事件名称不额外复制 A2A method。查询、取消和订阅必须使用目标 runtime 的 `taskId`，不得使用 `clientInvocationId`、父 Task ID、tool call ID 或 remote invocation ID 替代。
+创建事件中的 payload 决定阻塞或流式 send 语义；事件名称不额外复制 A2A method。查询和订阅
+必须使用目标 runtime 的 `taskId`，不得使用 `clientInvocationId`、父 Task ID、tool call ID 或
+remote invocation ID 替代。
 
-payload 使用 A2A JSON-RPC request 时，`method` 必须沿用 FEAT-001 当前标准入口的 PascalCase 名称：`SendMessage`、`SendStreamingMessage`、`GetTask`、`CancelTask` 或 `SubscribeToTask`。`message/send`、`message/stream`、`message/sendStream`、`tasks/get`、`tasks/cancel`、`tasks/resubscribe` 等小写名称不属于本特性协议面，consumer 必须拒绝。payload 直接传递 `MessageSendParams`、`TaskQueryParams`、`CancelTaskParams` 或 `TaskIdParams` 时可以不携带 `method`，由事件类型决定控制操作；创建事件在未携带 `method` 时由 envelope 的流式标记区分阻塞与流式调用。
+payload 使用 A2A JSON-RPC request 时，`method` 必须沿用当前入口的 PascalCase 名称：
+`SendMessage`、`SendStreamingMessage`、`GetTask` 或 `SubscribeToTask`。`CancelTask` 不属于
+FEAT-017 当前协议面；`message/send`、`message/stream`、`message/sendStream`、`tasks/get`、
+`tasks/cancel`、`tasks/resubscribe` 等小写名称同样不被接受。payload 直接传递
+`MessageSendParams`、`TaskQueryParams` 或 `TaskIdParams` 时可以不携带 `method`，由事件类型决定
+控制操作；创建事件在未携带 `method` 时由 envelope 的流式标记区分阻塞与流式调用。
 
 `CLIENT_INVOCATION_REQUESTED` / `A2A_CALL_REQUESTED` 也可以携带已有 `taskId` 表达标准 A2A continuation。此时 admission 使用该 taskId 建立或核对幂等记录，不分配新 Task；taskId 不存在或 tenant 不匹配时确定失败，禁止把 continuation 降级成新建请求。
 
@@ -279,19 +287,47 @@ public record RuntimeBusResponseEvent(
 
 客户端来源使用 `INVOCATION_*`，A2A 来源使用 `A2A_CALL_*`；`STREAM_READY` 对应名称分别为 `INVOCATION_STREAM_READY` 和 `A2A_STREAM_READY`。投影器必须从 admission 记录保存的 source family 恢复事件族，禁止按当前消费者猜测。
 
+当前 agent-bus 的 `inlinePayload` 是字符串，Gateway/Testkit 已使用分号分隔的 `key=value` 控制字段。为兼容该契约并保留完整 A2A 小响应，`AgentBusResponsePublisher` 同时输出：
+
+- `taskId`、`status`、`streamRef`、`reason` 等现有兼容字段；
+- `a2aResponseType`，标识 `Task`、`Message` 等标准 A2A 结果类型；
+- `a2aResponse`，内容为“标准 A2A JSON 的 UTF-8 字节经无 padding Base64URL 编码”的可逆值。
+
+Gateway 需要完整结果时解码 `a2aResponse` 并按 `a2aResponseType` 恢复标准 A2A response；agent-bus 只透传，不解析业务正文。大响应外置和响应侧 `payloadRef` 仍属于统一引用协议冻结后的增强项。
+
 ### 3.4 `streamRef` 设计
 
-`streamRef` 是不可读、可过期、受 tenant 约束的逻辑引用：
+`streamRef` 是不可读、可过期、受 tenant 约束的流订阅接续引用：
 
 ```text
-streamRef = base64url(version + keyId + opaqueId + expiry + signature)
+streamRef = random opaqueId
 ```
 
+- runtime 在内存中维护 `streamRef -> tenantId + taskId + expiry` 临时映射。
 - 不编码 host、port、topic、partition 或公开 endpoint。
-- resolver 必须同时校验 `tenantId + taskId + expiry`。
+- resolver 必须校验引用存在，并同时匹配 `tenantId + taskId + expiry`。
+- 引用使用 SDK 内部生成的不可预测随机值。
+- TTL 固定为 60 分钟，只限制使用引用新建 SSE 连接的时间，不中断已经建立的 SSE。
+- 签发新引用时顺带清理已过期映射，避免临时映射无限增长。
 - `streamRef` 只表示流可订阅，不表示执行完成或已经产生 token。
 - gateway/调用方用 `taskId + streamRef` 解析内部订阅条件，再建立 A2A SSE。
 - 引用失效时允许重新发送 `*_STREAM_SUBSCRIBE_REQUESTED` 获取新引用，不重建 Task。
+
+Gateway 建立 SSE 时调用 runtime 标准 `POST /a2a`，JSON-RPC `method` 使用
+`SubscribeToTask`，`params.id` 使用 `STREAM_READY` 返回的 `taskId`，并通过
+`X-OpenJiuwen-Stream-Ref` 请求头携带 `streamRef`。`A2aJsonRpcController` 只完成标准
+`SubscribeToTask` 解析和分发；FEAT-017 自动装配的 `StreamReferenceSubscriptionAspect` 在
+`RequestHandler.onSubscribeToTask` 调用前先使用当前 consumer tenant 和 taskId 查询
+`InMemoryBusTaskAdmissionStore`。如果这是 Bus admission 关联的 Task，则 HTTP 请求必须携带 streamRef；
+缺少引用、引用过期或 tenant/taskId 不匹配均返回 Task 不可见的 A2A 错误，不泄露引用是否存在或
+属于其他租户。
+
+该请求头只用于 Bus 流式接续。Bus Task 的真实订阅必须走 HTTP；无 HTTP 请求上下文时同样拒绝，
+不能通过内部直接调用绕过 streamRef。`InMemoryBusTaskAdmissionStore` 中没有对应记录的普通 A2A Task，
+不携带该请求头或由内部代码调用时继续遵循标准 `SubscribeToTask(taskId)` 行为。`streamRef`
+不替代 Gateway 与 Runtime 之间的服务认证。当前 admission 为内存实现，
+若 Task 使用持久化 Store 而进程重启后 admission 丢失，Bus Task 来源识别会失效；该跨重启边界
+必须随 admission 持久化在生产 DFX 中闭合。
 
 ---
 
@@ -334,12 +370,11 @@ public record BusConsumptionDecision(Type type, String reason) {
 上述 ACK 边界用于验证功能语义，不代表已经具备跨进程崩溃的 exactly-once 保证。inbox、
 持久化 admission/projection 与 broker commit 的一致时序属于后续 DFX。
 
-FEAT-015/016 的 registry `serviceId` 接入 runtime 之前，目标服务身份临时直接读取
-`spring.application.name`。FEAT-017 不依赖 `AgentServiceIdentity`，不新增身份 SPI，也不要求重复配置
-`target-service-id`。部署时必须保证该临时值与 gateway 写入 `targetServiceId` 的值一致；registry
-权威 `serviceId` 接入后应替换这一临时来源。
+FEAT-015/016 的 registry `serviceId` 接入 runtime 之前，目标服务身份读取
+`spring.application.name`。部署时必须保证该值与 gateway 写入 `targetServiceId` 的值一致；
+registry 权威 `serviceId` 接入后应替换这一临时来源。
 
-`consumerServiceId` 不单独配置，按 FEAT-014 的稳定消费组规则从目标逻辑服务身份派生：
+`consumerServiceId` 按 FEAT-014 的稳定消费组规则从目标逻辑服务身份派生：
 
 ```text
 consumerServiceId = "runtime-" + spring.application.name
@@ -364,31 +399,35 @@ public class RequestHandlerBusA2aBridge {
 
 默认实现 `RequestHandlerBusA2aBridge`：
 
-1. 构造 `ServerCallContext`，写入 `tenantId`、`correlationId`、`idempotencyKey`、`traceId`、source、target 和 deadline。
+1. 构造 `ServerCallContext`，写入 `tenantId`、`correlationId`、`idempotencyKey`、`traceId`、source、target 和 deadline；与 FEAT-001 一样，非流式 send 额外写入 `_a2a_stream=false`，流式 send 写入 `_a2a_stream=true`，保证 `A2AAgentExecutor` 分别进入 `AgentHandler.query` 和 `AgentHandler.streamQuery`。
 2. 直接调用 A2A SDK `RequestHandler` 公共方法，不调用本机 `/a2a`，也不把 Task 协议操作降级成 `ServeOrchestrator` 的会话操作。
-3. 把 A2A response / publisher 首个可观察状态规范化为 `BusDispatchResult`。
-4. 不直接调用 `AgentHandler` 或 `ServeOrchestrator`，避免绕过 Task 创建、TaskStore、Task 查询和 Task 取消语义。
-5. 对 subscribe 只调用 `onSubscribeToTask` 完成 Task/stream 可订阅性校验并返回 stream-ready 结果，不订阅、缓存或转发 publisher 中的 SSE frame；后续投影阶段负责生成 streamRef，真正的流消费发生在调用方持有 SSE 连接时。
+3. 非流式调用把 A2A response 规范化为 `BusDispatchResult`。流式创建订阅 publisher 的首个 A2A 事件，从 `Task`、`Message`、`TaskStatusUpdateEvent` 或 `TaskArtifactUpdateEvent` 取得 runtime 实际创建的 taskId 后立即取消该临时订阅；该首事件只用于确认 taskId 和流已建立，不作为同步 `RESPONSE` 投影，也不把 token/SSE frame 送入 Bus。
+4. 不直接调用 `AgentHandler` 或 `ServeOrchestrator`，避免绕过 Task 创建、TaskStore 和 Task 查询语义。
+5. 对 Bus subscribe 使用 `onGetTask` 检查 Task 存在且未进入终态，返回 stream-ready
+   结果，不在 Bus 消费线程中创建或丢弃 SSE publisher。后续投影阶段生成 streamRef；Gateway
+   携带 `taskId + X-OpenJiuwen-Stream-Ref` 调用 runtime `/a2a` 的 `SubscribeToTask` 时，
+   Spring AOP 切面先校验引用，再由 `onSubscribeToTask` 创建真正的 SSE publisher。
 
 | Bridge 操作 | JSON-RPC `method` | A2A SDK 1.0.0.Final `RequestHandler` 映射 | 当前 HTTP `/a2a` 暴露情况 |
 |---|---|---|---|
 | 非流式 send | `SendMessage` | `onMessageSend(MessageSendParams, ServerCallContext)` | 已暴露 |
 | 流式 send | `SendStreamingMessage` | `onMessageSendStream(MessageSendParams, ServerCallContext)` | 已暴露 |
 | get task | `GetTask` | `onGetTask(TaskQueryParams, ServerCallContext)` | 已暴露 |
-| cancel task | `CancelTask` | `onCancelTask(CancelTaskParams, ServerCallContext)` | SDK/bean 已具备，当前 controller 未分发 |
-| subscribe task | `SubscribeToTask` | `onSubscribeToTask(TaskIdParams, ServerCallContext)` | SDK/bean 已具备，当前 controller 未分发 |
+| subscribe task | `SubscribeToTask` | `onSubscribeToTask(TaskIdParams, ServerCallContext)` | 已暴露，并复用 `SendStreamingMessage` 的 SSE 输出逻辑 |
 
-因此本文的“一致性”是与 A2A SDK Task 语义和同一个 `RequestHandler` bean 一致，不表示当前 HTTP controller 已暴露全部五种方法。`ServeOrchestrator.query/streamQuery/cancelActive/resetConversation` 是协议中立的 Agent/会话编排面，不能替代 `GetTask`、`CancelTask` 和 `SubscribeToTask`。
+因此本文的“一致性”以当前已交付的入口能力为边界。即使 A2A SDK 的 `RequestHandler` bean
+包含 `onCancelTask`，FEAT-017 也不把它当作可用协议入口。`ServeOrchestrator` 是协议中立的
+Agent/会话编排面，不能替代 `GetTask` 和 `SubscribeToTask`。
 
-### 4.3 Task admission 幂等端口
+### 4.3 Task admission 内存状态
 
 ```java
-public interface BusTaskAdmissionStore {
-    Admission reserve(String tenantId, String idempotencyKey,
-                      String requestDigest, String allocatedTaskId,
-                      String sourceFamily, String correlationId);
+public final class InMemoryBusTaskAdmissionStore {
+    Admission reserve(Admission reservation);
     void markAdmitted(String tenantId, String idempotencyKey, String taskId);
     Optional<Admission> find(String tenantId, String idempotencyKey);
+    Optional<Admission> findByTaskId(String tenantId, String taskId);
+    List<Admission> list(String tenantId, int limit);
 }
 ```
 
@@ -396,16 +435,17 @@ public interface BusTaskAdmissionStore {
 
 新建 Task 时先生成稳定 `taskId` 并写入 reservation，再把该 ID 传给内部 A2A send。这样即使进程在 Task 创建后、`markAdmitted` 前退出，恢复过程仍可按 reservation 中的 `taskId` 查询 TaskStore，而不是创建第二个 Task。
 
-查询、取消和订阅事件不使用 admission store 创建 Task，只以 `(tenantId,taskId)` 查目标 Task。它们的响应事件仍按 `messageId/eventId` 做投影防重。
+查询和订阅事件不使用 admission store 创建 Task，只以 `(tenantId,taskId)` 查目标 Task。它们的
+响应事件仍按 `messageId/eventId` 做投影防重。
 
 ### 4.4 响应投影存储与发布
 
 ```java
-public interface BusResponseProjectionStore {
-    ProjectionAppendResult append(RuntimeBusResponseEvent event);
-    List<RuntimeBusResponseEvent> claimPending(int limit, Instant now);
-    void markPublished(String tenantId, String eventId, Instant publishedAt);
-    void scheduleRetry(String tenantId, String eventId, Instant nextAttemptAt, String failureCode);
+public final class InMemoryBusResponseProjectionStore {
+    boolean append(BusResponseProjection projection);
+    List<BusResponseProjection> pending(String tenantId, int limit);
+    void markPublished(String tenantId, String eventId);
+    boolean isPublished(String tenantId, String eventId);
 }
 
 public final class AgentBusResponsePublisher {
@@ -421,9 +461,9 @@ hash(tenantId, causationMessageId, taskId-or-none, projectionKind, projectionRev
 
 同一事实重放得到相同 eventId；`append` 必须幂等。Task 状态发生新 revision 时产生新的投影，重复观察同 revision 不重复产生可见副作用。
 
-投影发布失败不回滚已创建 Task。请求 consumer 在投影已写入 `BusResponseProjectionStore` 后可 ACK；独立的 `BusResponseRelay` 重试发布。该存储是 runtime 的投影交接日志，不暴露或复制 agent-bus outbox/inbox 物理模型。当前内存实现只能在进程存活期间提供该交接能力。
+投影发布失败不回滚已创建 Task。请求 consumer 在投影已写入 `InMemoryBusResponseProjectionStore` 后可 ACK；独立的 `BusResponseRelay` 重试发布。该存储是 runtime 的投影交接日志，不暴露或复制 agent-bus outbox/inbox 物理模型。当前内存实现只能在进程存活期间提供该交接能力。
 
-后续生产 DFX 目标仍要求 `TaskStore`、`BusTaskAdmissionStore` 和 `BusResponseProjectionStore` 跨进程重启持久化：admission store 提供唯一约束/CAS，projection store 提供带租约 claim 与幂等 append。三者不要求共享物理数据库；稳定 taskId 与 repair 流程用于闭合跨存储崩溃窗口。实现 Redis Store 前必须先补齐服务端原子更新能力，并完成多实例和故障注入验证，不能把简单 `GET + SET` 实现作为生产可靠性证据。当前 agent-bus runtime role 按 PR 124 的范围采用 direct produce；`AgentBusResponsePublisher` 仅在 broker 返回 `ACCEPTED` 后把投影标记为已发布，失败由 `BusResponseRelay` 基于当前 Store 做进程内重试。
+后续生产 DFX 目标仍要求 `TaskStore`、admission 状态和 projection 状态跨进程重启持久化：admission 持久化需提供唯一约束/CAS，projection 持久化需提供带租约 claim 与幂等 append。三者不要求共享物理数据库；稳定 taskId 与 repair 流程用于闭合跨存储崩溃窗口。实现 Redis Store 前必须先补齐服务端原子更新能力，并完成多实例和故障注入验证，不能把简单 `GET + SET` 实现作为生产可靠性证据。当前 agent-bus runtime role 按 PR 124 的范围采用 direct produce；`AgentBusResponsePublisher` 仅在 broker 返回 `ACCEPTED` 后把投影标记为已发布，失败由 `BusResponseRelay` 基于当前内存 Store 做进程内重试。
 
 ---
 
@@ -455,25 +495,28 @@ agent-bus       consumer       validator/admission      RequestHandler      proj
    对携带已有 taskId 的 continuation，reservation 绑定并核对该 taskId，不另行分配。
 4. 经 `RequestHandlerBusA2aBridge` 进入标准 A2A Task 控制面。
 5. 创建成功或复用后，先把 `*_ACCEPTED` 投影写入当前 Store，再返回 ACK；本阶段内存 Store 不保证重启恢复。
-6. 阻塞窗口内完成则追加 `*_RESPONSE`；流可订阅则追加 `*_STREAM_READY`。
+6. 阻塞窗口内完成则追加包含完整可逆 A2A 小响应的 `*_RESPONSE`；流式创建从 publisher 首事件取得真实 taskId 后追加 `*_STREAM_READY`，首事件本身不折叠成同步 RESPONSE。
 7. Task 后续进入 INPUT_REQUIRED 或终态时，由 projection coordinator 发布对应投影，不再占用原消息 delivery。
 
-### 5.2 查询、取消与重新订阅
+### 5.2 查询与重新订阅
 
 ```text
 REQUESTED(taskId)
   -> 校验 tenant/target/deadline
   -> 按 tenantId + taskId 进入 RequestHandler
        query      -> RESPONSE(Task snapshot)
-       cancel     -> RESPONSE + later TERMINAL(CANCELED)
-       subscribe  -> STREAM_READY(taskId, new-or-current streamRef)
+       subscribe  -> 检查 Task 可订阅 -> STREAM_READY(taskId, new streamRef)
   -> 投影写入当前 Store
   -> ACK
 ```
 
 - Task 不存在时发布确定性 `*_FAILED(TASK_NOT_FOUND,retryable=false)` 并 ACK。
 - tenant 不匹配的响应与 Task 不存在使用同一外部错误表面，日志和审计保留内部原因，避免跨租户枚举。
-- subscribe 不启动新 Task；终态 Task 是否仍允许读取历史 SSE 由现有 A2A 能力决定，不支持时返回 `STREAM_NOT_AVAILABLE`。
+- subscribe 不启动新 Task；终态 Task 不创建 streamRef，返回 `STREAM_NOT_AVAILABLE`。
+- Bus 阶段只签发接续引用，不持有 SSE。Gateway 随后调用 runtime `POST /a2a`：
+  `SubscribeToTask(params.id=taskId)`，并在 `X-OpenJiuwen-Stream-Ref` 请求头中携带 streamRef。
+- runtime 校验引用后才调用 `onSubscribeToTask`。该调用返回的首个 SSE 事件是订阅时的 Task
+  快照，后续事件继续由标准 A2A SSE 发送，不进入 Bus。
 
 ### 5.3 重复投递与崩溃恢复
 
@@ -514,7 +557,8 @@ agent-bus inbox 去重、持久化投影恢复与 broker commit 的一致时序�
 | Task admission | `(tenantId,idempotencyKey)` | 重试/不同 messageId 创建多个逻辑 Task | agent-runtime |
 | response projection | `(tenantId,eventId)` | 投影 relay 重试产生重复可见事件 | runtime publisher + agent-bus consumer |
 
-`clientInvocationId` 是 gateway 侧关联句柄，`correlationId` 是链路关联字段，二者都不是上述唯一键；`taskId` 是 Task owner 返回的标准查询/取消/订阅标识。
+`clientInvocationId` 是 gateway 侧关联句柄，`correlationId` 是链路关联字段，二者都不是上述
+唯一键；`taskId` 是 Task owner 返回的标准查询/订阅标识。
 
 ### 6.2 Admission 状态机
 
@@ -556,12 +600,15 @@ ACCEPTED
 
 1. schema version 与 event type allowlist。
 2. 必填字段、长度、字符集和 metadata 大小。
-3. `targetServiceId == spring.application.name`（registry `serviceId` 接入前的临时映射），route tenant scope 与 `tenantId` 一致。
-4. deadline 未过期，并限制过远 deadline，防止无限资源占用。
-5. payload inline/ref 互斥、content type 和最大 inline bytes。
-6. 当前只接受 `inlinePayload`；只有 `payloadRef` 的事件返回确定性 `PAYLOAD_EMPTY`。在统一解析协议冻结前，不读取引用、不把引用字符串当作 A2A JSON。
-7. A2A method 与外层 event type 相容。
-8. Task 操作的 `(tenantId,taskId)` 所有权。
+3. `envelope.tenantId == agent-bus.tenant`；不一致时直接拒绝且不向该 envelope 声明的 tenant
+   发布失败投影。
+4. `targetServiceId == spring.application.name`（registry `serviceId` 接入前的临时映射），
+   route tenant scope 与 `tenantId` 一致。
+5. deadline 未过期，并限制过远 deadline，防止无限资源占用。
+6. payload inline/ref 互斥、content type 和最大 inline bytes。
+7. 当前只接受 `inlinePayload`；只有 `payloadRef` 的事件返回确定性 `PAYLOAD_EMPTY`。在统一解析协议冻结前，不读取引用、不把引用字符串当作 A2A JSON。
+8. A2A method 与外层 event type 相容。
+9. Task 操作的 `(tenantId,taskId)` 所有权。
 
 信封若缺少可信 tenant/source/correlation，或 transport identity 校验失败，runtime 不尝试构造可能泄露信息的响应投影，直接返回 `ACK_REJECTED` 并由 adapter 记录受限审计；字段完整且可信的确定性错误才发布 `*_REJECTED` / `*_FAILED`。
 
@@ -573,13 +620,13 @@ ACCEPTED
 | `UNSUPPORTED_EVENT_TYPE` | false | `*_REJECTED` | 非 runtime 入站事件 |
 | `INVALID_ENVELOPE` | false | `*_REJECTED` | 必填、格式或大小不合法 |
 | `TARGET_MISMATCH` | false | `*_REJECTED` | 事件不属于本 runtime |
-| `TENANT_SCOPE_VIOLATION` | false | `*_REJECTED` | tenant/route/payload scope 不一致 |
+| `TENANT_SCOPE_VIOLATION` | false | 无响应投影，直接 `ACK_REJECTED` | envelope tenant 与订阅 tenant 不一致，或 route/payload scope 不一致 |
 | `DEADLINE_EXCEEDED` | false | `*_FAILED` | 接收时已过期 |
 | `PAYLOAD_EMPTY` | false | `*_FAILED` | 没有可交给 A2A bridge 的 inline payload；当前版本不解析 `payloadRef` |
 | `PAYLOAD_INVALID` | false | `*_FAILED` | A2A payload 无法解析或 method 不匹配 |
 | `IDEMPOTENCY_KEY_CONFLICT` | false | `*_REJECTED` | 同 key 不同 request digest |
 | `RUNTIME_NOT_READY` | true | `*_FAILED` | runtime 暂不接收执行 |
-| `TASK_NOT_FOUND` | false | `*_FAILED` | 查询/取消/订阅的 Task 不存在或不可见 |
+| `TASK_NOT_FOUND` | false | `*_FAILED` | 查询/订阅的 Task 不存在或不可见 |
 | `STREAM_NOT_AVAILABLE` | false | `*_FAILED` | Task 当前无可订阅 SSE |
 | `PROJECTION_HANDOFF_FAILED` | true | RETRY | 稳定投影无法记录，尚不能 ACK |
 | `INTERNAL_ERROR` | 按分类 | `*_FAILED` | 未分类内部错误，不泄露堆栈 |
@@ -588,8 +635,8 @@ ACCEPTED
 
 - 所有 store 调用必须显式携带或可从不可变信封取得 `tenantId`，禁止默认 tenant 和跨 tenant fallback。
 - 响应投影不得回显 routeHandle 内部内容、物理 endpoint、broker 信息或敏感 payloadRef 凭证。
-- 日志不记录 inline payload 正文、token、完整 payloadRef、签名 streamRef 或认证头。
-- `streamRef` 使用可轮换 key 签名，解析失败统一返回不可用，不泄露 Task 是否存在。
+- 日志不记录 inline payload 正文、token、完整 payloadRef、完整 streamRef 或认证头。
+- `streamRef` 使用不可预测的随机值，并在 runtime 内与 `tenantId + taskId + expiry` 绑定；解析失败统一返回不可用，不泄露 Task 是否存在。
 - source identity 的认证由 subscription adapter 提供；runtime validator 仍校验 envelope source 与已认证 transport identity 一致。
 - inline payload 和 metadata 使用协议实现固定的硬大小上限；当前版本不读取 `payloadRef` 指向的外部正文。
 
@@ -609,14 +656,18 @@ agent-solution/common/agent-runtime-ext-java/
     │   │   ├── RequestHandlerBusA2aBridge.java
     │   │   ├── ProjectingTaskStore.java
     │   │   └── TaskStoreProjectionPostProcessor.java
-    │   ├── port/
-    │   │   ├── BusTaskAdmissionStore.java
-    │   │   └── BusResponseProjectionStore.java
+    │   ├── store/
+    │   │   ├── InMemoryBusTaskAdmissionStore.java
+    │   │   └── InMemoryBusResponseProjectionStore.java
     │   ├── runtime/
     │   │   ├── AgentBusBrokerDeliveryPort.java
     │   │   ├── AgentBusResponsePublisher.java
     │   │   ├── BrokerDeliveryLoop.java
     │   │   └── BrokerConsumerLifecycle.java
+    │   ├── stream/
+    │   │   ├── StreamReadyProjector.java
+    │   │   ├── StreamReferenceService.java
+    │   │   └── StreamReferenceSubscriptionAspect.java
     │   └── autoconfigure/
     │       ├── BusConsumerAutoConfiguration.java
     │       └── BusConsumerProperties.java
@@ -632,13 +683,20 @@ broker-specific adapter 不进入上述包，也不让 `agent-bus` 生产模块�
 
 - 存在且仅存在一个 `AgentBusBrokerDeliveryPort`；
 - agent-bus runtime role 已提供名为 `runtimeRequestConsumer` 的 `BrokerForwardingConsumerPort` 和名为 `runtimeResponseProducer` 的 `BrokerForwardingProducerPort`；
-- 存在 `AgentBusResponsePublisher`、`BusTaskAdmissionStore` 和 `BusResponseProjectionStore`；模块当前只处理 inline payload；
+- 存在 `AgentBusResponsePublisher`、`InMemoryBusTaskAdmissionStore` 和 `InMemoryBusResponseProjectionStore`；模块当前只处理 inline payload；
 - 现有 A2A SDK `RequestHandler`、`TaskStore` 已装配；
-- `openjiuwen.service.bus.consumer.consumer-tenant-id` 和 `spring.application.name` 非空；`consumerServiceId` 临时从 `spring.application.name` 派生，不重复配置。
+- runtime `agent-service-app` 已提供标准 `SubscribeToTask` 分发，且 `RequestHandler` 是
+  Spring Bean，可由 FEAT-017 的 AOP 切面代理；
+- `StreamReferenceSubscriptionAspect` 可访问 `InMemoryBusTaskAdmissionStore`，用于识别必须携带
+  streamRef 的 Bus Task；
+- agent-bus SDK 已提供非空 `agent-bus.tenant`，`spring.application.name` 非空；
+  `consumerServiceId` 从 `spring.application.name` 派生。
 
 缺少必需组件时应启动失败并列出缺失 bean，不能悄悄启用只能消费不能响应的半功能。如果实际收到只有 `payloadRef` 的事件，必须返回确定性 `PAYLOAD_EMPTY`，不能把引用字符串当作 A2A JSON。`enabled=false` 时不要求任何 bus 依赖，保持现有纯 HTTP runtime 可用。
 
-生产可靠性 profile 仍应通过 durability capability 检查，拒绝把默认 `InMemoryTaskStore` 或 in-memory admission/projection store 当作跨重启可靠实现。本阶段功能联调使用显式 `allow-ephemeral-state=true`；该配置表示接受进程重启后 admission/projection 状态丢失，不能作为生产可靠性验收证据。
+启用 FEAT-017 后使用 SDK 内置的 in-memory admission/projection store。默认
+`InMemoryTaskStore` 以及这些内存状态均不能作为跨重启可靠实现。持久化实现与 durability
+capability 校验属于后续 DFX。
 
 ### 8.3 配置表面
 
@@ -648,9 +706,9 @@ openjiuwen:
     bus:
       consumer:
         enabled: true
-        consumer-tenant-id: ${TENANT_ID}
 
 agent-bus:
+  tenant: ${TENANT_ID}
   role:
     runtime:
       enabled: true
@@ -658,7 +716,12 @@ agent-bus:
     enabled: false
 ```
 
-`openjiuwen.service.bus.consumer.enabled` 默认为 `false`；只有显式设为 `true` 才激活 FEAT-017 自动装配。启用时必须具有非空 `consumer-tenant-id` 和 `spring.application.name`。消费组身份临时派生为 `runtime-${spring.application.name}`，不提供独立的 `consumer-service-id` 或 `target-service-id` 配置。FEAT-015/016 的 registry `serviceId` 接入后，订阅过滤、响应 source 和消费组派生必须统一切换到该权威值。
+`openjiuwen.service.bus.consumer.enabled` 默认为 `false`；设为 `true` 时激活 FEAT-017 自动装配。
+订阅 tenant 读取 agent-bus SDK 的 `AgentBusBrokerProperties.tenant()`，用于建立当前单租户部署
+的接收范围。消息到达后，envelope `tenantId` 用于 Task、幂等、Store、streamRef 和响应投影，
+并必须与 `agent-bus.tenant` 相等。目标服务身份读取非空的 `spring.application.name`，消费组
+身份派生为 `runtime-${spring.application.name}`。FEAT-015/016 的 registry `serviceId` 接入后，
+订阅过滤、响应 source 和消费组派生统一切换到该权威值。
 
 ```yaml
 spring:
@@ -666,19 +729,10 @@ spring:
     name: ${RUNTIME_SERVICE_ID}
 ```
 
-需要发布 STREAM_READY 时再提供签名密钥：
+`StreamReferenceService` 随 FEAT-017 自动装配，由 SDK 内部生成不可预测的随机引用，streamRef
+TTL 固定为 60 分钟。
 
-```yaml
-openjiuwen:
-  service:
-    bus:
-      consumer:
-        stream-ref-secret: ${STREAM_REF_SECRET}
-```
-
-`stream-ref-secret` 未配置时不创建 `StreamReferenceService`，相应的 STREAM_READY 投影能力不启用。该密钥必须通过部署 Secret 或 host 密钥设施提供，不得写入源码和普通配置仓库。streamRef TTL 固定为 5 分钟。
-
-schema major 和资源安全边界属于实现支持能力，不允许通过部署配置宣称额外协议能力。当前固定值为：
+schema major 和资源安全边界的当前固定值为：
 
 | 约束 | 固定值 |
 |---|---:|
@@ -687,7 +741,7 @@ schema major 和资源安全边界属于实现支持能力，不允许通过部�
 | metadata 上限 | 16,384 bytes |
 | deadline 最大前视时间 | 86,400 seconds |
 
-普通部署不需要配置轮询、并发、重试和 repair 参数。确需性能调优时，可使用独立的可选 `tuning` 子配置：
+轮询、并发、重试和 repair 参数位于可选的 `tuning` 子配置：
 
 ```yaml
 openjiuwen:
@@ -704,17 +758,12 @@ openjiuwen:
           repair-interval: 5s
 ```
 
-上述参数均有代码默认值，部署者不填写时采用示例所列默认值。repair 每轮扫描上限当前固定为 100，admission 锁分片数固定为 64，不属于配置表面。当前功能联调需要显式允许内存状态：
+上述参数均有代码默认值，未填写时采用示例所列默认值。repair 每轮扫描上限当前固定为 100，
+admission 锁分片数固定为 64。admission/projection 内存状态由 SDK 自动装配。
 
-```yaml
-openjiuwen:
-  service:
-    bus:
-      consumer:
-        allow-ephemeral-state: true
-```
-
-配置不得出现 topic、offset、partition、consumer group 或 broker retry。物理 transport 的这些参数属于 adapter 自己的命名空间。FEAT-017 当前没有统一的 `payload-resolve-timeout` 或外部 payload provider 配置；待需求或 agent-bus 冻结引用解析协议后再补充 SDK 内部实现。
+配置不得出现 topic、offset、partition、consumer group 或 broker retry。物理 transport 的这些
+参数属于 adapter 自己的命名空间。FEAT-017 当前只处理 inline payload；payloadRef 解析协议冻结后
+由 SDK 内部实现。
 
 ### 8.4 生命周期
 
@@ -773,13 +822,14 @@ span 边界及跨 broker 的 trace 上下文格式。
 1. `CLIENT_INVOCATION_REQUESTED` → 真实 `RequestHandler` → Task CREATED/WORKING → `INVOCATION_ACCEPTED`。
 2. `A2A_CALL_REQUESTED` → 同一 handler → `A2A_CALL_ACCEPTED`，业务 handler 无 source 分支。
 3. 阻塞完成 → RESPONSE + 唯一 TERMINAL。
-4. 流式调用 → ACCEPTED + STREAM_READY，捕获所有 bus publication 并断言无 token/SSE frame。
-5. Task 进入 INPUT_REQUIRED → 对应 family 的 INPUT_REQUIRED 投影。
-6. query/cancel/subscribe 使用真实 taskId；不存在、跨 tenant 和错误本地 ID 不创建 Task。
-7. 相同 messageId 重投、不同 messageId + 相同 idempotencyKey 重试均只创建一个 Task。
-8. Task 创建后模拟 publisher 短暂失败：原 delivery ACK，在同一进程内由 relay 补发相同
+4. 流式调用 → 校验 `_a2a_stream=true`，从 publisher 首事件取得真实 taskId，产生 ACCEPTED + STREAM_READY，并断言 Bus 中无 token/SSE frame。
+5. 非流式调用 → 校验 `_a2a_stream=false`，RESPONSE 中的 `a2aResponse` 可解码回完整 `Task`/`Message`。
+6. Task 进入 INPUT_REQUIRED → 对应 family 的 INPUT_REQUIRED 投影。
+7. query/subscribe 使用真实 taskId；不存在、跨 tenant 和错误本地 ID 不创建 Task。
+8. 相同 messageId 重投、不同 messageId + 相同 idempotencyKey 重试均只创建一个 Task。
+9. Task 创建后模拟 publisher 短暂失败：原 delivery ACK，在同一进程内由 relay 补发相同
    eventId。
-9. runtime drain：停止新消费，不等待长 Task 终态；在允许的 drain 时间内处理已进入 relay
+10. runtime drain：停止新消费，不等待长 Task 终态；在允许的 drain 时间内处理已进入 relay
    的投影。
 
 以下故障注入归入后续 DFX：在 reservation、Task 创建、投影 append 和 publish 各崩溃点
@@ -799,7 +849,7 @@ gateway/source runtime
   -> gateway/source runtime projection consumer
 ```
 
-当前功能验收必须覆盖：客户端创建/查询/取消/订阅、A2A 创建/查询/取消/订阅、同一进程内
+当前功能验收必须覆盖：客户端创建/查询/订阅、A2A 创建/查询/订阅、同一进程内
 重复投递、接受后长任务、INPUT_REQUIRED、流重连、终态失败、tenant 隔离、只有 payloadRef
 时的确定性失败、adapter 短暂不可用和同一进程内响应重投。跨模块测试还必须用消息体扫描
 断言 token chunk、SSE frame、物理 endpoint 和 Task execution state 未进入总线。
@@ -813,7 +863,7 @@ gateway/source runtime
 | FEAT-017 要求 | 设计落点 | 验证 |
 |---|---|---|
 | 嵌入式事件订阅消费 | §2、§4.1、§8 | auto-configuration / lifecycle IT |
-| 客户端与 A2A 八种请求事件 | §3.2、§5 | mapper contract + E2E |
+| 客户端与 A2A 六种请求事件 | §3.2、§5 | mapper contract + E2E |
 | 标准入口语义复用 | §1.1、§4.2 | A2A `RequestHandler` semantic parity test |
 | 外层信封与 A2A payload 分离 | §3.1、§7.1 | validator / payload tests |
 | accepted/rejected/failed/response | §3.3、§5 | projection integration tests |
@@ -835,7 +885,7 @@ gateway/source runtime
 
 1. **上游扩展面编译/启动 PoC**：以 `agent-runtime-java` 0.1.0 和 A2A SDK 1.0.0.Final 为基线，确认扩展模块可注入同一个 `RequestHandler`、`TaskStore` 与 `ServerCallContext` 相关类型；验证 `ProjectingTaskStore` 的唯一 bean 包装和自动装配顺序。公开扩展面不足时先形成具体上游接口诉求，PoC 未通过不得进入后续切片。
 2. 中立事件/响应模型、validator、mapper 和 SPI contract fixture。
-3. `RequestHandlerBusA2aBridge`，完成八种事件与 A2A `RequestHandler` 语义一致性测试，并区分当前 HTTP controller 已暴露与仅 SDK 已具备的方法。
+3. `RequestHandlerBusA2aBridge`，完成六种事件与当前已交付 A2A `RequestHandler` 语义的一致性测试。
 4. 使用内存 admission store 完成当前进程内的创建幂等；稳定 taskId 的协议恢复继续按未闭环项推进。
 5. 使用内存 projection store 完成 relay 和 Task projection coordinator 功能链。
 6. streamRef、INPUT_REQUIRED、终态 repair。
@@ -848,9 +898,9 @@ gateway/source runtime
 
 - 不新增 bus 专用 Task 状态机或 HTTP loopback。
 - runtime 公共模型和配置不出现具体 broker 产品概念。
-- 八种入站事件和七类响应投影均有可执行 contract test。
+- 六种入站事件和七类响应投影均有可执行 contract test。
 - 创建 admission、投影交接和 ACK 顺序完成单进程功能验证。
-- Task 创建、查询、取消、订阅全程 tenant scoped。
+- Task 创建、查询、订阅全程 tenant scoped。
 - 总线捕获测试证明无 token、SSE frame、大正文和物理 endpoint。
 - README 的实现状态只有在生产代码与跨模块验收通过后才从“设计已接受、代码待落地”更新为 active。
 
