@@ -890,13 +890,13 @@ Stage 25 是纯文档裁决阶段。无 Java / DDL / SqlCodec / record 改动；
 
 ### 26.1 核心设计张力（独立 SPI，非 ForwardingDeliveryPort 子类型）
 
-`ForwardingDeliveryPort.deliver(record, nowMillisEpoch)` 返回**终态导向**的 `ForwardingDeliveryResult`（ACKED/RETRY/DLQ/EXPIRED），为 A2A 同步 push 设计；broker **produce 是 fire-and-forget**（produce 成功 ≠ receiver 处理完，模型 B 需 Stage 27 的 `AWAITING_ACK` 反向 ack）。故 `BrokerForwardingRelayPort` 是**独立 SPI**（`produce(ForwardingOutboxRecord) → BrokerProduceOutcome`，ACCEPTED/UNAVAILABLE[retryable]/ROUTE_NOT_FOUND[non-retryable]，**非终态**）。调和 Stage 25 §4「broker adapter 是新 ForwardingDeliveryPort 实现（relay 形态）」：那指 Stage 27+ relay 接 worker 后的最终态；Stage 26 先定独立 SPI，Stage 27 决定 relay adapter 是否包装 `ForwardingDeliveryPort` 或 worker 改调 relay port。
+`ForwardingDeliveryPort.deliver(record, nowMillisEpoch)` 返回**终态导向**的 `ForwardingDeliveryResult`（ACKED/RETRY/DLQ/EXPIRED），为 A2A 同步 push 设计；broker **produce 是 fire-and-forget**（produce 成功 ≠ receiver 处理完，模型 B 需 Stage 27 的 `AWAITING_ACK` 反向 ack）。故 `BrokerForwardingProducerPort` 是**独立 SPI**（`produce(ForwardingOutboxRecord) → BrokerProduceOutcome`，ACCEPTED/UNAVAILABLE[retryable]/ROUTE_NOT_FOUND[non-retryable]，**非终态**）。调和 Stage 25 §4「broker adapter 是新 ForwardingDeliveryPort 实现（relay 形态）」：那指 Stage 27+ relay 接 worker 后的最终态；Stage 26 先定独立 SPI，Stage 27 决定 relay adapter 是否包装 `ForwardingDeliveryPort` 或 worker 改调 relay port。
 
 ### 26.2 transport.broker SPI（对持久化基质零影响）
 
 | SPI | 形态 | 签名 | §6.2 守恒 |
 |---|---|---|---|
-| `BrokerForwardingRelayPort` | relay | `produce(ForwardingOutboxRecord, nowMillisEpoch) → BrokerProduceOutcome` | routeHandle 经 `ForwardingEndpointResolver` 映射 topic，HD4 opaque 不读 value()；body=routing descriptor only（②） |
+| `BrokerForwardingProducerPort` | relay | `produce(ForwardingOutboxRecord, nowMillisEpoch) → BrokerProduceOutcome` | routeHandle 经 `ForwardingEndpointResolver` 映射 topic，HD4 opaque 不读 value()；body=routing descriptor only（②） |
 | `BrokerForwardingConsumerPort` | receiver | `poll(consumerServiceId, tenantId) → Optional<BrokerInboundMessage>` + `commit(msg)` + `reject(msg, code)` | 模型 B ack-after-consume（`enable.auto.commit=false`）；跨 tenant 消息不返回 = L2 reject 不 commit（⑤） |
 
 - `BrokerOutboundMessage`（body=routing descriptor only，绝不载 payload body/token stream/Task state）/ `BrokerInboundMessage`（不暴露 offset/topic/partition，consumerServiceId poll 时填入）/ `BrokerProduceOutcome` / `BrokerMessageHeaders` / `BrokerClientProperties`（产品无关，不绑 RocketMQ 类型）/ `package-info`。
