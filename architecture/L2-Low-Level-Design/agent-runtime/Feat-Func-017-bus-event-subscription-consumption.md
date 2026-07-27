@@ -370,14 +370,14 @@ public record BusConsumptionDecision(Type type, String reason) {
 上述 ACK 边界用于验证功能语义，不代表已经具备跨进程崩溃的 exactly-once 保证。inbox、
 持久化 admission/projection 与 broker commit 的一致时序属于后续 DFX。
 
-FEAT-015/016 的 registry `serviceId` 接入 runtime 之前，目标服务身份读取
-`spring.application.name`。部署时必须保证该值与 gateway 写入 `targetServiceId` 的值一致；
-registry 权威 `serviceId` 接入后应替换这一临时来源。
+目标服务身份读取必填配置 `openjiuwen.service.service-id`。该值由部署环境注入，并且必须与
+FEAT-015 `DeploymentDiscoveryProvider` 上报、FEAT-016 路由结果返回以及 gateway 写入
+`targetServiceId` 的逻辑 `serviceId` 保持一致。
 
 `consumerServiceId` 按 FEAT-014 的稳定消费组规则从目标逻辑服务身份派生：
 
 ```text
-consumerServiceId = "runtime-" + spring.application.name
+consumerServiceId = "runtime-" + openjiuwen.service.service-id
 ```
 
 同一逻辑服务的多个 runtime 实例共享该消费组和 inbox 去重范围；禁止使用会随进程、Pod 或端口变化的 instanceId 派生消费组。
@@ -602,7 +602,7 @@ ACCEPTED
 2. 必填字段、长度、字符集和 metadata 大小。
 3. `envelope.tenantId == agent-bus.tenant`；不一致时直接拒绝且不向该 envelope 声明的 tenant
    发布失败投影。
-4. `targetServiceId == spring.application.name`（registry `serviceId` 接入前的临时映射），
+4. `targetServiceId == openjiuwen.service.service-id`，
    route tenant scope 与 `tenantId` 一致。
 5. deadline 未过期，并限制过远 deadline，防止无限资源占用。
 6. payload inline/ref 互斥、content type 和最大 inline bytes。
@@ -689,8 +689,8 @@ broker-specific adapter 不进入上述包，也不让 `agent-bus` 生产模块�
   Spring Bean，可由 FEAT-017 的 AOP 切面代理；
 - `StreamReferenceSubscriptionAspect` 可访问 `InMemoryBusTaskAdmissionStore`，用于识别必须携带
   streamRef 的 Bus Task；
-- agent-bus SDK 已提供非空 `agent-bus.tenant`，`spring.application.name` 非空；
-  `consumerServiceId` 从 `spring.application.name` 派生。
+- agent-bus SDK 已提供非空 `agent-bus.tenant`，且部署环境已提供非空
+  `openjiuwen.service.service-id`；`consumerServiceId` 从该逻辑 `serviceId` 派生。
 
 缺少必需组件时应启动失败并列出缺失 bean，不能悄悄启用只能消费不能响应的半功能。如果实际收到只有 `payloadRef` 的事件，必须返回确定性 `PAYLOAD_EMPTY`，不能把引用字符串当作 A2A JSON。`enabled=false` 时不要求任何 bus 依赖，保持现有纯 HTTP runtime 可用。
 
@@ -703,6 +703,7 @@ capability 校验属于后续 DFX。
 ```yaml
 openjiuwen:
   service:
+    service-id: ${RUNTIME_SERVICE_ID}
     bus:
       consumer:
         enabled: true
@@ -719,15 +720,10 @@ agent-bus:
 `openjiuwen.service.bus.consumer.enabled` 默认为 `false`；设为 `true` 时激活 FEAT-017 自动装配。
 订阅 tenant 读取 agent-bus SDK 的 `AgentBusBrokerProperties.tenant()`，用于建立当前单租户部署
 的接收范围。消息到达后，envelope `tenantId` 用于 Task、幂等、Store、streamRef 和响应投影，
-并必须与 `agent-bus.tenant` 相等。目标服务身份读取非空的 `spring.application.name`，消费组
-身份派生为 `runtime-${spring.application.name}`。FEAT-015/016 的 registry `serviceId` 接入后，
-订阅过滤、响应 source 和消费组派生统一切换到该权威值。
-
-```yaml
-spring:
-  application:
-    name: ${RUNTIME_SERVICE_ID}
-```
+并必须与 `agent-bus.tenant` 相等。目标服务身份读取非空的
+`openjiuwen.service.service-id`，消费组身份派生为
+`runtime-${openjiuwen.service.service-id}`。订阅过滤、响应 source 和消费组派生统一使用
+这一权威逻辑 `serviceId`；配置缺失时启动失败。
 
 `StreamReferenceService` 随 FEAT-017 自动装配，由 SDK 内部生成不可预测的随机引用，streamRef
 TTL 固定为 60 分钟。
