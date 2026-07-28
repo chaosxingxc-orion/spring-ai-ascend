@@ -82,7 +82,7 @@ FEAT-003 在 agent-core 侧的 DeepAgent Todolist 存储能力为模块自闭环
 | agent-core 独立 Redis 连接管理 | agent-core 独立样例/非生产用法使用文件存储或测试用 InMemoryKVStore | 通过 `kvStoreConfig` 配置 Redis 连接或调用 `setKvStore()` 注入外部 KV store |
 | 文件存储用于分布式场景 | 多实例共享文件系统不做为架构承诺 | 分布式场景使用 kv 后端 |
 | Todolist 执行过程完整异常恢复 | 当前版本只承诺 Task 边界缓存和回灌 | 边界缓存 + 执行期自治 save/load |
-| TodoStorage 跨后端迁移 | 切换 file/kv 时旧数据不自动迁移 | 新 Task 使用新后端，旧 Task 数据随 TTL 自然过期 |
+| TodoStorage 跨后端迁移 | 切换 file/kv 时旧数据不自动迁移 | 新 Task 使用新后端，旧 Task 数据由 Redis 侧或外部调用方统一管理生命周期 |
 
 ### 2.3 行为承诺
 
@@ -520,5 +520,5 @@ public class DeepAgentConfig {
 | 限制 | 影响范围 | 临时方案 |
 |------|----------|----------|
 | KvTodoStorage 不设置 TTL | 历史 Todolist 数据可能长期占用 Redis 空间 | 由 Redis 侧统一管理 key TTL |
-| 无跨后端数据迁移 | 切换 file/kv 时旧 Task 的 Todolist 不会自动迁移 | 新 Task 使用新后端；旧 Task 数据随 TTL 自然过期 |
+| 无跨后端数据迁移 | 切换 file/kv 时旧 Task 的 Todolist 不会自动迁移 | 新 Task 使用新后端；旧 Task 数据由 Redis 侧或外部调用方统一管理生命周期 |
 | JSON 序列化不支持二进制 TodoItem | TodoItem 中 meta_data 等字段仅支持 JSON 可表达类型 | 复杂对象通过 JSON 字符串或 Base64 编码存入 meta_data |

@@ -126,6 +126,7 @@ runtime-hosted DeepAgent 提供 Todolist 规划能力时，Core 通过注入的 
 - runtime-hosted DeepAgent 场景下，runtime 通过 `DeepAgent.setKvStore()` 将 BaseKVStore 实例注入 Core，使 Core 的 TodoTool 能够复用 Redis 数据源完成执行期 Todolist 自治持久化。每次 Todolist 变更操作自动将当前状态写入存储后端。
 - runtime 不要求在 DeepAgent 每次 Todolist 变更后同步刷新 Task 状态缓存；执行期的持久化由 Core 通过注入的 BaseKVStore 自治完成。
 - agent-core 提供 FileTodoStorage 作为默认开发体验后端；runtime-hosted 生产部署推荐使用 KV 后端以支持分布式场景。
+- Todolist 存储不自行设置 Redis key TTL。KvTodoStorage 使用 `BaseKVStore.set()` 写入，不调用 `setex` 或 `expire`；key 过期时间由外部 Redis pool 配置或运维侧统一管理。
 
 #### 5.1.5 日志与安全语义
 
