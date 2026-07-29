@@ -4,7 +4,7 @@ module: agent-core
 feature_type: functional
 feature_id: Feat-Func-003
 status: active
-updated: 2026-07-24
+updated: 2026-07-28
 dependency:
   - ../../../version-scope/FEAT-003-agent-task-state-cache.md
   - ../../L1-High-Level-Design/agent-core/README.md
@@ -17,7 +17,7 @@ dependency:
 # DeepAgent Todolist 分布式存储 — 设计文档
 
 > 目标模块：`agent-core` 的 DeepAgent Todolist 状态存储 SPI 及 KV-backed 实现
-> 最后更新：2026-07-24
+> 最后更新：2026-07-28
 
 ---
 
@@ -51,7 +51,7 @@ FEAT-003 在 agent-core 侧的 DeepAgent Todolist 存储能力为模块自闭环
 1. **存储后端可插拔** — Todolist 通过 `TodoStorage` SPI 支持 file 和 kv 两种后端，切换只需改配置。
 2. **KV 存储链路复用** — `KvTodoStorage` 依赖 `BaseKVStore` SPI，同一 `RedisStore` 实例可被多个消费方（Todolist、checkpointer 等）共用。
 3. **不透明 payload** — TodoItem 序列化/反序列化由 agent-core 完成，外部调用方按 opaque JSON 读写即可。
-4. **Task 级隔离为硬约束** — Redis key 必须包含 sessionId（对应 Task 维度），并继承租户前缀；不依赖 conversationId 或 agentId 做最小隔离。
+4. **Session 级隔离** — KV key 以 sessionId 为隔离粒度（sessionId 对应 Task 维度），继承租户前缀。同一 session 下的子任务共享同一 Todolist key，不提供子任务级物理隔离。
 5. **文件存储为默认开发体验** — 单机开发/测试场景默认 `file` 存储，零配置即可运行。
 
 ---
@@ -82,12 +82,12 @@ FEAT-003 在 agent-core 侧的 DeepAgent Todolist 存储能力为模块自闭环
 | agent-core 独立 Redis 连接管理 | agent-core 独立样例/非生产用法使用文件存储或测试用 InMemoryKVStore | 通过 `kvStoreConfig` 配置 Redis 连接或调用 `setKvStore()` 注入外部 KV store |
 | 文件存储用于分布式场景 | 多实例共享文件系统不做为架构承诺 | 分布式场景使用 kv 后端 |
 | Todolist 执行过程完整异常恢复 | 当前版本只承诺 Task 边界缓存和回灌 | 边界缓存 + 执行期自治 save/load |
-| TodoStorage 跨后端迁移 | 切换 file/kv 时旧数据不自动迁移 | 新 Task 使用新后端，旧 Task 数据随 TTL 自然过期 |
+| TodoStorage 跨后端迁移 | 切换 file/kv 时旧数据不自动迁移 | 新 Task 使用新后端，旧 Task 数据由 Redis 侧或外部调用方统一管理生命周期 |
 
 ### 2.3 行为承诺
 
 - **必须**：`todoStorageType=kv` 时，Todolist 通过 `BaseKVStore` 完成读写，不依赖文件系统。
-- **必须**：`KvTodoStorage` 的 key 格式为 `{tenantPrefix:}{sessionId}:todo`，提供 Task 级隔离。
+- **必须**：`KvTodoStorage` 的 key 格式为 `{tenantPrefix:}{sessionId}:todo`，提供 Session 级隔离（sessionId 对应 Task 维度，同一 session 下的子任务共享同一 key）。
 - **必须**：`KvTodoStorageProvider` 支持接收外部 `sharedKvStore` 注入，优先于自建 KV store。
 - **必须**：`FileTodoStorage` 的路径为 `{workspace}/{sessionId}/todo.json`，保持向后兼容。
 - **允许**：未配置 `todoStorageType` 时，默认使用 `file` 后端。
@@ -203,7 +203,7 @@ public class KvTodoStorage implements TodoStorage {
 
 关键设计决策：
 
-- **key 格式**：`{tenantPrefix:}{sessionId}:todo`，其中 `tenantPrefix:` 由 `TenantKVStoreKeyResolver` 根据当前线程的 `TenantContext` 动态添加。
+- **key 格式**：`{tenantPrefix:}{sessionId}:todo`，其中 `tenantPrefix:` 由 `TenantKVStoreKeyResolver` 根据当前线程的 `TenantContext` 动态添加。隔离粒度为 session 级（sessionId 对应 Task 维度），同一 session 下的子任务共享同一 key；不提供子任务级物理隔离。
 - **值格式**：TodoItem[] 的 JSON 序列化，使用 `JsonUtils.safeJsonDumps/safeJsonLoads`。
 - **空值语义**：key 不存在或值为空时，`load()` 返回空列表。
 - **不设置 TTL**：KvTodoStorage 本身不设置 key 过期时间；TTL 由 Redis 侧或外部调用方统一管理。
@@ -520,5 +520,5 @@ public class DeepAgentConfig {
 | 限制 | 影响范围 | 临时方案 |
 |------|----------|----------|
 | KvTodoStorage 不设置 TTL | 历史 Todolist 数据可能长期占用 Redis 空间 | 由 Redis 侧统一管理 key TTL |
-| 无跨后端数据迁移 | 切换 file/kv 时旧 Task 的 Todolist 不会自动迁移 | 新 Task 使用新后端；旧 Task 数据随 TTL 自然过期 |
+| 无跨后端数据迁移 | 切换 file/kv 时旧 Task 的 Todolist 不会自动迁移 | 新 Task 使用新后端；旧 Task 数据由 Redis 侧或外部调用方统一管理生命周期 |
 | JSON 序列化不支持二进制 TodoItem | TodoItem 中 meta_data 等字段仅支持 JSON 可表达类型 | 复杂对象通过 JSON 字符串或 Base64 编码存入 meta_data |
