@@ -61,7 +61,7 @@ Gateway 负责接入、治理、选路与转发/桥接；不执行 Agent，不�
 | 口径          | 内容                                                                      |
 | ----------- | ----------------------------------------------------------------------- |
 | **730 交付**  | IN-1～IN-8：治理、选路（含默认 Agent）、同步/流式直连、选路失败、工具续跑透传、continueInput（可选承接）、统一入口 |
-| **730 不交付** | IN-9、IN-10：GetTask / CancelTask / SubscribeToTask / UNKNOWN 同键恢复        |
+| **730 不交付** | IN-9、IN-10：GetTask / CancelTask / SubscribeToTask（**client 侧** S8 重订阅）/ UNKNOWN 同键恢复。注：gateway→runtime 的 SubscribeToTask（IN-4 BUS 流式数据面）**已交付**，见 §9.4 |
 | **本文不展开**   | 总线路径（FEAT-012）；Agent 执行与 Task 权威语义                                      |
 
 
@@ -126,7 +126,7 @@ Gateway 负责接入、治理、选路与转发/桥接；不执行 Agent，不�
 | ---------- | ------------------------------------------------------------------------- |
 | 对外入口       | 单一 A2A facade（JSON-RPC over HTTP；流式响应侧为 SSE）                              |
 | 730 使用的方法  | `SendMessage`、`SendStreamingMessage`（创建 / 续跑 / 补充输入均经此 facade）            |
-| 730 不交付的方法 | `GetTask`、`CancelTask`、`SubscribeToTask`：可不实现；若暴露则不得假成功                   |
+| 730 不交付的方法 | `GetTask`、`CancelTask`、`SubscribeToTask`（**client 侧** S8 重订阅）：可不实现；若暴露则不得假成功。注：gateway→runtime 的 SubscribeToTask（IN-4）已交付，见 §9.4 |
 | 调用方        | agent-client（及测试替身）；不向业务暴露「直连口 / 总线口」两套入口                                 |
 | 同步与流式      | 由请求的 JSON-RPC `method` 区分（`SendMessage` / `SendStreamingMessage`），不是第二套协议 |
 | 与 runtime  | 转发语义对齐 runtime 标准服务入口；不另开私有执行协议                                           |
@@ -2048,4 +2048,32 @@ S6～S9 的时序、接口字段与验收用例 **本版不写**。若调用方�
 ---
 
 > FEAT-011 直连路径场景正文（S1～S5）与 S6～S9 边界已齐。后续可按需补附录（错误码表、配置项清单）或补充 §1 字段级细节。
+
+---
+
+## 9. E2E 联调对齐（as-built 修订，2026-07-29）
+
+> 本节记录 2026-07-28/29 端到端联调定位并修复的 as-built 偏差（与 FEAT-012 共享的治理/路由层 + DIRECT 路径）。正文条款如与下述冲突，**以下述 as-built 为准**。
+
+### 9.1 治理错误处理器：直写 JSON，绕过内容协商（Bug2）
+- **as-built**：`GovernanceErrorHandler` 直接写 `HttpServletResponse`（`setStatus` + `setContentType(application/json;charset=UTF-8)` + `getWriter().write` + `flush`），返回 `void`。**不再**返回 `ResponseEntity<GatewayError>`（Spring 内容协商会因 client `Accept: text/event-stream` 找不到 converter → `HttpMediaTypeNotAcceptableException` 406，掩盖原始治理错误）。
+- **影响**：流式请求（`SendStreamingMessage`，client 发 `Accept: text/event-stream`）触发治理错误时，client 收到稳定 JSON `GatewayError`，不再 406/transport_error。
+- **共享**：DIRECT + BUS 路径共用此 handler。
+
+### 9.2 默认 Agent 兜底：client agentId 优先（Bug1）
+- **as-built**：`Router.routeCreate`/`routeStream`（DIRECT）+ `BusForwarder.forwardSync`/`forwardStreaming`（BUS）统一用 `ctx.agentId() != null ? ctx.agentId() : defaultAgentResolver.resolve()`。client 传 `metadata.agentId` → 以 client 为准；client 不传 → `gateway.default-agent-id` 兜底；都无 → `DEFAULT_AGENT_UNCONFIGURED`（500，不再 NPE）。
+- **G3**：`ParamValidator` 从 `params.metadata.agentId` 读 agentId 写入 `ctx.agentId()`；空串 → `VALIDATION_AGENT_ID`；缺失 → null（留给默认兜底）。
+- **DIRECT** 原本就有此优先级；**BUS** 经 Bug1 修复对齐。
+
+### 9.3 `HttpRdcRouteClient`：映射 `serviceId`→`targetServiceId`
+- **as-built**：`searchInstancesByAgentId` 映射 RDC dto 的 `serviceId` → `AgentCardRoute(handle, serviceId)`。DIRECT 路径不读 `targetServiceId`（用 `routeHandle` + `resolveRouteHandle`）；BUS 路径入队信封必填 `targetServiceId`（详见 FEAT-012 §9.3）。
+
+### 9.4 SubscribeToTask：S8（client 重订阅）vs IN-4（gateway→runtime SSE 桥）
+- **S8（client 重订阅流）**：§8 标注 **730 不交付**——as-built 仍然不交付（client 侧 SubscribeToTask）。
+- **IN-4（gateway→runtime SubscribeToTask，BUS 流式数据面）**：**已交付**（FEAT-012 §9.5）。gateway 在 `STREAM_READY` 后用 `SubscribeToTask` + `X-OpenJiuwen-Stream-Ref` 连 runtime `/a2a`，runtime 的 `A2aJsonRpcController.handleSubscribeToTask` → `onSubscribeToTask` → `streamToSse` 逐帧写 SSE。E2E 实测 `status=200` + 10 chunk。
+- **区别**：S8 = client 订阅 task 流（730 不做）；IN-4 = gateway 订阅 runtime 流（BUS 流式数据面，已做）。两者同名 method `SubscribeToTask`，但调用方 + 场景不同。
+
+### 9.5 DIRECT 流式
+- **as-built**：DIRECT 模式 `A2aController.forwardStreaming` → `router.routeStream` → `runtime.openStream(endpoint, A2A body)` POST runtime `/a2a`（`SendStreamingMessage` + `Accept: text/event-stream`）→ runtime A2A `streamQuery` → SSE → `SseBridge` 透传 client。**不经 SubscribeToTask**（DIRECT 是点对点 HTTP SSE，非 BUS 数据面）。
+- **无首帧超时**：DIRECT 流式的 `SseBridge.writeSse` 无首帧截止（Bug3 的 `stream-first-frame-deadline-ms` 只在 `BusForwarder`，BUS 路径）。runtime 不发帧时 DIRECT 也会挂——730 echo runtime 首 chunk 1s，够快。
 

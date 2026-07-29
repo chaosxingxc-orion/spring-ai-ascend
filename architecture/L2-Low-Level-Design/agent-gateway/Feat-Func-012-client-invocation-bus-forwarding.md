@@ -83,7 +83,7 @@ BUS 与 DIRECT **并行**：同一 A2A 入口，**不同投递面**。DIRECT 经
 
 1. **对齐 agent-client**：创建（S2）；端侧工具续跑（S3）；continueInput（S4，可选——client 不交付则不对 client 必验）。  
 2. **Gateway 自做**：入口治理、选路（含失败不入队）、控制事件生产与投影折叠 / `STREAM_READY` 后 SSE。  
-3. **730 不交付**：GetTask / CancelTask / SubscribeToTask / UNKNOWN 同键恢复（与 011 一致；入口若可达则禁止假成功）。
+3. **730 不交付**：GetTask / CancelTask / SubscribeToTask（**client 侧** S8 重订阅）/ UNKNOWN 同键恢复（与 011 一致；入口若可达则禁止假成功）。注：gateway→runtime 的 SubscribeToTask（IN-4 BUS 流式数据面）**已交付**，见 §9.5。
 
 对 client 验收主轴：S2/S3（及可选 S4）。端到端 Bus 另依赖 FEAT-013 / FEAT-017——**FEAT-017 未就绪前不得宣称 BUS 路径端到端可用**。  
 **730 交付** = IN-1～IN-9；**730 不交付** = IN-10、IN-11。本文不展开：Agent 执行与 Task 权威；013 底座实现细节；014 服务间 A2A。
@@ -208,7 +208,7 @@ BUS 与 DIRECT **并行**：同一 A2A 入口，**不同投递面**。DIRECT 经
 | --- | --- |
 | 对外入口 | 与 FEAT-011 **同一** A2A facade（`POST /a2a`；JSON-RPC；流式响应侧 SSE） |
 | 730 方法 | `SendMessage` / `SendStreamingMessage`（创建 / 续跑 / continueInput） |
-| 730 不交付方法 | GetTask / CancelTask / SubscribeToTask：可不实现；若暴露则禁止假成功 |
+| 730 不交付方法 | GetTask / CancelTask / SubscribeToTask（**client 侧** S8 重订阅）：可不实现；若暴露则禁止假成功。注：gateway→runtime 的 SubscribeToTask（IN-4）已交付，见 §9.5 |
 | 路径选择 | Gateway 内部 `path-mode`（或等价策略）选择 DIRECT / BUS；**对 client 不可见** |
 | 730 选型口径 | **部署级**固定 `direct` / `bus`；**不**做按调用动态择优；**不**由 client / 业务报文指定 path |
 | 对 client 应一致 | A2A 契约、创建/续跑语义、鉴权与结果面折叠口径（五态）；**不**因 path 增减业务能力 |
@@ -322,19 +322,35 @@ agent-gateway/
 #### 1.5.1 配置约束
 
 ```yaml
-# 示意，非最终键名
-openjiuwen.gateway:
+# as-built 键名（对齐 common/example/agent-gateway-demo/src/main/resources/application-bus.yml）
+gateway:
   path-mode: bus                   # 部署级固定 direct|bus；client 不可见、不可按调用覆盖
+  rdc:
+    base-url: http://127.0.0.1:8092
+  default-agent-id: travel-hotel   # 同 011；client 未传 agentId 时兜底
+  test-credential:                 # 730 测试凭证（token/principalId/tenantId）
+    token: …
   bus:
-    publish-timeout: 3s            # I-04 出站：produce 失败须明确失败
-    # 等待投影（I-04 入站）— 语义对齐 FEAT-013 双窗口，勿压成「单一超时=未知」
-    accept-wait-window: 30s        # 无 ACCEPTED/REJECTED/FAILED/RESPONSE → 未知
-    response-wait-window: 60s      # 已 ACCEPTED 后等终态/响应；超时 → 已接受(taskId)，不得再报未知
-    # I-04 入站订阅由转发底座装配（如 responseConsumer）；Gateway 须启用，不得只配出站
-  default-agent-id: …              # 同 011
-  sse:
-    release-on-client-disconnect: true   # 不得配置关闭
+    accept-window-ms: 30000        # 无 ACCEPTED/REJECTED/FAILED/RESPONSE → UNKNOWN（双窗口之一）
+    response-window-ms: 60000      # 已 ACCEPTED 后等终态/响应；超时 → ACCEPTED_WITH_TASK，不得降级 UNKNOWN
+    stream-first-frame-deadline-ms: 10000  # IN-4：STREAM_READY 后读 SSE 首帧的截止时间；超时 → FAILED STREAM_DEADLINE_EXCEEDED（不挂死 servlet 线程）
+agent-bus:                          # FEAT-013 SDK AgentBusBrokerProperties 命名空间
+  nameserver: …
+  namespace: ascend-prod
+  tenant: tenant-a
+  gateway-service-id: gateway-01
+  event-bus-service-id: eventbus-01
+  role:
+    caller:
+      enabled: true                # 激活 requestProducer + responseConsumer（FEAT-013 caller role）
+  reliability:
+    enabled: true                  # 激活 JdbcForwardingOutbox（需 DataSource）
+spring:
+  datasource: { url: jdbc:postgresql://…/agentbus, … }
+  flyway: { enabled: true, baseline-on-migrate: true, baseline-version: 0 }
 ```
+
+> **命名空间对齐**：as-built 用 `gateway.*`（`PathSelector` 读 `${gateway.path-mode:direct}`），非 `openjiuwen.gateway.*`。`gateway.bus.*` 窗口键名为 `accept-window-ms` / `response-window-ms`（非 `accept-wait-window`）。完整配置见 `common/example/agent-gateway-demo/src/main/resources/application-bus.yml`。
 
 | 配置意图 | 约束（须实现） |
 | --- | --- |
@@ -612,7 +628,7 @@ sequenceDiagram
 | P0 | 逻辑目标 | 同 011：显式 `agentId` 或默认 Agent → `effectiveAgentId` |
 | P1 | 选路 | RDC 查询；空列表 → S5；取排序首条；得到 opaque `routeHandle` + `targetServiceId`（BUS 入队门槛，见 §7）；**不**因仅缺物理 endpoint 挡 I-04 |
 | P2 | 登记等待 | 以 Gateway 自生成的 `correlationId` 登记 accept/response 窗口；**尚未** publish 成功前不得对 client 报已入队成功 |
-| P3 | I-04 出站 | 组装 `ForwardingEnvelope`（`CLIENT_INVOCATION_REQUESTED`）；写入可信租户、路由引用、`correlationId`；A2A 入 `payload`/`payloadRef`；enqueue → produce |
+| P3 | I-04 出站 | 组装 `ForwardingEnvelope`（`CLIENT_INVOCATION_REQUESTED`）；写入可信租户、路由引用、`correlationId`、`originalCaller`（= gateway `sourceServiceId`）；A2A 入 `payload`/`payloadRef`（as-built 用 `inlinePayload`，见 §9.2）；enqueue 到 outbox → **caller outbox 泵**（`GatewayOutboxDispatcher`）claim → produce 到 `ascend_bus_*_req`（as-built，见 §9.1；非入队即 produce） |
 | P4a | 同步折叠 | I-04 入站消费投影 → §4.6 五态；清洗后经 I-01 回传 |
 | P4b | 流式桥接 | 已匹配 `INVOCATION_STREAM_READY`（含 `streamRef`）且 client 仍连接 → I-06；逐帧桥接；断开 release |
 | P5 | 收尾 | 首次获得非空 `taskId` 时写入续跑所需关联（见下）；**按 §4.6 G4 接线表** `complete` / `abort`；route/bus trace；响应去拓扑 |
@@ -639,7 +655,7 @@ sequenceDiagram
 | I-06 | 仅流式且已 `STREAM_READY`；token 不经 I-04 |
 | I-03 | 本场景主路径**不用** |
 
-信封必填语义（字段名以 FEAT-013 为准）：`tenantId`、`eventType`、`messageId`、`correlationId`、`sourceServiceId`、`targetServiceId` / 路由引用、`payload` 或 `payloadRef`。权威租户来自治理可信上下文，**不采信** client 自报。
+信封必填语义（字段名以 FEAT-013 为准）：`tenantId`、`eventType`、`messageId`、`correlationId`、`sourceServiceId`、`originalCaller`（= gateway `sourceServiceId`，P-06：runtime 据此把响应路由回 gateway，经 relay 透传；as-built 已设，见 §9.2）、`targetServiceId` / 路由引用、`payload` 或 `payloadRef`（as-built 对小 A2A body 用 `inlinePayload`，不用 `payloadRef` stash，见 §9.2）。权威租户来自治理可信上下文，**不采信** client 自报。
 
 ### 4.6 判断逻辑
 
@@ -1414,6 +1430,46 @@ S6～S8 的时序、信封字段与端到端验收 **本版不写**。S9 同键�
 ### 8.6 与跨特性契约
 
 本章能力未交付：**无**新增跨特性契约条目。
+
+---
+
+## 9. E2E 联调对齐（as-built 修订，2026-07-29）
+
+> 本节记录 2026-07-28/29 BUS 路径端到端联调（gateway→relay→runtime→relay→gateway，真 broker）定位并修复的 as-built 偏差。正文条款如与下述冲突，**以下述 as-built 为准**。
+
+### 9.1 caller outbox 泵（I-04 出站）
+- **as-built**：gateway 入队 `CLIENT_INVOCATION_REQUESTED` 到 `agent_bus_forwarding_outbox` 表（`JdbcForwardingOutbox`，PENDING）后，由 **`GatewayOutboxDispatcher`**（SmartLifecycle 调度循环）claim 记录 → `requestProducer.produce` 到 `ascend_bus_*_req`。**不是**入队即 produce。
+- **影响**：若无此泵，req 卡 PENDING → relay 收不到 → gateway 超时 UNKNOWN。
+- **配置**：`gateway.bus.dispatch-interval-ms`（claim 轮询间隔，默认 1s）、`agent-bus.lease-duration-ms`（claim 租约）。
+
+### 9.2 信封 `originalCaller` + `inlinePayload`（P-06 / 跨进程 body）
+- **as-built**：`EnvelopeBuilder.buildEnvelope` 设 `originalCaller=sourceServiceId`（gateway-01）——runtime 据此把响应路由回 gateway（经 relay 透传），不路由回 relay。`BusControlForwarder.forward` 设 `inlinePayload=A2A body`（**不**用 `InMemoryPayloadStore` stash `payloadRef`）——跨进程 consumer 直接从 `inlinePayload` 读 body。
+- **影响**：`originalCaller=null` → 响应 targetServiceId=eventbus-01（relay）→ gateway 收不到 → UNKNOWN。`payloadRef` stash → 跨进程 consumer 取不到 → `PAYLOAD_REFERENCE_INVALID`。
+
+### 9.3 `targetServiceId` 来源（P1 选路）
+- **as-built**：`HttpRdcRouteClient.searchInstancesByAgentId` 映射 RDC dto 的 `serviceId` → `AgentCardRoute.targetServiceId`（写入信封 `targetServiceId`）。DIRECT 路径不读 `targetServiceId`（用 `routeHandle` + `resolveRouteHandle`）；BUS 路径入队信封必填 `targetServiceId`。
+
+### 9.4 默认 Agent 兜底（P1 / Bug1）
+- **as-built**：`BusForwarder.forwardSync`/`forwardStreaming` 用 `ctx.agentId() != null ? ctx.agentId() : defaultAgentResolver.resolve()`（镜像 DIRECT `Router`）。client 传 `agentId` → 以 client 为准；client 不传 → `gateway.default-agent-id` 兜底；都无 → `DEFAULT_AGENT_UNCONFIGURED`（不再 NPE）。
+
+### 9.5 IN-4 流式：SubscribeToTask + 首帧截止 + 状态码检查
+- **as-built 流式链路**（`BusForwarder.forwardStreaming`）：poll `ACCEPTED` + `STREAM_READY`（含 `streamRef`）→ `rdc.resolveRouteHandle` → `HttpAgentRuntimeClient.openStreamByRef(endpoint, streamRef, taskId, tenant)` POST runtime `/a2a`（`SubscribeToTask` + `X-OpenJiuwen-Stream-Ref` header + `{id,tenant}` params + `Accept: text/event-stream`）→ runtime `A2aJsonRpcController.handleSubscribeToTask` → `onSubscribeToTask` 返回 `Flow.Publisher<StreamingEventKind>` → `streamToSse` 逐帧写 SSE → gateway `SseBridge` 透传 client。
+- **首帧截止**（Bug3）：`forwardStreaming` 用 worker 线程 + `Future.get(stream-first-frame-deadline-ms)` 读首帧；超时在**响应提交前**关流 + 返 `FAILED STREAM_DEADLINE_EXCEEDED`（不挂死 servlet 线程）。config `gateway.bus.stream-first-frame-deadline-ms`（默认 10s）。
+- **状态码检查**（Bug4）：`openStreamByRef`/`openStream` 检查 `resp.statusCode()>=400` → 抛 `FORWARD_FAILED`（带状态+首行 body）+ 记 `openStreamByRef status=X` 日志。**不再**把 4xx 错误体当空流吞掉。
+- **拒绝原因透出**：`forwardStreaming` 用 try/catch 包 `openStreamByRef` 的 `GovernanceException` → `log.warn` + 返 FAILED body（runtime 拒绝原因现可在 gateway 日志看到）。
+- **`SubscribeToTask` 已交付**：runtime 的 HTTP `/a2a`（独立仓 `agent-runtime-java` 的 `agent-service-app` 的 `A2aJsonRpcController`）已实现 `SUBSCRIBE_TO_TASK_METHOD` 派发 → `handleSubscribeToTask` → `onSubscribeToTask` → `streamToSse`。E2E 实测 `openStreamByRef status=200` + 10 chunk SSE 到 client（~11s）。
+  - 注：§8 的 S8（client 重订阅流 / resubscribe）**仍 730 不交付**——那是 client 侧 SubscribeToTask；本节指 **gateway→runtime** 的 SubscribeToTask（IN-4 数据面），**已交付**。
+
+### 9.6 launcher 制品（SDK 上 classpath）
+- **as-built**：gateway 主模块（`common/agent-gateway`）编译期 **SPI-only**（`agent-bus-sdk` 是 `module-metadata.yaml` `forbidden_dependencies`，by design GW-013-5）。一个 launcher 制品把 `agent-bus-sdk` 放到运行时 classpath：`common/example/agent-gateway-demo`（Maven 模块，`spring-boot repackage`，`Start-Class=GatewayApplication`，内嵌 `agent-gateway` lib-jar + `agent-bus-sdk` + `application-bus.yml`）。
+- **E2E 启动**：`java -jar common/example/agent-gateway-demo/target/agent-gateway-demo-0.1.0.jar --spring.profiles.active=bus`。
+- **DIRECT 模式**：用 gateway 主 fat-jar（`common/agent-gateway/target/agent-gateway-0.1.0.jar`，SPI-only，无 SDK → 无 broker autoconfig → DIRECT 干净）。
+
+### 9.7 治理错误处理器（Bug2，与 011 共享）
+- **as-built**：`GovernanceErrorHandler` 直接写 `HttpServletResponse`（`setStatus` + `setContentType(application/json)` + `getWriter().write`），**绕过 Spring 内容协商**。流式请求（client `Accept: text/event-stream`）触发 `GovernanceException` 时不再 406 `HttpMediaTypeNotAcceptableException`，错误一律 JSON。详见 FEAT-011 §9。
+
+### 9.8 配置命名空间
+- **as-built**：`gateway.*`（非 `openjiuwen.gateway.*`）；`gateway.bus.accept-window-ms` / `response-window-ms`（非 `accept-wait-window`）；新增 `gateway.bus.stream-first-frame-deadline-ms`。详见 §1.5.1。
 
 
 
