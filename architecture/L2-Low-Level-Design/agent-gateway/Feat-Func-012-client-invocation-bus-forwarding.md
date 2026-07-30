@@ -810,7 +810,7 @@ client 验收主路径：与 FEAT-011 相同的 A2A 创建组包；总线关联�
 
 ### 4.11 Gateway ↔ FEAT-013 契约（投递层）
 
-> **用途**：正式 Gateway 按已合入 FEAT-013 装配；权威见 FEAT-013 L2 与 `common/agent-bus/` as-built。  
+> **用途**：正式 Gateway 按已合入 FEAT-013 装配；权威见 FEAT-013 L2 与 `common/agent-bus/event-bus/` as-built。  
 > **前提**：FEAT-013 合入 L2（如 `feat-013-client-invocation-event-forwarding.md`）。
 
 #### 4.11.1 Gateway 侧约定
@@ -821,7 +821,7 @@ client 验收主路径：与 FEAT-011 相同的 A2A 创建组包；总线关联�
 | GW-013-2 | 入站 | `BrokerForwardingConsumerPort` 消费投影（`resp_out` 或等价） | responseConsumer |
 | GW-013-3 | 关联 | `correlationId` = Gateway 自生成（§4.10）；可等于内部 `requestId`；对 client 不可见；投影原样回传 | 正式路径以 Gateway 生成的 `correlationId` 配对 |
 | GW-013-4 | 观测态 | `InvocationResponseStatus`；ACCEPTED ≠ STREAM_READY | 013 §2.3.3 / classify |
-| GW-013-5 | 制品 | 依赖 `agent-bus-spi`/`sdk`；不绑 Event Bus 测具 / `gateway` profile 临时进程 | 正式制品边界 |
+| GW-013-5 | 制品 | 依赖 `event-bus-spi`/`sdk`；不绑 Event Bus 测具 / `gateway` profile 临时进程 | 正式制品边界 |
 
 #### 4.11.2 FEAT-013 侧约定
 
@@ -1049,7 +1049,7 @@ sequenceDiagram
 #### 5.9.1 Gateway ↔ FEAT-013 契约（S3/S4 投递）
 
 > **用途**：工具续跑与 continueInput 共用同一出站事件族。  
-> **前提**：FEAT-013 合入 L2 中 `AgentBusEventType`、信封、`IngressRequestType`（含 `RUN_RESUME`）；`agent-bus` as-built。
+> **前提**：FEAT-013 合入 L2 中 `AgentBusEventType`、信封、`IngressRequestType`（含 `RUN_RESUME`）；`event-bus` as-built。
 
 ##### Gateway 侧约定
 
