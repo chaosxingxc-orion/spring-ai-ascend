@@ -30,7 +30,7 @@ related_docs:
 >
 > **P-06 更新（2026-07-22，控制面/数据面分离）**：`payloadRef` 不再承载控制描述符 token——控制面（`traceId`/`idempotencyKey`/`routeHandle`/`capability`/`deadlineMillisEpoch`）+ `originalCaller`（跨 relay 回路由）+ `inlinePayload`（小正文 2b）改为 **broker 一级字段 / envelope 一等字段**。`payloadRef` 回归纯 A2A 数据引用。响应内容（`taskId`/`status`/`streamRef`/`reason`）走 `inlinePayload`（FEAT-014:68），gateway 用 `responseToken` 解读。`BrokerControlDescriptor` 编解码器**已删除**。JDBC outbox 新增 **V4 迁移**持久化控制面。relay 治理改为 `msg.eventType()` 判别 + 控制面存在性 poison 守卫（替代旧 descriptor decode + corrId 匹配）。详见 feat-013 §2.3.1 P-06 更新。下文凡引用 `BrokerControlDescriptor`/payloadRef-descriptor 的既有描述均以此 P-06 更新为准。
 >
-> **代码仓迁移（2026-07-17，事实源切换）**：`agent-bus` 代码已从 `spring-ai-ascend/agent-bus` 迁移至 **agent-solution 仓 `common/agent-bus/`**（事实源；spring-ai-ascend 仓内 `agent-bus/` 已废弃）。包名 `com.huawei.ascend.bus` → `com.openjiuwen.bus`；拆为 4 模块 `agent-bus-spi`/`agent-bus-sdk`/`agent-bus-relay`/`agent-bus-testkit`；入口 `AgentBusApplication` → `EventBusRelayApplication`（`eventbus` profile）；gateway 运行时降级为 `agent-bus-relay` 测试源码；registry-discovery-center 平面未迁入 agent-bus 生产代码（**main 零依赖**；`AgentDiscoveryService` 仅 `GatewayRuntimeService` test 范围注入演示发现路径；topic 由 `DefaultBrokerTopicResolver` 按 `AgentBusEventType` 派生，opaque routeHandle T4 穿透不解封）；Flyway 仅 `V1`+`V3`。FEAT-014 与 FEAT-013 共享同一 event-bus 转发底座与 broker 拓扑（仅事件族 `A2A_CALL_*`/`A2A_STREAM_*` + topic `ascend_bus_a2a_*` 不同）。完整迁移要点见 [`feat-013 命名说明`](./feat-013-client-invocation-event-forwarding.md)；下文包路径均按 `com.openjiuwen.bus` 表达。
+> **代码仓迁移（2026-07-17，事实源切换）**：`agent-bus` 代码已从 `spring-ai-ascend/agent-bus` 迁移至 **agent-solution 仓 `common/agent-bus/`**（事实源；spring-ai-ascend 仓内 `agent-bus/` 已废弃）。包名 `com.huawei.ascend.bus` → `com.openjiuwen.bus`；拆为 4 模块 `event-bus-spi`/`event-bus-sdk`/`event-bus-relay`/`event-bus-testkit`；入口 `AgentBusApplication` → `EventBusRelayApplication`（`eventbus` profile）；gateway 运行时降级为 `event-bus-relay` 测试源码；registry-discovery-center 平面未迁入 agent-bus 生产代码（**main 零依赖**；`AgentDiscoveryService` 仅 `GatewayRuntimeService` test 范围注入演示发现路径；topic 由 `DefaultBrokerTopicResolver` 按 `AgentBusEventType` 派生，opaque routeHandle T4 穿透不解封）；Flyway 仅 `V1`+`V3`。FEAT-014 与 FEAT-013 共享同一 event-bus 转发底座与 broker 拓扑（仅事件族 `A2A_CALL_*`/`A2A_STREAM_*` + topic `ascend_bus_a2a_*` 不同）。完整迁移要点见 [`feat-013 命名说明`](./feat-013-client-invocation-event-forwarding.md)；下文包路径均按 `com.openjiuwen.bus` 表达。
 
 > 共享模型引用：事件信封 `AgentBusEventEnvelope`（= 扩展后 `ForwardingEnvelope`）、调用响应状态 `InvocationResponseStatus`、broker 拓扑（RocketMQ pub/sub 两跳 + event-bus 治理中继 + 模型 B ack-after-consume）、幂等三层、租户隔离三层、与 Stage 叙事关系——均见 [`feat-013`](./feat-013-client-invocation-event-forwarding.md) §2.3/§4/§5/§8。本文不重复，只定义 FEAT-014 特有部分。
 
@@ -164,7 +164,7 @@ public enum AgentBusEventType {
 **agent-bus 侧（event-bus 进程，复用 + 治理中继）**：
 
 ```
-com.openjiuwen.bus.forwarding.                  # 复用（agent-solution 仓 common/agent-bus/，4 模块；FEAT-014 与 FEAT-013 共享底座）
+com.openjiuwen.bus.forwarding.                  # 复用（agent-solution 仓 common/agent-bus/event-bus/，4 模块；FEAT-014 与 FEAT-013 共享底座）
   spi.                                        #   ForwardingEnvelope(扩展) / AgentBusEventType(含 A2A_CALL_*/A2A_STREAM_* 族) /
                                               #   InvocationResponseStatus / ForwardingOutboxPort / InboxPort / Dispatcher / FailureCode / RouteHandle
     └── broker.                               #   broker 转发 SPI 端口（P-06：BrokerControlDescriptor 已删除，控制面走一级字段）
@@ -218,9 +218,9 @@ ServeOrchestrator              BrokerAutoConfiguration           BrokerForwardin
             │       └── produce(direct-tap 重载 produce(BrokerOutboundMessage,long)，不经 outbox) A2A_CALL_ACCEPTED / A2A_CALL_RESPONSE / A2A_STREAM_READY / A2A_CALL_TERMINAL ──> BrokerForwardingProducerPort
 ```
 
-### 3.3 SDK 生产/消费接口（agent-bus-sdk + agent-bus-spi，与 FEAT-013 共享）
+### 3.3 SDK 生产/消费接口（event-bus-sdk + event-bus-spi，与 FEAT-013 共享）
 
-`agent-bus-sdk`（+ `agent-bus-spi`）作为生产者（caller runtime）与消费者（event-bus relay / target runtime）调用的 SDK，**与 FEAT-013 共享同一接口面**——仅事件族（`A2A_CALL_*`/`A2A_STREAM_*`）+ topic（`ascend_bus_a2a_*`）不同。完整接口/方法表见 [`feat-013 §3.3`](./feat-013-client-invocation-event-forwarding.md)；FEAT-014 角色映射如下：
+`event-bus-sdk`（+ `event-bus-spi`）作为生产者（caller runtime）与消费者（event-bus relay / target runtime）调用的 SDK，**与 FEAT-013 共享同一接口面**——仅事件族（`A2A_CALL_*`/`A2A_STREAM_*`）+ topic（`ascend_bus_a2a_*`）不同。完整接口/方法表见 [`feat-013 §3.3`](./feat-013-client-invocation-event-forwarding.md)；FEAT-014 角色映射如下：
 
 | FEAT-014 角色 | SDK 角色 | 调用接口 | 事件族 |
 |---|---|---|---|
@@ -230,7 +230,7 @@ ServeOrchestrator              BrokerAutoConfiguration           BrokerForwardin
 | 调用方 runtime（caller） | 消费方（响应） | `BrokerForwardingConsumerPort`（复用 `responseConsumer`，`resp_out` 后缀）→ `ForwardingInboxPort.receive` → `commit` | （消费 `A2A_CALL_*` 响应，按 `correlationId` 匹配回灌） |
 | event-bus relay | 治理中继（消费+生产） | forward relay：消费 `T_a2a_req` → `inbox.receive`+correlation match → re-publish `T_a2a_deliver`；response relay：消费 `T_a2a_resp_in` → re-publish `T_a2a_resp_out` | （转发两族事件，不改 eventType） |
 
-> 生产方/消费方只需依赖 `agent-bus-sdk`（+ `agent-bus-spi`）、按类型注入所需端口，broker client 由 sdk 装配（`AgentBusBrokerClientBaseAutoConfiguration`（base：props+`defaultProducer`，无 JDBC）+ `AgentBusReliabilityAutoConfiguration`（`@ConditionalOnClass(DataSource.class)`：outbox/inbox）+ 角色 autoconfig（`AgentBusCallerRoleAutoConfiguration`/`AgentBusRuntimeRoleAutoConfiguration`，`agent-bus.role.{caller,runtime}.enabled=true` 激活），无 `@Profile`、role-agnostic）。caller runtime 可复用 in-repo `requestProducer`/`responseConsumer` role bean（de-gateway-ification 设计意图），target runtime 可复用 `runtimeRequestConsumer` 或自声明 `RocketMqBrokerForwardingConsumer`。
+> 生产方/消费方只需依赖 `event-bus-sdk`（+ `event-bus-spi`）、按类型注入所需端口，broker client 由 sdk 装配（`AgentBusBrokerClientBaseAutoConfiguration`（base：props+`defaultProducer`，无 JDBC）+ `AgentBusReliabilityAutoConfiguration`（`@ConditionalOnClass(DataSource.class)`：outbox/inbox）+ 角色 autoconfig（`AgentBusCallerRoleAutoConfiguration`/`AgentBusRuntimeRoleAutoConfiguration`，`agent-bus.role.{caller,runtime}.enabled=true` 激活），无 `@Profile`、role-agnostic）。caller runtime 可复用 in-repo `requestProducer`/`responseConsumer` role bean（de-gateway-ification 设计意图），target runtime 可复用 `runtimeRequestConsumer` 或自声明 `RocketMqBrokerForwardingConsumer`。
 
 ---
 
@@ -357,7 +357,7 @@ sequenceDiagram
 ### 5.2 完整配置示例
 
 ```yaml
-# event-bus 侧（agent-bus-relay application.yml，flat 12 字段，@ConfigurationProperties(prefix="agent-bus")；无 broker.rocketmq 嵌套、无 topics 项）
+# event-bus 侧（event-bus-relay application.yml，flat 12 字段，@ConfigurationProperties(prefix="agent-bus")；无 broker.rocketmq 嵌套、无 topics 项）
 agent-bus:
   nameserver: 10.0.0.10:9876;10.0.0.11:9876
   namespace: ascend-prod
