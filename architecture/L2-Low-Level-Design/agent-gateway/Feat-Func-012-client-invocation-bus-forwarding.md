@@ -323,13 +323,13 @@ agent-gateway/
 
 ```yaml
 # 示意，非最终键名
-openjiuwen.gateway:
+gateway:
   path-mode: bus                   # 部署级固定 direct|bus；client 不可见、不可按调用覆盖
   bus:
     publish-timeout: 3s            # I-04 出站：produce 失败须明确失败
     # 等待投影（I-04 入站）— 语义对齐 FEAT-013 双窗口，勿压成「单一超时=未知」
-    accept-wait-window: 30s        # 无 ACCEPTED/REJECTED/FAILED/RESPONSE → 未知
-    response-wait-window: 60s      # 已 ACCEPTED 后等终态/响应；超时 → 已接受(taskId)，不得再报未知
+    accept-window-ms: 30000        # 无 ACCEPTED/REJECTED/FAILED/RESPONSE → 未知
+    response-window-ms: 60000      # 已 ACCEPTED 后等终态/响应；超时 → 已接受(taskId)，不得再报未知
     # I-04 入站订阅由转发底座装配（如 responseConsumer）；Gateway 须启用，不得只配出站
   default-agent-id: …              # 同 011
   sse:
@@ -1414,6 +1414,4 @@ S6～S8 的时序、信封字段与端到端验收 **本版不写**。S9 同键�
 ### 8.6 与跨特性契约
 
 本章能力未交付：**无**新增跨特性契约条目。
-
-
 
