@@ -92,11 +92,14 @@ Stage 7 交付**最小骨架**：领域模型、端口接口、状态机、schem
 |---|---|---|---|---|---|
 | `(new)` | `ARRIVE_NEW` | `RECEIVED` | 幂等键未命中（首次） | | |
 | `(new)` | `ARRIVE_DUPLICATE` | `DUPLICATE_SUPPRESSED` | 幂等键命中（重复） | `duplicate_suppressed` | ✓ |
+| `RECEIVED` | `ARRIVE_REDELIVER` | `RECEIVED` | 重投到达且行仍为 `RECEIVED`（崩溃于 `CONSUME` 前）→ 幂等再处理，行不变（at-least-once，不丢） | | |
 | `RECEIVED` | `CONSUME` | `CONSUMED` | 接收方处理完成 | | ✓ |
 | `RECEIVED` | `REJECT` | `REJECTED` | 接收方拒绝（tenant mismatch / payloadRef invalid / schema invalid） | `tenant_mismatch` / `payload_ref_invalid` | ✓ |
 | 任意非终态 | （非法迁移） | — | — | — | 抛 `IllegalStateTransitionException` |
 
 终态：`DUPLICATE_SUPPRESSED`、`CONSUMED`、`REJECTED`。
+
+> **重投分流（崩溃安全，P-00 闭环）**：`receive` 在冲突后按 SELECT 到的 existing status 分流——在途 `RECEIVED` 行重投走 `ARRIVE_REDELIVER` 自环、返回 `RECEIVED`（再处理，行不变；outbox 确定性 messageId 幂等防双发，故 at-least-once 不丢）；终态（`CONSUMED` / `REJECTED` / `DUPLICATE_SUPPRESSED`）行重投不迁移、直接返回 `DUPLICATE_SUPPRESSED`（抑制，不重执）。relay 侧另以 `outbox.statusOf == ACKED` 短路闭环"崩溃于 `markAcked` 后、`commit` 前"的 W4：未抢到且 outbox 已 ACKED → `markConsumed` + `commit` 幂等完结，避免对终态 ACKED 行 reject→redeliver 死循环。`DISPATCHING`（自持活动 lease）行仍 reject，lease 过期后回收重发（重发一次由消费方 inbox + Task 幂等吸收，FEAT-017 §5.1.4 两键分离）。
 
 ## 5. 幂等键
 
@@ -213,7 +216,7 @@ C3 运行态按 [`decision`](../../../docs/architecture/l0/10-governance/review-
 
 - **Stage 24**（RLS 接线闭合跨租户纵深防御，**有生产代码改动**）：adapter 首次引入事务管理 `TransactionTemplate`，`withTenant(tenantId, Supplier)` helper 事务内 `set_config('app.tenant_id', :tenantId, true)` ≡ SET LOCAL 激活 §7.3 fail-closed RLS（[`forwarding-persistence §7.3`](forwarding-persistence.md)），闭合 Stage 12「armed but not wired」；双构造器向后兼容、不加 FORCE/WITH CHECK、V1 零改。200 tests green。
 - **Stage 25**（投递模型最终裁决，**无生产代码**）：T4 hybrid（outbox + broker），`adopted-t4` —— 保留 outbox/inbox + relay produce broker + receiver pull 消费（pull = 反压内核）；解除 [`decision §6.1`](../../../docs/architecture/l0/10-governance/review-packets/agent-bus-forwarding-runtime-decision.md) 第 1 项引 broker（圈 `transport.broker`）、守 §6.2 精神（第①项不反向定义 + 第②③④⑤项不变）；broker 选型 deferred Stage 26 PoC（倾向 RocketMQ）；T1 push PoC 保留共存；模型 B（ack-after-consume）方向。完整论证见 [`transport-decision`](../../../docs/architecture/l0/10-governance/review-packets/agent-bus-forwarding-runtime-transport-decision.md)。200 tests green（无 Java 改动）。
-- **Stage 26**（broker-agnostic SPI 骨架 + 锁定 RocketMQ，**首个 broker 生产代码阶段**）：`transport.broker` 子包 8 生产文件（纯 Java 不引 broker client）—— `BrokerForwardingRelayPort`（relay 形态 `produce(ForwardingOutboxRecord)→BrokerProduceOutcome`，**独立 SPI 非 `ForwardingDeliveryPort` 子类型**，因 broker produce 是 fire-and-forget 非终态；routeHandle 经 `ForwardingEndpointResolver` 映射 topic HD4 opaque 不读 value()）/ `BrokerForwardingConsumerPort`（receiver 形态 `poll`/`commit`/`reject`，模型 B ack-after-consume）/ `BrokerOutboundMessage`（body=routing descriptor only §6.2②，绝不载 payload body/token stream/Task state）/ `BrokerInboundMessage`（不暴露 offset/topic/partition；consumerServiceId poll 时填入）/ `BrokerProduceOutcome` / `BrokerMessageHeaders` / `BrokerClientProperties`（产品无关，不绑 RocketMQ 类型）/ `package-info`；in-memory 替身 `InMemoryBroker`（test）+ `BrokerForwardingPortsContractTest`（16 契约）验证治理不变量（payloadRef-in-header / routeHandle opaque / 跨租户 reject / consumer-group 隔离 / 至少一次 redelivery）；**产品锁定 RocketMQ**（用户裁决），真实实例 PoC deferred 部署环境（Docker 死路 + 无自部署实例，in-memory 替身同 Stage 12 embedded-postgres / Stage 15 MockWebServer 哲学）；ArchUnit 三处豁免（`SpiPurityTest` rocketmq 圈 `transport.broker` / §6.2 文本扫描排除 / Stage 4 broker-agnostic trip-wire 解除）；§6.2 不变。217 tests green。
+- **Stage 26**（broker-agnostic SPI 骨架 + 锁定 RocketMQ，**首个 broker 生产代码阶段**）：`transport.broker` 子包 8 生产文件（纯 Java 不引 broker client）—— `BrokerForwardingProducerPort`（relay 形态 `produce(ForwardingOutboxRecord)→BrokerProduceOutcome`，**独立 SPI 非 `ForwardingDeliveryPort` 子类型**，因 broker produce 是 fire-and-forget 非终态；routeHandle 经 `ForwardingEndpointResolver` 映射 topic HD4 opaque 不读 value()）/ `BrokerForwardingConsumerPort`（receiver 形态 `poll`/`commit`/`reject`，模型 B ack-after-consume）/ `BrokerOutboundMessage`（body=routing descriptor only §6.2②，绝不载 payload body/token stream/Task state）/ `BrokerInboundMessage`（不暴露 offset/topic/partition；consumerServiceId poll 时填入）/ `BrokerProduceOutcome` / `BrokerMessageHeaders` / `BrokerClientProperties`（产品无关，不绑 RocketMQ 类型）/ `package-info`；in-memory 替身 `InMemoryBroker`（test）+ `BrokerForwardingPortsContractTest`（16 契约）验证治理不变量（payloadRef-in-header / routeHandle opaque / 跨租户 reject / consumer-group 隔离 / 至少一次 redelivery）；**产品锁定 RocketMQ**（用户裁决），真实实例 PoC deferred 部署环境（Docker 死路 + 无自部署实例，in-memory 替身同 Stage 12 embedded-postgres / Stage 15 MockWebServer 哲学）；ArchUnit 三处豁免（`SpiPurityTest` rocketmq 圈 `transport.broker` / §6.2 文本扫描排除 / Stage 4 broker-agnostic trip-wire 解除）；§6.2 不变。217 tests green。
 
 后续 deferred：
 

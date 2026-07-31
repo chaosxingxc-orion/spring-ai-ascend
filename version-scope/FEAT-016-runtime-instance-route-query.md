@@ -1,24 +1,13 @@
 ---
-version: 0715
+scope: v0730
 module: agent-bus
 feature_type: functional
 feature_id: FEAT-016
-status: draft
-related_docs:
-  - ../architecture/L0-Top-Level-Design/boundaries.md
-  - ../architecture/L0-Top-Level-Design/glossary.md
-  - ../architecture/L1-High-Level-Design/agent-bus/README.md
-  - ../architecture/L1-High-Level-Design/agent-bus/logical.md
-  - ../architecture/L1-High-Level-Design/agent-bus/process.md
-  - ../architecture/L1-High-Level-Design/agent-bus/scenarios.md
-  - ../architecture/L1-High-Level-Design/agent-bus/features/README.md
-  - ./FEAT-001-standardized-agent-service-entrypoint.md
-  - ./FEAT-005-remote-agent-orchestration.md
-  - ./FEAT-013-client-invocation-event-forwarding.md
-  - ./FEAT-014-a2a-call-event-forwarding.md
+status: active
+updated: 2026-07-21
 ---
 
-# 运行时实例路由查询特性文档
+# 运行时实例路由查询
 
 ## 1. 特性定位
 
@@ -37,7 +26,7 @@ FEAT-016 定义 `agent-bus` 逻辑域中 registry-discovery-center 单元支持�
 - `agent-client`：可以通过 gateway 或 `agent-runtime` 暴露的路由可用性投影了解已知目标是否可路由，但不通过本特性发现候选 agent/service，也不获得物理路由信息。
 - 平台集成方和测试团队：验证路由查询、租户隔离、脱敏、中心不可用降级和路由失败恢复等黑盒行为。
 
-本特性只定义当前版本纳入范围的外部行为和能力边界。标准 Agent 服务入口由 `FEAT-001` 约束；远程 Agent 编排的本地工具化、执行回灌和中断续接由 `FEAT-005` 约束；客户端调用事件转发由 `FEAT-013` 约束；服务间 A2A 调用事件转发由 `FEAT-014` 约束。`agent-bus` 不拥有 Task execution state，不接管 Agent Card 语义发现，不定义 event-bus 查询 registry-discovery-center 的运行态能力。
+本特性只定义当前版本纳入范围的外部行为和能力边界。标准 Agent 服务入口由 `FEAT-001` 约束；远程 Agent 编排的本地工具化、执行回灌和中断续接由 `FEAT-004` 约束；客户端调用事件转发由 `FEAT-013` 约束；服务间 A2A 调用事件转发由 `FEAT-014` 约束。`agent-bus` 不拥有 Task execution state，不接管 Agent Card 语义发现，不定义 event-bus 查询 registry-discovery-center 的运行态能力。
 
 ## 2. 当前版本能力要求
 
@@ -188,6 +177,6 @@ FEAT-016 定义 `agent-bus` 逻辑域中 registry-discovery-center 单元支持�
 - `architecture/L1-High-Level-Design/agent-bus/scenarios.md`
 - `architecture/L1-High-Level-Design/agent-bus/features/README.md`
 - `version-scope/FEAT-001-standardized-agent-service-entrypoint.md`
-- `version-scope/FEAT-005-remote-agent-orchestration.md`
+- `version-scope/FEAT-004-task-driven-remote-agent-communication.md`
 - `version-scope/FEAT-013-client-invocation-event-forwarding.md`
 - `version-scope/FEAT-014-a2a-call-event-forwarding.md`

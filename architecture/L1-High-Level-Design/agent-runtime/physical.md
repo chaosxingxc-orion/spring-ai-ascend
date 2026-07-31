@@ -26,7 +26,7 @@ dependency:
 物理视图回答以下问题：
 
 - `agent-runtime` 运行在哪类宿主进程中。
-- Runtime 作为 library artifact 时，与业务应用或独立宿主进程如何组合。
+- Runtime 作为 service 聚合模块时，与业务应用或独立宿主进程如何组合。
 - 当前单实例 topology 中 HTTP 接入、A2A SDK 组件、Agent 执行适配器和外部依赖位于哪里。
 - 当前默认 InMemory 状态与可选 Redis-backed Task 状态缓存对重启、故障和横向扩展有什么约束。
 - 当前线程、内存、并发和关闭排水模型是什么。
@@ -35,17 +35,17 @@ dependency:
 
 ### 1.1 当前 active 物理形态
 
-`agent-runtime` 当前是普通 Java library artifact，不生成独立 Spring Boot fat jar。它通过 `RuntimeApp`、`LocalA2aRuntimeHost` 和 Spring Boot 自动配置嵌入某个宿主 JVM 进程。
+`agent-runtime` 当前通过 `service/agent-service-*` 聚合模块提供 Spring Boot 自动装配、A2A controller、执行 SPI 和框架适配器，可嵌入宿主 JVM 进程或由专门 host application 启动。
 
 当前 active 物理形态可以概括为：
 
 ```text
 Host JVM process
-  -> agent-runtime library
+  -> service/agent-service-app
   -> embedded HTTP server provided by host Spring Boot application
   -> in-process A2A SDK runtime components
-  -> optional Redis-backed Task state cache through RuntimeRedisClient
-  -> in-process AgentRuntimeHandler adapters
+  -> optional Redis-backed TaskStore
+  -> in-process AgentHandler adapters
 ```
 
 ### 1.2 与其他视图的边界
@@ -61,15 +61,15 @@ Host JVM process
 
 ### 2.1 Library artifact 与宿主进程关系
 
-`agent-runtime` 的物理部署单元不是独立制品进程，而是被某个宿主应用加载的 library。
+`agent-runtime` 的物理部署单元由宿主应用或专门 host application 承载，核心能力来自 `service/agent-service-app`、`agent-service-spec` 和 adapter 模块。
 
 | 物理项 | 当前 active 事实 |
 |---|---|
-| Artifact 形态 | 普通 Java library。 |
+| Artifact 形态 | service 聚合模块提供的 Spring Boot 自动装配与公共 SPI。 |
 | 进程所有者 | 宿主 Spring Boot 应用或纯 Java host。 |
 | HTTP server | 由宿主应用提供，通常是 Tomcat 或 Netty。 |
-| Runtime 启动 | 通过 `RuntimeApp`、`LocalA2aRuntimeHost` 或 Spring Boot 自动配置装配。 |
-| Runtime 状态 | 默认保存在进程内 InMemory A2A SDK 组件中；启用 FEAT-003 后，Task 状态与 Agent checkpoint cache 可通过 `RuntimeRedisClient` 写入 Redis。 |
+| Runtime 启动 | 通过 Spring Boot 自动配置装配。 |
+| Runtime 状态 | 默认保存在进程内 InMemory A2A SDK 组件中；启用 FEAT-003 后，Task 状态可通过 Redis-backed TaskStore 写入 Redis。 |
 
 ### 2.2 嵌入式部署
 
@@ -78,11 +78,11 @@ Host JVM process
 ```text
 Business Application JVM
   -> business controllers / services
-  -> agent-runtime
+  -> service/agent-service-app
      -> /a2a
      -> Agent Card endpoint
      -> A2A SDK in-memory components
-     -> AgentRuntimeHandler adapters
+     -> AgentHandler adapters
 ```
 
 这种形态下，业务应用和 runtime 共用同一 JVM、同一进程生命周期、同一资源预算和同一部署单元。
@@ -94,12 +94,12 @@ Business Application JVM
 ```text
 Dedicated Host JVM
   -> Spring Boot host application
-  -> agent-runtime library
+  -> service/agent-service-app
   -> /a2a JSON-RPC endpoint
   -> Agent Card endpoint
 ```
 
-这里的“独立”来自宿主应用的部署选择，不表示 `agent-runtime` 当前自身产出独立可执行 fat jar。
+这里的“独立”来自宿主应用的部署选择，不表示 `agent-runtime` 当前必须产出单独的可执行 fat jar。
 
 ### 2.4 混合式部署
 
@@ -108,9 +108,9 @@ Dedicated Host JVM
 | 职责 | 所在位置 |
 |---|---|
 | 业务 HTTP/API | 宿主应用自身。 |
-| A2A JSON-RPC | `agent-runtime` 自动配置或 host 装配。 |
-| Agent 执行 | 同进程 `AgentRuntimeHandler` 适配器。 |
-| Task / Event 状态 | 默认同进程 InMemory A2A SDK 组件；Task 状态可由 Redis-backed TaskStore 持久化，事件队列和订阅仍属于同进程组件。 |
+| A2A JSON-RPC | `agent-service-app` 自动配置或 host 装配。 |
+| Agent 执行 | 同进程 `AgentHandler` 适配器。 |
+| Task / Event 状态 | 默认同进程 InMemory A2A SDK 组件；Task 状态可由 Redis-backed TaskStore 持久化，事件队列和 SSE 连接仍属于同进程组件。 |
 
 混合式部署需要由宿主应用统一治理端口、线程、内存、限流、鉴权和生命周期。
 
@@ -125,7 +125,7 @@ Dedicated Host JVM
 | Host JVM process                               |
 |                                                |
 |  +------------------------------------------+  |
-|  | Spring Boot host / LocalA2aRuntimeHost   |  |
+|  | Spring Boot host / agent-service-app     |  |
 |  |                                          |  |
 |  |  +------------------------------------+  |  |
 |  |  | A2A JSON-RPC Controller (/a2a)     |  |  |
@@ -145,8 +145,8 @@ Dedicated Host JVM
 |  |  +----------------+-------------------+  |  |
 |  |                   |                      |  |
 |  |  +----------------v-------------------+  |  |
-|  |  | AgentRuntimeHandler SPI adapters   |  |  |
-|  |  | openJiuwen / AgentScope / others   |  |  |
+|  |  | AgentHandler SPI adapters          |  |  |
+|  |  | openJiuwen / AgentCore / others    |  |  |
 |  |  +------------------------------------+  |  |
 |  +------------------------------------------+  |
 |                                                |
@@ -160,7 +160,7 @@ Dedicated Host JVM
 
 | Endpoint | 用途 | 说明 |
 |---|---|---|
-| `/a2a` | A2A JSON-RPC over HTTP | 处理 SendMessage、SendStreamingMessage、GetTask、CancelTask、SubscribeToTask 等 A2A 请求。 |
+| `/a2a` | A2A JSON-RPC over HTTP | 处理 SendMessage、SendStreamingMessage、GetTask 等当前入口范围内的 A2A 请求。 |
 | Agent Card endpoint | Agent 元数据发现 | 由当前 Agent Card controller 暴露，具体路径遵循实现中的 A2A Agent Card 发现约定。 |
 
 HTTP server 的端口、TLS、反向代理、鉴权入口和网络策略由宿主应用或部署环境负责，不由 `agent-runtime` library 单独拥有。
@@ -177,7 +177,7 @@ A2A Client
            -> MainEventBus
            -> MainEventBusProcessor
               -> A2aAgentExecutor
-                 -> AgentRuntimeHandler adapter
+                 -> AgentHandler adapter
 ```
 
 所有 active QueueManager、EventBus 和 Agent execution bridge 都位于同一个 JVM 内。TaskStore 默认位于同一个 JVM 内，启用 FEAT-003 后可使用同一 runtime 实例装配的 Redis-backed TaskStore。当前 active 架构不包含跨 JVM 的 runtime 内部事件转发或远端执行节点拆分。
@@ -188,9 +188,9 @@ A2A Client
 
 | 外部依赖类型 | Runtime 关系 |
 |---|---|
-| Agent 框架依赖 | 由对应 `AgentRuntimeHandler` 适配器加载和调用。 |
+| Agent 框架依赖 | 由对应 `AgentHandler` 适配器加载和调用。 |
 | 远端 A2A Agent | 通过 runtime 侧目录和 outbound A2A 调用支撑能力访问。 |
-| Redis | FEAT-003 可选依赖，通过 `RuntimeRedisClient` 承接 runtime Task 状态缓存和 Agent checkpoint cache。 |
+| Redis | FEAT-003 可选依赖，承接 runtime Task 状态缓存和 Agent checkpoint cache 桥接；Redis-backed 缓存生命周期受统一 TTL 配置约束。 |
 | `agent-bus` / 下游 service | 通过中立接口或 host 装配边界交互，不把下游服务状态写入 runtime TaskStore。 |
 | 模型、工具、记忆等服务 | 由具体 Agent 框架、适配器或宿主应用负责连接和治理。 |
 
@@ -198,19 +198,19 @@ A2A Client
 
 ### 4.1 当前状态存储形态
 
-当前 active runtime 默认使用 A2A SDK 的 InMemory 组件保存 Task、事件队列和事件发布订阅状态。启用 FEAT-003 后，Task 状态与 Agent checkpoint cache 可以通过 runtime Redis SPI 写入 Redis；事件队列和事件发布订阅仍保持进程内形态。
+当前 active runtime 默认使用 A2A SDK 的 InMemory 组件保存 Task、事件队列和事件发布状态。启用 FEAT-003 后，Task 状态与 Agent checkpoint cache 可以写入 Redis，并按 FEAT-003 TTL 配置过期；事件队列、事件发布状态、流取消句柄和临时连接表仍保持进程内形态。
 
 | 状态组件 | 物理位置 | 说明 |
 |---|---|---|
 | `InMemoryTaskStore` | 宿主 JVM 内存 | 保存 Task metadata、messages、status 等 runtime Task 状态。 |
-| Redis-backed TaskStore | Redis | 可选替代 `InMemoryTaskStore`，保存 runtime Task 状态缓存。 |
+| Redis-backed TaskStore | Redis | 可选替代 `InMemoryTaskStore`，保存 runtime Task 状态缓存，缓存生命周期受 TTL 约束。 |
 | `InMemoryQueueManager` | 宿主 JVM 内存 | 保存 Task 事件队列和 SSE 消费所需事件。 |
 | `MainEventBus` | 宿主 JVM 内存 | 连接事件发布者与消费者。 |
-| Agent checkpoint cache | 默认不由 runtime 持久化；FEAT-003 可桥接 Redis | 业务 checkpoint 语义仍归属具体 Agent 框架或外部状态能力，runtime 只提供 Redis 接入与缓存桥。 |
+| Agent checkpoint cache | 默认不由 runtime 持久化；FEAT-003 可桥接 Redis | 业务 checkpoint 语义仍归属具体 Agent 框架或外部状态能力，runtime 只提供受 TTL 约束的缓存桥。 |
 
 ### 4.2 TaskStore / QueueManager / EventBus 归属
 
-TaskStore、QueueManager 和 EventBus 属于 runtime 的任务生命周期基础设施。TaskStore 保存 runtime 层 Task 状态，物理实现可以是默认 InMemory 或 FEAT-003 Redis-backed；QueueManager 和 EventBus 保存事件状态，仍是进程内组件。它们不保存业务应用数据库状态，也不替代 Agent 框架自己的 checkpoint。
+TaskStore、QueueManager 和 EventBus 属于 runtime 的任务生命周期基础设施。TaskStore 保存 runtime 层 Task 状态，物理实现可以是默认 InMemory 或 FEAT-003 Redis-backed；QueueManager 和 EventBus 保存事件状态，仍是进程内组件。它们不保存业务应用数据库状态，也不替代 Agent 框架自己的 checkpoint。FEAT-003 不把流取消句柄、临时连接表或其他进程内运行态迁入 Redis。
 
 ```text
 Runtime Task state
@@ -229,13 +229,13 @@ Agent checkpoint / memory
 
 ### 4.3 重启与故障影响
 
-由于当前 active 状态默认保存在宿主 JVM 内存中，进程重启会丢失 runtime 层 InMemory Task、事件队列和事件订阅状态。启用 Redis-backed TaskStore 时，Task 状态可在 Redis 保存期限内跨进程重启保留；事件队列、事件订阅和 SSE 连接仍不具备跨重启恢复保证。
+由于当前 active 状态默认保存在宿主 JVM 内存中，进程重启会丢失 runtime 层 InMemory Task、事件队列和 SSE 连接状态。启用 Redis-backed TaskStore 时，Task 状态可在 Redis 保存期限内跨进程重启保留；事件队列和 SSE 连接仍不具备跨重启恢复保证。
 
 | 事件 | 影响 |
 |---|---|
 | 宿主进程正常关闭 | 在关闭排水窗口内等待在途执行结束；默认 InMemory 未完成 Task 不具备跨重启恢复保证，Redis-backed TaskStore 可保留已写入的 Task 快照。 |
 | 宿主进程异常退出 | 默认 InMemory TaskStore、QueueManager 和 EventBus 状态丢失；Redis-backed TaskStore 中已提交的 Task 状态仍受 Redis 可用性和 TTL 约束。 |
-| 客户端 SSE 断开 | 客户端可按 A2A 语义重新订阅仍可查询的 Task；若进程已重启，事件队列和订阅态仍不可恢复。 |
+| 客户端 SSE 断开 | 客户端可通过 `GetTask` 查询仍可读取的 Task；若进程已重启，事件队列和 SSE 连接状态仍不可恢复。 |
 | Agent 框架内部故障 | 由 handler 或框架适配器转换为 runtime 任务层失败。 |
 
 ### 4.4 存储替换边界
@@ -259,8 +259,8 @@ A2A SDK storage abstractions
 |---|---|---|
 | HTTP 请求处理 | Tomcat / Netty IO 线程池 | 由宿主 HTTP server 提供，负责 A2A JSON-RPC 接入和 SSE 连接。 |
 | `MainEventBusProcessor` | A2A SDK 后台处理线程 | 消费事件队列并触发执行路径。 |
-| Agent 执行 | `A2aServerExecutor` 线程池 | `AgentRuntimeHandler.execute()` 在派发线程上执行。 |
-| `RuntimeAutoConfiguration.A2aServerExecutor` | `Executors.newCachedThreadPool()` daemon 线程 | 无界 cached pool，无专用配置键；关闭时先排水再强停。 |
+| Agent 执行 | A2A request handler executor | `A2AAgentExecutor` 调用 `ServeOrchestrator` 与 `AgentHandler`。 |
+| `A2AAutoConfiguration` executor | runtime 后台执行资源 | 具体线程池与关闭策略由 auto-configuration 和 host lifecycle 决定。 |
 
 宿主应用可自行设置 `spring.threads.virtual.enabled: true` 开启 Java 21 虚拟线程支持。Runtime library 不预置该策略。
 
@@ -269,9 +269,9 @@ A2A SDK storage abstractions
 | 组件 | 内存占用特征 | 说明 |
 |---|---|---|
 | `InMemoryTaskStore` | Task 对象 × 活跃 Task 数 | 每个 Task 包括 metadata、messages、status 等。 |
-| Redis-backed TaskStore | Redis key/value 占用与连接池资源 | 取决于活跃 Task 数、Task 快照大小、TTL 和 Redis endpoint 拓扑。 |
+| Redis-backed TaskStore | Redis key/value 占用与连接池资源 | 取决于活跃 Task 数、Task 快照大小、TTL 和 Redis endpoint 拓扑；key schema 和 value 序列化格式不是外部稳定契约。 |
 | `InMemoryQueueManager` | 待处理事件数 × 事件大小 | 取决于并发 Task 数、消息速率和 SSE 消费速度。 |
-| `MainEventBus` | 订阅者注册和事件分发结构 | 通常相对 Task 与事件队列更小。 |
+| `MainEventBus` | 消费者注册和事件分发结构 | 通常相对 Task 与事件队列更小。 |
 | Agent 框架适配器 | 框架自身对象和执行上下文 | 由具体 handler、模型客户端、工具客户端和框架运行时决定。 |
 
 ### 5.3 并发容量参考
@@ -304,9 +304,9 @@ close runtime
 
 ### 6.1 单实例状态约束
 
-当前 active runtime 的 Task 和事件状态默认存在单个宿主 JVM 内存中，因此同一个 Task 的查询、订阅、取消和恢复语义依赖该宿主进程仍然存活。启用 Redis-backed TaskStore 后，同一个 Redis 数据源上的 Task 查询和取消可以读取已写入的 Task 状态，但订阅、事件队列和在途执行仍依赖原宿主进程。
+当前 active runtime 的 Task 和事件状态默认存在单个宿主 JVM 内存中，因此同一个 Task 的查询和继续执行语义依赖该宿主进程仍然存活。启用 Redis-backed TaskStore 后，同一个 Redis 数据源上的 Task 查询可以读取 TTL 内已写入的 Task 状态，但事件队列、流取消句柄和在途执行仍依赖原宿主进程。
 
-如果部署多个宿主实例，默认情况下每个实例拥有各自独立的 InMemory TaskStore、QueueManager 和 EventBus。启用 Redis-backed TaskStore 时，多个实例可以共享 Task 状态存储，但仍需要由外部负载均衡或上层治理处理在途执行、SSE 订阅和事件流的实例亲和性。
+如果部署多个宿主实例，默认情况下每个实例拥有各自独立的 InMemory TaskStore、QueueManager 和 EventBus。启用 Redis-backed TaskStore 时，多个实例可以共享 Task 状态存储，但仍需要由外部负载均衡或上层治理处理在途执行、SSE 连接和事件流的实例亲和性。
 
 ### 6.2 横向扩展前提
 
@@ -316,5 +316,5 @@ close runtime
 |---|---|
 | 多实例部署不同 Agent | 可行，各实例独立暴露自己的 Agent Card 和 A2A endpoint。 |
 | 多实例无状态负载均衡同一 Task | 默认 InMemory 形态不保证；Redis-backed TaskStore 可共享 Task 查询状态，但在途执行和事件流仍需实例亲和。 |
-| 同一 Task 跨实例订阅 / 取消 / 恢复 | 默认 InMemory 形态不保证；Redis-backed TaskStore 只改善 Task 状态读取，订阅和执行恢复不自动跨实例。 |
+| 同一 Task 跨实例查询 / 恢复 | 默认 InMemory 形态不保证；Redis-backed TaskStore 只改善 Task 状态读取，执行恢复不自动跨实例。 |
 | 进程重启后 Task 恢复 | 默认 InMemory 形态不保证；Redis-backed TaskStore 可保留已写入 Task 快照，但不恢复事件队列和执行线程。 |

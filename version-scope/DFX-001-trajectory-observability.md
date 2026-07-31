@@ -4,9 +4,7 @@ module: agent-runtime
 feature_type: dfx
 feature_id: DFX-001
 status: active
-dependency:
-  - README.md
-  - ../architecture/L2-Low-Level-Design/agent-runtime/DFX-001-trajectory-observability.md
+updated: 2026-07-21
 ---
 
 # 轨迹可观测性 — 黑盒行为说明
@@ -28,7 +26,7 @@ dependency:
 | Span 模型 | ✅ | traceId / spanId / parentSpanId |
 | Stamping 引擎 | ✅ | 单调 seq、span 栈嵌套、wall-clock 时间戳 |
 | OpenJiuwen 轨迹 | ✅ | RUN/MODEL_CALL/TOOL_CALL/ERROR — 5 种 Kind |
-| AgentScope 轨迹 | ✅ | RUN/TOOL_CALL/ERROR/PROGRESS — 4 种 Kind |
+| AgentScope 轨迹 | ⬜ | 当前 AgentScope 本地 adapter 未接入专用轨迹映射，不承诺 PROGRESS |
 | 敏感信息掩码 | ✅ | key/token/secret/password 模式匹配替换 |
 | 掩码规则可配置 | ✅ | `app.trajectory.mask.key-pattern` + `truncate-chars` |
 | 多 Sink 扇出 | ✅ | `CompositeTrajectorySink`，故障隔离 |
@@ -45,6 +43,7 @@ dependency:
 |--------|------|------|
 | 业务级 Metrics | Trajectory 是事件级记录，不是聚合指标 | OTel Metrics / Prometheus |
 | 轨迹持久化存储 | 属于存储层职责 | 通过 Sink 接口对接外部存储 |
+| AgentScope PROGRESS | 当前 AgentScope adapter 只映射 runtime 结果、暂停与失败语义，未接入轨迹 SPI | 后续实现并补充事件真实性测试后再更新范围 |
 
 ## 3. 外部行为与用户场景
 
