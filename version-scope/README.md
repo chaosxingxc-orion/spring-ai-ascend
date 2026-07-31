@@ -1,7 +1,7 @@
 ---
 scope: v0730
-updated: 2026-07-21
-covers: [标准化Agent服务入口, 异构Agent框架兼容, 智能体任务状态缓存, 远程Agent编排, 智能体中间件请求代理, 标准化智能体客户端调用, 客户端本地工具注册与调用, 用户交互中断响应, 运行时通过响应调用客户端本地工具, 任务级动态工具可见性与调用移交, 客户端调用路由转发, 客户端调用总线转发, 客户端调用事件转发, A2A调用事件转发, Agent Card注册与发现, 运行时实例路由查询, 订阅消费总线事件消息, 智能体生成并行的下游智能体调用委托, 自定义REST API服务入口, 轨迹可观测性]
+updated: 2026-07-31
+covers: [标准化Agent服务入口, 异构Agent框架兼容, 智能体任务状态缓存, 远程Agent编排, 智能体中间件请求代理, 标准化智能体客户端调用, 客户端本地工具注册与调用, 意图驱动的远端Agent调用与中断响应, 运行时通过响应调用客户端本地工具, 任务级动态工具可见性与调用移交, 客户端调用路由转发, 客户端调用总线转发, 客户端调用事件转发, A2A调用事件转发, Agent Card注册与发现, 运行时实例路由查询, 订阅消费总线事件消息, 智能体生成并行的下游智能体调用委托, Agent与Workflow意图匹配及后续处理, 自定义REST API服务入口, 轨迹可观测性]
 ---
 
 # version-scope
@@ -43,7 +43,7 @@ covers: [标准化Agent服务入口, 异构Agent框架兼容, 智能体任务状
 | FEAT-005 | agent-runtime | active | 智能体中间件请求代理 | runtime 在部署或启动阶段通过 Skill Hub SPI 代理访问 Skill Hub，使用 runtime 凭据下载 Agent 声明的 skill 包，并把注册材料移交给 agent-core 或框架适配入口。 | [FEAT-005-startup-agent-middleware-request-proxy.md](./FEAT-005-startup-agent-middleware-request-proxy.md) | `architecture/L2-Low-Level-Design/agent-runtime/Feat-Func-005-agent-middleware-request-proxy.md` |
 | FEAT-006 | agent-client | active | 标准化智能体客户端调用 | 面向业务应用提供标准 client facade，在创建调用时声明 BLOCKING / STREAMING / ASYNC 模式，回显调用关联、幂等键、taskId、UNKNOWN 恢复线索和任务状态投影。 | [FEAT-006-standard-agent-client-invocation.md](./FEAT-006-standard-agent-client-invocation.md) | 待补充 |
 | FEAT-007 | agent-client | active | 客户端本地工具注册与调用 | client SDK 支持业务应用注册本地工具、声明暴露策略、生成 ToolView、消费工具请求投影、本地执行并提交结构化 outcome。 | [FEAT-007-local-tool-registration-and-execution.md](./FEAT-007-local-tool-registration-and-execution.md) | 待补充 |
-| FEAT-008 | agent-runtime | active | 用户交互中断响应 | runtime 将需要用户补充输入、选择或材料等待的执行点表达为标准可恢复中断，并约束续接、歧义处理和长时挂起语义。 | [FEAT-008-user-interaction-interrupt-and-response.md](./FEAT-008-user-interaction-interrupt-and-response.md) | 待补充 |
+| FEAT-008 | agent-runtime | active | 意图驱动的远端 Agent 调用与中断响应 | runtime 将 FEAT-020 命中的 Agent Card Skill 关联到可调用的远端 Agent，完成 Agent 与 Workflow 场景的代理调用、用户交互中断响应、续接和结果返回。 | [FEAT-008-user-interaction-interrupt-and-response.md](./FEAT-008-user-interaction-interrupt-and-response.md) | 待补充 |
 | FEAT-009 | agent-runtime | active | 运行时通过响应调用客户端本地工具 | runtime 在 Agent 执行需要客户端本地工具时挂起当前 Task，通过响应投影工具请求，并在 client 提交工具 outcome 后校验恢复关系继续原 Task。 | [FEAT-009-runtime-response-client-side-tool-calling.md](./FEAT-009-runtime-response-client-side-tool-calling.md) | 待补充 |
 | FEAT-010 | agent-core | active | 任务级动态工具可见性与调用移交 | agent-core 基于当前任务 ToolView 形成客户端侧工具可见面；Agent 选择客户端工具时只产出调用意图，执行和恢复由 runtime/client 链路承接。 | [FEAT-010-task-level-dynamic-tool-visibility-and-handoff.md](./FEAT-010-task-level-dynamic-tool-visibility-and-handoff.md) | 待补充 |
 | FEAT-011 | agent-bus | active | 客户端调用路由转发 | agent-gateway 按目标 agentId / route 语义把客户端调用直连转发到目标 runtime，同时保持 runtime Task owner 和 A2A 表面不变。 | [FEAT-011-client-invocation-route-forwarding.md](./FEAT-011-client-invocation-route-forwarding.md) | 待补充 |
@@ -54,6 +54,7 @@ covers: [标准化Agent服务入口, 异构Agent框架兼容, 智能体任务状
 | FEAT-016 | agent-bus | active | 运行时实例路由查询 | registry-discovery-center 支持已知目标的运行时实例路由查询，向 gateway 或 runtime 提供不暴露物理 endpoint 的路由引用和可用性投影。 | [FEAT-016-runtime-instance-route-query.md](./FEAT-016-runtime-instance-route-query.md) | `architecture/L2-Low-Level-Design/agent-bus/Feat-Func-016-runtime-instance-route-query.md` |
 | FEAT-017 | agent-runtime | active | 订阅消费总线事件消息 | runtime 内嵌订阅并消费客户端调用事件和服务间 A2A 请求事件，复用标准 A2A Task 控制面并发布接受、响应、等待输入、流准备和终态投影。 | [FEAT-017-bus-event-subscription-consumption.md](./FEAT-017-bus-event-subscription-consumption.md) | 待补充 |
 | FEAT-019 | agent-core | active | 智能体生成并行的下游智能体调用委托 | DeepAgent / ReActAgent 同一轮生成多个 runtime-proxy downstream-agent ToolCall，core 保留完整批量中断并按 toolCallId 消费 runtime 回灌结果；远程 A2A child Task 编排由 FEAT-004 承接。 | [FEAT-019-parallel-downstream-agent-tasks-generation-and-handoff.md](./FEAT-019-parallel-downstream-agent-tasks-generation-and-handoff.md) | `architecture/L2-Low-Level-Design/agent-runtime/Feat-Func-019-parallel-tool-execution.md` |
+| FEAT-020 | agent-core | active | Agent 与 Workflow 意图匹配及后续处理 | 将 Agent Card Skill 和自定义配置初始化为统一意图项；匹配 SPI 调用意图结果生成 SPI，支持 Agent 提示词、fallback 和工具中断后的意图跳变处理。 | [FEAT-020-agent-intent-matching-and-action-routing.md](./FEAT-020-agent-intent-matching-and-action-routing.md) | `architecture/L2-Low-Level-Design/agent-core/Feat-Func-020-agent-intent-recognition-and-downstream-task-matching.md` |
 | FEAT-022 | agent-runtime | active | 自定义 REST API 服务入口 | runtime 在标准 Agent 服务语义之上提供自定义 REST edge adapter，使调用方以业务 REST/SSE 形态访问同一个 hosted Agent，同时保持 Task、错误和租户语义归一到 FEAT-001。 | [FEAT-022-custom-rest-api-agent-service-entrypoint.md](./FEAT-022-custom-rest-api-agent-service-entrypoint.md) | `../architecture/L2-Low-Level-Design/agent-runtime/Feat-Func-022-custom-rest-api-agent-service-entrypoint.md` |
 | DFX-001 | agent-runtime | active | 轨迹可观测性 | 记录 Agent 执行过程中的运行、模型调用、工具调用、错误和进度事件，提供框架中立的执行轨迹与敏感信息掩码。 | [DFX-001-trajectory-observability.md](./DFX-001-trajectory-observability.md) | `architecture/L2-Low-Level-Design/agent-runtime/Feat-DFX-001-trajectory-observability.md` |
 
@@ -61,8 +62,8 @@ covers: [标准化Agent服务入口, 异构Agent框架兼容, 智能体任务状
 
 1. 先阅读本入口，确认当前版本事实范围和文档关系。
 2. 基础 runtime：`FEAT-001` -> `FEAT-002` -> `FEAT-003` -> `DFX-001`。
-3. 远程 Agent：`FEAT-015` -> `FEAT-016` -> `FEAT-004` -> `FEAT-019` -> `FEAT-008`。
-4. 客户端本地工具：`FEAT-006` -> `FEAT-007` -> `FEAT-010` -> `FEAT-009` -> `FEAT-008`。
+3. 远程 Agent：`FEAT-015` -> `FEAT-016` -> `FEAT-004` -> `FEAT-020` -> `FEAT-008` -> `FEAT-019`。
+4. 客户端本地工具：`FEAT-006` -> `FEAT-007` -> `FEAT-010` -> `FEAT-009`。
 5. agent-bus 转发：`FEAT-011` -> `FEAT-012` -> `FEAT-013` -> `FEAT-014` -> `FEAT-017`。
 6. REST 边缘入口：`FEAT-001` -> `FEAT-022`。
 7. 进入 `architecture/L1-High-Level-Design/` 和 `architecture/L2-Low-Level-Design/` 阅读对应架构和详细设计，确认内部设计如何满足这些事实要求。
