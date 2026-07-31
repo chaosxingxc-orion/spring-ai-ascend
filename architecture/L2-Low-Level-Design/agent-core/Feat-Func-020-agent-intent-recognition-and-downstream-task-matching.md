@@ -1,874 +1,698 @@
 ---
 level: L2-LLD
-module: agent-core
+module: agent-core-ext
 feature_type: functional
-feature_id: Feat-Func-020
+feature_id: FEAT-020
 status: active
+updated: 2026-07-31
 dependency:
   - ../../L1-High-Level-Design/agent-core/README.md
   - ../../L1-High-Level-Design/agent-core/logical.md
   - ../../L1-High-Level-Design/agent-core/physical.md
+  - ../../../version-scope/FEAT-020-agent-intent-matching-and-action-routing.md
+  - ../../../version-scope/FEAT-008-user-interaction-interrupt-and-response.md
 ---
 
-# 智能体感知与下游任务匹配调用 - 设计文档
+# Agent 与 Workflow 意图匹配及后续处理设计文档
 
-> 需求名称：`FEAT-020 智能体感知与下游任务匹配调用`
-> 目标模块：`agent-core-ext-java` 的 `intent` 扩展模块
-> 参考基线：`agent-core-java 0.1.13`、A2A Protocol v1.0.1、A2A Java SDK `1.0.0.Final`
-> 最后更新：2026-07-12
+## 1. 设计目标与边界
 
----
+### 1.1 特性范围
 
-## 1. 概述
+FEAT-020 在 `agent-solution/common/agent-core-ext-java` 新增独立的 `agent-intent` 模块，为 Agent 和 Workflow 提供意图套件。套件在初始化阶段把 A2A Agent Card Skill 和用户自定义配置转换为统一意图项；在执行阶段由意图匹配 SPI 选择一个意图项，再调用意图结果生成 SPI 执行该项的结果工具函数，返回可供 Agent 或 Workflow 继续处理的结构化结果。
 
-### 1.1 特性定位
+本特性包含：
 
-本特性在独立的 `agent-core-ext-java` 仓库中提供通用意图识别能力：调用方在初始化阶段传入一组目标对象，模块从每个目标提取一个或多个候选意图文档；运行时根据用户请求对候选文档评分，返回唯一命中的原始目标或 fallback。
+- 初始化 SPI、意图匹配 SPI、意图结果生成 SPI 及默认实现；
+- Agent Card Skill、用户自定义意图项和 fallback 的统一执行模型；
+- 基于 `Reranker` 和匹配阈值的默认匹配；
+- ReAct Agent、DeepAgent 的意图 Tool 和提示词接入；
+- 不依赖提示词的独立 Workflow 意图组件；
+- 工具中断续接后发生意图跳变时，供 Agent 重新匹配使用的结构化信号和提示词约束。
 
-首个目标适配器面向标准 A2A v1.0.1 `AgentCard`。适配器从 `AgentCard.skills` 构造 Skill 级候选文档，按 AgentCard 聚合评分，并返回官方 A2A Java SDK 定义的 `AgentCard`。A2A AgentCard 只是通用意图模块支持的一种目标格式，不构成模块的核心领域模型。
+本特性不发现、拉取或刷新 Agent Card，不注入远端 A2A 工具，不发起远端调用，也不处理服务层的 `input-required`。这些能力由 FEAT-008 和 FEAT-004 承担。`agent-core-java` 只作为公共 SDK 依赖，本特性不修改其源码。
 
-本特性提供两个使用相同识别内核的框架适配入口：
+### 1.2 能力对齐矩阵
 
-1. `IntentRecognitionTool`：作为 OpenJiuwen `Tool` 注册到 ReAct Agent 或 DeepAgent。
-2. `IntentRecognitionComponent`：作为 `ComponentComposable` 节点挂接到 Workflow。
-
-### 1.2 可行性结论
-
-| 评估项 | 结论 | 依据 |
-|---|---|---|
-| 通用意图内核 | 高 | 目录编译、目标聚合和接受门均可在扩展仓独立实现 |
-| ReAct Agent Tool 接入 | 高 | `agent-core-java` 已提供 `Tool`、`ToolCard`、`AbilityManager` 和资源注册机制 |
-| DeepAgent Tool 接入 | 高 | `DeepAgentConfig.tools` 已支持注入 `Tool` 实例 |
-| Workflow Node 接入 | 高 | 已提供 `ComponentComposable`、`ComponentExecutable` 和 `Workflow.addWorkflowComp` |
-| reranker 接入 | 高 | 已提供 `Reranker` 和批量 `/rerank` 的 `StandardReranker` |
-| 算法 PoC | 高 | 可直接使用本地 TEI + GTE multilingual reranker 全量评分 |
-| 未校准直接生产 | 不可行 | score/margin 没有跨目录通用阈值，OOS 风险不可证明 |
-| 完成目录校准后生产 | 中高 | 主要风险转为 Card 描述质量、目录冲突、推理资源和验收数据质量 |
-
-结论是：该方案无需修改 `agent-core-java` 即可在扩展仓落地。工程接口不是主要风险，生产可靠性取决于真实目录数据校准、独立验收和本地 reranker 的资源预算。
-
-### 1.3 当前事实边界
-
-- `agent-core-java` 仅作为能力依赖，不在该仓增加本特性代码。
-- `agent-core-ext-java` 是独立 Maven 仓库，依赖 `agent-core-java` 并实现意图扩展。
-- A2A Card 的发现、远端拉取、认证、签名验证、刷新和注册表治理由上游负责。
-- 意图模块不访问 Agent URL，不维护远端 Card 生命周期，不调用被选中的 Agent。
-- 初始化时建立不可变目标快照；运行时只接收 `utterance`。
-- 第一版只做全量 cross-encoder 评分，不实现 embedding shortlist、意图拆分或 Agent 调用编排。
-
-### 1.4 设计原则
-
-1. **协议无关核心**：核心只识别“目标及其候选意图”，不依赖 A2A 类型。
-2. **标准类型复用**：A2A 适配器直接使用官方 `org.a2aproject.sdk.spec.AgentCard`，不定义镜像 DTO。
-3. **单一识别内核**：Tool 与 Workflow Component 共享同一个不可变 `IntentRecognizer`。
-4. **初始化编译**：目标校验、候选文档构造和 catalog hash 在初始化阶段完成。
-5. **运行时无状态**：单次识别不写 Session，不缓存用户请求或评分结果。
-6. **失败关闭**：输入无效、分数不足、跨目标冲突或 scorer 失败均返回 fallback。
-7. **阈值由数据决定**：不提供可被误认为生产安全的 score/margin 默认值。
-
-### 1.5 子特性全景
-
-| 子特性 | 职责 | 关键抽象 |
-|---|---|---|
-| 通用目标适配 | 从任意目标提取候选意图 | `IntentTargetAdapter<T>` |
-| 目录编译 | 校验目标、生成候选、固化 hash | `IntentCatalogCompiler<T>` |
-| 相关性评分 | 批量计算请求与候选的相关性 | `Reranker` |
-| 聚合与接受门 | candidate -> target 聚合，score/margin 判定 | `RerankerIntentRecognizer<T>` |
-| A2A 适配 | 从标准 AgentCard/AgentSkill 生成候选 | `A2AAgentCardIntentAdapter` |
-| Agent 接入 | 将 recognizer 暴露为 Tool | `IntentRecognitionTool<T>` |
-| Workflow 接入 | 将 recognizer 暴露为可挂接节点 | `IntentRecognitionComponent<T>` |
-| 诊断观测 | 记录选择证据但不暴露模型分数给 Agent | `IntentRecognitionTrace` |
-
----
-
-## 2. 特性规格
-
-### 2.1 输入输出
-
-通用 Java API：
-
-```java
-public interface IntentRecognizer<T> {
-    IntentRecognitionResult<T> recognize(String utterance);
-}
-
-public record IntentRecognitionResult<T>(
-        boolean matched,
-        T target,
-        IntentRecognitionReason reason) {
-}
-```
-
-`recognize` 接受 null 或空白字符串，并以 `EMPTY_INPUT` 返回；输入适配层不得为该场景抛出工具执行异常。输入先执行 Unicode NFC 规范化和首尾空白清理，规范化后超过 `maxUtteranceLength` 时返回 `INPUT_TOO_LONG`，禁止静默截断后继续识别。
-
-Tool 和 Workflow 的业务输入固定为：
-
-```json
-{
-  "utterance": "查询订单物流"
-}
-```
-
-命中输出如下。为突出 envelope，示例中的 `target` 只展示部分字段；实际输出必须完整保留官方 A2A Java SDK `AgentCard` 的全部字段，包括 `version`、`capabilities`、`defaultInputModes`、`defaultOutputModes` 和 `supportedInterfaces`。
-
-```json
-{
-  "matched": true,
-  "target": {
-    "name": "Order Agent",
-    "description": "处理订单查询",
-    "skills": [
-      {
-        "id": "query-logistics",
-        "name": "查询订单物流",
-        "description": "查询已有订单的物流状态",
-        "tags": ["订单", "物流"]
-      }
-    ]
-  },
-  "reason": "MATCHED"
-}
-```
-
-fallback 输出：
-
-```json
-{
-  "matched": false,
-  "target": null,
-  "reason": "INSUFFICIENT_MARGIN"
-}
-```
-
-固定 reason：
-
-| reason | 含义 |
+| 需求能力 | L2 设计响应 |
 |---|---|
-| `MATCHED` | 唯一目标通过 score 和 margin 接受门 |
-| `EMPTY_INPUT` | `utterance` 缺失、不是字符串或去空白后为空 |
-| `INPUT_TOO_LONG` | 规范化后的 `utterance` 超过配置上限 |
-| `NO_ELIGIBLE_TARGET` | 初始化目录没有可评分候选 |
-| `BELOW_SCORE_THRESHOLD` | top1 未达到绝对分数门限 |
-| `INSUFFICIENT_MARGIN` | top1 与其他目标的分差不足 |
-| `SCORER_UNAVAILABLE` | scorer 超时或调用失败 |
-| `INVALID_SCORER_RESPONSE` | scorer 最终结果缺少 candidate ID、包含未知 ID 或非有限数值 |
-| `RESULT_ENCODING_FAILED` | 已完成识别，但目标无法编码为约定输出结构 |
+| 初始化 SPI | `IntentInitializer#initialize` 接收 Agent Card 来源和初始化 `kwargs`，返回不可变 `IntentCatalog`。 |
+| Agent Card Skill 独立匹配 | 默认初始化为每条 Skill 创建一个 `IntentItem`，同一 Card 的各项共享远端目标信息。 |
+| 用户自定义意图项 | 默认初始化读取 `CustomIntentDefinition(description, resultFunction)`。 |
+| fallback | 单独保存为 `FallbackIntent`，不加入候选列表，只在正常未匹配后执行。 |
+| 意图匹配 SPI | `IntentMatcher#match` 选择意图项，并显式调用传入的 `IntentResultGenerator`。 |
+| 默认 Reranker 匹配 | 对全部候选评分，只接受达到初始化阈值的首项；空候选不调用 Reranker。 |
+| 意图结果生成 SPI | `IntentResultGenerator#generate` 统一执行 Agent Card、自定义项和 fallback 的结果工具函数。 |
+| 同步不可中断回调 | `IntentResultFunction` 是同步函数，不接收 Agent loop 的 Session `kwargs`；中断被转换为失败。 |
+| Agent 接入 | `IntentMatchingTool` 通过 `IntentAgentBinder` 接入 ReAct Agent，通过 `IntentDeepAgentConfigurer` 在 DeepAgent 创建前接入。 |
+| Agent 提示词 | 默认提示词随 Tool 注入，可由用户完整覆盖；明确正常结束和意图跳变重匹配边界。 |
+| Workflow 接入 | `IntentMatchingComponent` 独立调用同一 `IntentSuite`，不注册 Agent Tool、不注入提示词。 |
+| 描述固定 | `IntentCatalog` 初始化后不可变，无动态更新 API；变更时创建并绑定新的套件。 |
 
-### 2.2 Tool 原型兼容
+### 1.3 代码基线与约束
 
-`IntentRecognitionTool` 继承 `agent-core-java` 的 `Tool`：
+设计基于以下当前代码事实：
+
+- `Tool.invoke(inputs, kwargs)` 是 AgentCore Tool 执行原型；`AbilityManager` 会在运行时 `kwargs` 中注入 Session，并使用 `String.valueOf(result)` 构造 `ToolMessage`。
+- `ReActAgent` 提供 `addPromptBuilderSection(...)`；DeepAgent 提供 `DeepAgentConfig.systemPrompt`、`DeepAgentConfig.tools` 和 `registerHarnessTool(...)`，但不公开其内部 ReActAgent 或创建后的提示词修改入口。
+- `Reranker` 已提供批量评分和排序能力，但不负责匹配阈值、fallback 或结果函数执行。
+- Workflow 已有公开的 `IntentDetectionComponent`。本特性使用 `IntentMatchingComponent` 命名，避免与现有 LLM 分类组件发生 API 混淆。
+- ReAct 中断恢复后会把被续接工具的返回值作为 `ToolMessage` 加入模型上下文，但不会自动把续接输入新增为一条 `UserMessage`。因此意图跳变必须由下游工具返回包含最新意图的显式信号。
+
+## 2. 公共接口设计
+
+### 2.1 意图套件生命周期
+
+`IntentSuite` 是 Agent Tool 和 Workflow 组件共享的执行入口。构造时只执行一次初始化，之后只读使用 `IntentCatalog`。
 
 ```java
-public Object invoke(
-        Map<String, Object> inputs,
-        Map<String, Object> kwargs) throws Exception;
+public final class IntentSuite {
+    public static IntentSuite create(
+            IntentInitializationRequest request,
+            IntentInitializer initializer,
+            IntentMatcher matcher,
+            IntentResultGenerator resultGenerator);
+
+    public IntentResult match(String semantic);
+    public IntentCatalog catalog();
+}
 ```
 
-- `inputs` 是对 LLM 暴露的固定业务参数，只允许 `utterance`。
-- `kwargs` 是 `agent-core-java` 的可选框架上下文，不属于 Tool JSON Schema。
-- `AbilityManager` 可能在 `kwargs` 中注入 `session`；意图 Tool 接受但不使用该参数。
-- 直接调用 `tool.invoke(inputs)` 时，`Tool` 基类自动传入空 `kwargs`。
+`create` 的固定顺序是：
 
-Tool 输入 Schema：
+1. 调用初始化 SPI；
+2. 校验初始化结果、候选唯一性、fallback 和默认匹配阈值；
+3. 建立不可变目录；
+4. 保存 matcher 和 result generator。
+
+初始化失败时不创建套件。`match` 不重新初始化，也不接受新的描述或 Agent Card。
+
+### 2.2 初始化 SPI
+
+```java
+public interface IntentInitializer {
+    IntentCatalog initialize(IntentInitializationRequest request)
+            throws IntentInitializationException;
+}
+
+public record IntentInitializationRequest(
+        List<AgentCardIntentSource> agentCardSources,
+        Map<String, Object> kwargs) {
+}
+
+public record AgentCardIntentSource(
+        org.a2aproject.sdk.spec.AgentCard agentCard,
+        String remoteTargetId,
+        String delegateToolName,
+        Map<String, Object> context) {
+}
+```
+
+`remoteTargetId` 是 runtime 注册表中的稳定远端目标标识；`delegateToolName` 是 Agent 可见的实际远端 Tool 名称。二者都由 FEAT-008 提供，Core 不推导 runtime 命名规则。`context` 用于携带来源、租户或其他初始化信息，不进入 Agent loop 的 Tool `kwargs`。
+
+初始化输出：
+
+```java
+public record IntentCatalog(
+        List<IntentItem> items,
+        FallbackIntent fallback,
+        Double matchThreshold,
+        Map<String, Object> initializationKwargs) {
+}
+
+public record IntentItem(
+        String id,
+        String description,
+        IntentSourceType sourceType,
+        Map<String, Object> sourceData,
+        IntentResultFunction resultFunction) implements IntentExecutionTarget {
+}
+
+public record FallbackIntent(
+        String id,
+        FallbackType type,
+        Map<String, Object> sourceData,
+        IntentResultFunction resultFunction) implements IntentExecutionTarget {
+}
+```
+
+`FallbackIntent` 不实现可匹配描述，不出现在 `items`。fallback 意图项和 fallback 工具只在 `FallbackType` 上保留来源差异，执行时都使用 `IntentResultFunction`。
+
+默认初始化实现 `DefaultIntentInitializer` 识别以下公开键和值类型：
+
+| `kwargs` 键 | 值类型 | 语义 |
+|---|---|---|
+| `customIntents` | `List<CustomIntentDefinition>` | 用户自定义的 `id + description + resultFunction`。 |
+| `fallback` | `FallbackDefinition` | 可选 fallback 意图项或 fallback 工具；只能配置一个。 |
+| `matchThreshold` | `Double` | 默认 matcher 的匹配阈值。 |
+
+```java
+public record CustomIntentDefinition(
+        String id,
+        String description,
+        IntentResultFunction resultFunction) {
+}
+
+public record FallbackDefinition(
+        String id,
+        FallbackType type,
+        IntentResultFunction resultFunction) {
+}
+```
+
+默认初始化规则：
+
+1. 按 `remoteTargetId + skill.id` 生成稳定且全目录唯一的 Agent Card 意图项 ID。
+2. 每条 Skill 单独生成一个意图项；匹配文本由 Card 名称、Skill 名称、Skill 描述、tags 和 examples 组成，不把接口 URL、安全配置或认证信息加入匹配文本。
+3. Agent Card 意图项保存完整 Card、当前 Skill、`remoteTargetId`、`delegateToolName` 和来源 context。
+4. 每个 `CustomIntentDefinition` 生成一个意图项，匹配文本使用其 `description`。
+5. fallback 单独保存，不加入 `items`。
+6. `kwargs` 保存为只读顶层 Map；结果函数执行时取得的是本次初始化保存的内容。
+7. 空白描述、重复 ID、缺少结果函数、Agent Card 缺少必要 Skill 信息或远端标识不完整时初始化失败，不静默覆盖或丢弃。
+
+### 2.3 意图匹配 SPI
+
+```java
+public interface IntentMatcher {
+    IntentResult match(
+            IntentMatchRequest request,
+            IntentResultGenerator resultGenerator);
+}
+
+public record IntentMatchRequest(
+        String semantic,
+        IntentCatalog catalog) {
+}
+```
+
+此签名把“匹配后必须调用意图结果生成 SPI”定义为 SPI 契约的一部分。实现必须遵守：
+
+- 命中意图项时，调用一次 `resultGenerator.generate(...)`；
+- 正常未命中且有 fallback 时，调用一次 result generator 执行 fallback；
+- 正常未命中且无 fallback 时，直接返回 `UNMATCHED`；
+- 匹配失败时返回 `FAILED`，不得调用 result generator、fallback 或其他意图项；
+- 一次调用最多选择一个意图项。
+
+默认实现 `RerankerIntentMatcher` 的处理顺序：
+
+1. 校验 `semantic` 非空；无效输入返回明确失败。
+2. `catalog.items` 为空时不调用 Reranker，直接进入未匹配处理。
+3. 为全部意图项构造带稳定 item ID 的候选，一次调用覆盖全部候选；底层 Reranker 可以按自身实现分批。
+4. 调用 `Reranker` 获取每个候选的分数，按分数降序、item ID 升序确定唯一首项。
+5. 首项分数大于等于 `matchThreshold` 时命中，否则正常未匹配。
+6. 命中或 fallback 时调用 result generator，并原样返回其 `IntentResult`。
+
+使用默认 matcher 且目录非空时，`matchThreshold` 必须是有限有效值；缺失时在 `IntentSuite.create` 阶段失败。Reranker 抛错、超时、漏回候选或返回非法分数均属于匹配失败，不触发 fallback。
+
+### 2.4 意图结果生成 SPI 与结果函数
+
+```java
+public interface IntentResultGenerator {
+    IntentResult generate(IntentResultRequest request);
+}
+
+public record IntentResultRequest(
+        String semantic,
+        IntentExecutionKind executionKind,
+        IntentExecutionTarget target,
+        Map<String, Object> initializationKwargs) {
+}
+
+@FunctionalInterface
+public interface IntentResultFunction {
+    IntentAction apply(IntentResultFunctionContext context) throws Exception;
+}
+
+public record IntentResultFunctionContext(
+        String semantic,
+        IntentExecutionTarget target,
+        Map<String, Object> initializationKwargs) {
+}
+```
+
+`IntentResultFunction` 是普通同步函数，不继承 AgentCore `Tool`，不接收 Session，也不接收 `Tool.invoke` 的运行时 `kwargs`。它必须在当前线程、当前调用内返回 `IntentAction` 或抛出失败。
+
+默认结果生成实现 `DefaultIntentResultGenerator`：
+
+1. 取得所选意图项或 fallback 的 result function；
+2. 使用待匹配语义、执行目标和初始化 `kwargs` 构造函数上下文；
+3. 同步调用一次函数；
+4. 把函数结果包装为 `MATCHED` 或 `FALLBACK` 的 `IntentResult`；
+5. 函数抛错、返回空值或产生 Agent/Workflow 中断时返回 `FAILED`，不执行其他目标或 fallback。
+
+对 `ToolInterruptException`、Workflow 交互中断或等价可恢复中断的处理固定为 `RESULT_FUNCTION_INTERRUPT_NOT_ALLOWED`。用户需要可中断本地工具时，result function 应返回 `CALL_TOOL` 指示，由 LLM 在意图 Tool 返回后的 Agent loop 中调用该工具。
+
+### 2.5 统一结果模型
+
+```java
+public enum IntentResultStatus {
+    MATCHED, FALLBACK, UNMATCHED, FAILED
+}
+
+public enum IntentActionType {
+    DELEGATE_AGENT, CALL_TOOL, DIRECT_RESPONSE, CUSTOM
+}
+
+public record IntentAction(
+        IntentActionType type,
+        String target,
+        String instruction,
+        Map<String, Object> data) {
+}
+
+public record IntentResult(
+        String type,
+        IntentResultStatus status,
+        String intentId,
+        IntentSourceType sourceType,
+        IntentAction action,
+        String message,
+        IntentFailure failure) {
+}
+```
+
+`type` 固定为 `intent_result`，供 Workflow 与 runtime 可靠识别。各路径输出如下：
+
+| 路径 | `status` | `action` / `message` |
+|---|---|---|
+| Agent Card Skill 命中 | `MATCHED` | `DELEGATE_AGENT`；`target=delegateToolName`；data 包含完整 Agent Card、当前 Skill、`remoteTargetId`、`delegateToolName` 和本次 semantic。 |
+| 自定义意图项命中 | `MATCHED` | 用户 result function 返回的 action。 |
+| fallback | `FALLBACK` | fallback result function 返回的 action。 |
+| 无 fallback 未匹配 | `UNMATCHED` | `message=意图未匹配`，无 action。 |
+| 匹配或结果生成失败 | `FAILED` | `failure` 包含阶段、错误码和安全错误信息。 |
+
+Agent Card 默认 result function 只生成 `DELEGATE_AGENT` action，不调用远端 Agent。Agent 场景由 LLM 调用 `target` 指定的 runtime Tool；Workflow 场景由 FEAT-008 适配器消费同一 action。
+
+### 2.6 Agent Tool 与提示词接入
+
+`IntentMatchingTool` 继承 AgentCore `Tool`：
+
+```java
+public final class IntentMatchingTool extends Tool {
+    public static final String DEFAULT_NAME = "intent_match";
+
+    public Object invoke(
+            Map<String, Object> inputs,
+            Map<String, Object> invocationKwargs);
+
+    public Iterator<Object> stream(
+            Map<String, Object> inputs,
+            Map<String, Object> invocationKwargs);
+}
+```
+
+Tool 的 LLM 输入固定为：
 
 ```json
 {
   "type": "object",
   "properties": {
-    "utterance": {
+    "semantic": {
       "type": "string",
-      "description": "待识别的用户请求",
-      "maxLength": 4096
+      "description": "需要匹配的完整用户请求或子任务"
     }
   },
-  "required": ["utterance"],
+  "required": ["semantic"],
   "additionalProperties": false
 }
 ```
 
-Schema 中的 `maxLength` 不是硬编码常量，由同一个 `IntentRecognizerConfig.maxUtteranceLength` 生成。长度统一按 Unicode code point 计数；Java 实现不得直接用 UTF-16 code unit 数量代替，否则补充平面字符会造成 Schema 校验与 recognizer 校验不一致。
+Tool 只调用 `IntentSuite.match(semantic)`，不重复匹配、fallback 或结果函数执行。`stream` 不建立异步或中断流程，只返回包含一次 `invoke` 结果的迭代器。为确保 `AbilityManager` 写入模型上下文的是合法 JSON，Agent Tool 使用 Jackson 把 `IntentResult` 编码为 `JsonNode`；Workflow 使用同一字段模型转换为 Map。
 
-### 2.3 行为承诺
-
-- **必须**：相同 recognizer 对 Tool 和 Workflow 输入产生相同的匹配结论。
-- **必须**：命中 A2A 目标时返回官方 SDK `AgentCard` 结构，不转换为内部 AgentCard。
-- **必须**：不同 Card 的分数冲突未通过 margin 时 fallback。
-- **必须**：scorer 不可用时不得返回最接近的目标。
-- **必须**：Card、Skill 文本只作为相关性模型数据，不解释为指令。
-- **必须**：Tool 会把完整目标结构放入 LLM 上下文，因此上游除验证来源和签名外，还必须确认 Card 文本内容可被 Agent 信任；签名不等于内容安全。
-- **禁止**：运行时重新传入、更新或拉取 AgentCard。
-- **禁止**：把 URL、provider、认证说明和签名文本加入候选语义文档。
-- **允许**：多个 Tool/Component 实例共享同一个线程安全 recognizer。
-
-### 2.4 显式排除
-
-| 排除项 | 原因 | 演进方式 |
-|---|---|---|
-| Card 发现与刷新 | 属于上游注册表或 A2A Client 职责 | 上游构造新 recognizer 并原子替换 |
-| Card 签名验证 | 来源信任由 Card Provider 负责 | 初始化前完成验证 |
-| 目标 Agent 调用 | 本特性只选择目标 | 由下游调用编排模块消费返回 Card |
-| 通用多意图拆分 | reranker 只能提供相关性和冲突信号 | 后续增加独立 multi-intent detector |
-| embedding shortlist | 第一版目录规模未知，避免过早增加召回损失 | 全量评分不达标后单独设计 |
-| 在线训练或微调 | 当前约束禁止训练 | 使用预训练模型和目录校准 |
-| LLM Prompt 分类 | 与报告推荐的 cross-encoder 方案不同 | 可作为后续 `IntentScorer` 实现对比 |
-
----
-
-## 3. 核心实现
-
-### 3.1 总体架构
-
-```text
-外部目标提供方
-  ├─ 获取、认证、刷新目标
-  └─ 初始化时传入目标结构
-             │
-             ▼
-IntentCatalogCompiler<T>
-  ├─ IntentTargetAdapter<T> 提取候选
-  ├─ 规范化、长度/数量校验
-  ├─ 建立 targetIndex/candidateId 映射
-  └─ 生成 catalogHash
-             │
-             ▼
-不可变 IntentCatalog<T>
-             │
-             ▼
-RerankerIntentRecognizer<T>
-  ├─ Reranker 批量全量评分
-  ├─ 同 target 取 max candidate score
-  ├─ 比较不同 target 的 top1/top2
-  └─ score + margin 接受门
-        │                  │
-        ▼                  ▼
-IntentRecognitionTool   IntentRecognitionComponent
-ReAct / DeepAgent       Workflow
-```
-
-Tool 和 Component 不保存目标集合，只持有 `IntentRecognizer<T>` 引用。目标快照由 recognizer 内部的不可变 catalog 统一持有，不承担发现、刷新和注册表职责。
-
-### 3.2 通用候选模型
+`invocationKwargs` 只由 AgentCore 传递运行时 Session 等信息，Tool 不把它传给 initializer、matcher 或 result function，也不覆盖 catalog 中保存的初始化 `kwargs`。
 
 ```java
-public interface IntentTargetAdapter<T> {
-    T snapshot(T target);
-
-    String targetKey(T target);
-
-    List<IntentCandidate> candidates(int targetIndex, T target);
+public final class IntentAgentBinder {
+    public static IntentAgentBinding bind(
+            ReActAgent agent,
+            IntentSuite suite,
+            IntentAgentOptions options);
 }
 
-public record IntentCandidate(
-        int targetIndex,
-        String candidateId,
-        String document) {
-}
-
-public interface IntentResultEncoder<T> {
-    JsonNode encode(IntentRecognitionResult<T> result);
+public final class IntentDeepAgentConfigurer {
+    public static DeepAgentConfig configure(
+            DeepAgentConfig config,
+            IntentSuite suite,
+            IntentAgentOptions options);
 }
 ```
 
-`IntentCatalogCompiler` 必须先调用 `snapshot`，后续 `targetKey`、候选文档、hash 和命中返回值全部基于同一个快照。adapter 无法安全复制可变目标时必须在初始化阶段拒绝该目标，不能一边冻结候选文档、一边保留仍可变化的目标引用。
+`IntentAgentBinder` 负责：
 
-`IntentResultEncoder` 是 Tool 与 Workflow 共用的输出编码契约。Tool 直接返回其 `JsonNode`；Workflow 使用同一 `JsonNode` 转换为 `Map<String, Object>`，保证两个入口字段和值一致。编码器异常由适配层隔离并转换为固定的 `RESULT_ENCODING_FAILED` envelope，不得泄露半编码目标。
+- 为 ReAct Agent 在 `Runner.resourceMgr()` 注册 Tool 实例，并在其 `AbilityManager` 注册 ToolCard；
+- 在 ReAct Agent 的 `intent-routing` section 注入提示词；
+- 校验同一 Agent 不存在同名 Tool；
+- 要求在 Agent 配置完成后、对外提供服务前绑定，避免后续 `configure` 重建 PromptBuilder 时丢失 section。
 
-`IntentCatalog<T>` 保存：
+`IntentDeepAgentConfigurer` 必须在 `HarnessFactory.createDeepAgent(...)` 或 `new DeepAgent(...)` 之前调用。它复制传入配置的 Tool 列表，把同一个 `IntentMatchingTool` 加入列表，将生效的意图提示词附加到 `DeepAgentConfig.systemPrompt`，更新传入的可变配置对象并将其返回；调用方原有的 Tool 集合不被原位修改。传入 `null` 时创建默认 `DeepAgentConfig`。已经创建的 DeepAgent 只公开 Tool 注册接口而没有提示词修改入口，因此本模块不提供“创建后绑定”方法；禁止通过反射访问其内部 ReActAgent。
 
-- 初始化时目标的不可变快照；
-- 扁平化的候选列表；
-- `candidateId -> targetIndex` 映射；
-- `catalogHash`；
-- `candidateFormatVersion`。
+未配置用户意图提示词时使用默认意图提示词；配置后由用户内容完整替换默认意图提示词，但不覆盖 Agent 原有的其他 system prompt。默认意图提示词至少包含这些规则：
 
-A2A adapter 的 `targetKey` 使用 Card 名称、版本和 `supportedInterfaces` 规范化结果的 SHA-256 摘要。各字符串执行 NFC 和首尾空白清理，接口保持 A2A 声明顺序，并完整纳入 `protocolBinding/url/tenant/protocolVersion`；URL 不做可能改变语义的自行改写。接口 URL 只参与目标身份和 catalog hash，不进入语义文档或明文 trace。
+1. 需要选择处理目标时，调用 `intent_match` 并传入完整用户请求或 DeepAgent 子任务。
+2. 返回 `DELEGATE_AGENT` 时，调用 `action.target` 指定的远端 Tool，并把当前 semantic 作为远端请求。
+3. 返回 `CALL_TOOL` 时，调用 action 指定的本地 Tool；返回 `DIRECT_RESPONSE` 时直接答复。
+4. fallback 和未匹配按结果内容处理，不自行虚构命中目标。
+5. 下游工具正常完成后完成本轮答复，不再次匹配。
+6. 只有下游工具在用户交互中断续接后返回完整 `IntentShiftSignal` 时，才使用其中的 `latestIntent` 再次调用 `intent_match`，而不是结束本轮会话。
 
-初始化时对 `targetKey` 建立唯一索引：重复 key 直接抛初始化异常，不自动保留第一项，也不把重复 Card 当作两个目标参与 margin。`candidateId` 同样必须全目录唯一。
-
-`catalogHash` 的输入是一个按 RFC 8785（JCS）序列化为 UTF-8 的 canonical JSON 对象，包含 `candidateFormatVersion`，以及按 `targetKey`、`candidateId` 升序排列的目标 key、候选 ID 和规范化候选文档；摘要算法固定为 SHA-256，小写十六进制输出。模型版本不进入 catalogHash，而是作为独立 trace 维度冻结。
-
-候选 ID 必须唯一。A2A 适配器使用：
-
-```text
-{targetKey}:{skill.id}
-```
-
-候选 ID 不依赖目标输入顺序，因此同一逻辑目录换序后仍得到相同 ID 和 catalog hash；不同 Card 使用相同 Skill ID 也不会发生分数覆盖。`targetIndex` 仅作为 catalog 内部的紧凑索引用于聚合，不进入稳定身份。向 `Reranker` 传参时使用 `chunkId=candidateId` 的 `RetrievalResult`，不得直接使用候选文档字符串作为 Map key；这是因为 `StandardReranker` 优先使用 `chunkId` 作为结果 Map key。
-
-### 3.3 A2A 标准类型适配
-
-扩展模块直接依赖：
-
-```xml
-<dependency>
-  <groupId>org.a2aproject.sdk</groupId>
-  <artifactId>a2a-java-sdk-spec</artifactId>
-  <version>1.0.0.Final</version>
-</dependency>
-```
-
-使用官方类型：
+意图跳变信号定义为：
 
 ```java
-org.a2aproject.sdk.spec.AgentCard
-org.a2aproject.sdk.spec.AgentSkill
-```
-
-不定义 `A2AAgentCard`、`A2AAgentSkill` 或协议字段镜像类。`A2AAgentCardIntentAdapter.snapshot()` 使用官方 builder 重建 Card 及其嵌套官方类型，并对 Card、Skill、capabilities extensions、extension params、安全要求、签名 header 中的所有 List/Map 做递归不可变复制。extension params 和签名 header 只接受 JSON 可表达的 null、字符串、布尔值、有限数字、List 和字符串键 Map；遇到其他可变对象或循环引用时初始化失败。只调用 `AgentCard.builder(card).build()` 不足以满足该契约，因为它只复制部分外层集合，仍会复用 Skill、capabilities 及嵌套集合引用。返回值始终是官方 SDK 类型。
-
-`A2AAgentCardResultEncoder` 实现 `IntentResultEncoder<AgentCard>`，使用模块统一配置的 Jackson `ObjectMapper` 把完整官方 Card 编码到 `target`，但不能直接依赖 Jackson 对 record component 的默认命名。SDK `1.0.0.Final` 的 `AgentCardSignature.protectedHeader` 只带 Gson `@SerializedName("protected")`；编码器必须通过 Jackson MixIn 或等价显式映射输出协议字段 `protected`，不得输出 `protectedHeader`。不为此定义 AgentCard 镜像 DTO。
-
-契约测试必须遍历当前 SDK `AgentCard` 的全部 record components，验证所有非 null 标准必填字段、可选字段和嵌套字段均被保留，并用 A2A v1.0.1 标准 JSON fixture 验证字段名，尤其是 `signatures[].protected`。SDK 升级新增字段时该测试必须先失败，防止静默丢字段。
-
-### 3.4 A2A 资格过滤
-
-`A2AEligibilityPolicy` 明确定义：
-
-```java
-public record A2AEligibilityPolicy(
-        Set<String> supportedProtocolBindings,
-        Set<String> supportedProtocolVersions,
-        Set<String> supportedRequiredExtensionUris,
-        Set<String> acceptedInputModes,
-        A2ASecurityRequirementEvaluator securityEvaluator,
-        A2AContentTrustEvaluator contentTrustEvaluator) {
+public record IntentShiftSignal(
+        String signal,
+        String latestIntent,
+        String message) {
+    // signal 固定为 "intent_shift"
 }
 ```
 
-- `securityEvaluator` 根据上游已经持有的凭证上下文判断 Card/Skill 的安全要求是否可满足；意图模块不读取凭证。
-- `contentTrustEvaluator` 判断 Card 文本是否允许进入 Agent LLM 上下文。签名验证通过不能替代该判断。
-- Set 中的协议 binding、version、extension URI 和 media type 均在初始化时规范化，比较规则固定为精确匹配。
+该信号由意图匹配完成后调用的远端 Agent Tool 或其他本地 Tool 返回，不由意图套件生成。信号缺失、`latestIntent` 为空或工具正常完成时均不得触发重新匹配。
 
-`A2AAgentCardIntentAdapter` 在编译目录时执行静态资格检查：
-
-1. Card 的 `name`、`description`、`version`、`skills`、`supportedInterfaces` 满足标准结构和本地长度限制。
-2. 至少存在一个 protocol binding 和 protocol version 均被 `A2AEligibilityPolicy` 接受的接口。
-3. Skill 的 `id`、`name`、`description` 非空，Card 内 Skill ID 唯一。
-4. Skill `inputModes` 非空时覆盖 Card `defaultInputModes`；null 或空列表时继承 Card 默认值。
-5. 只保留 input media type 命中 `acceptedInputModes` 的 Skill；第一版 policy 固定要求包含 `text/plain`。
-6. Card 声明的每个 required extension URI 都必须位于 `supportedRequiredExtensionUris`。
-7. Skill 级安全要求非空时覆盖 Card 级要求；最终要求必须通过 `securityEvaluator`。
-8. Card 必须通过 `contentTrustEvaluator`，否则不得进入该 recognizer 的候选目录。Tool 与 Workflow 共享目录，不允许入口之间出现资格差异。
-9. 不抓取 `documentationUrl`、`iconUrl`、interface URL 或扩展 URL。
-
-来源认证、Card 签名验证和当前凭证上下文由上游完成，不在本适配器重复实现。
-
-### 3.5 候选文档
-
-候选模板固定并版本化：
-
-```text
-[Target]
-{card.name}
-
-[Target scope]
-{card.description}
-
-[Intent]
-{skill.name}
-
-[Can handle]
-{skill.description}
-
-[Keywords]
-{skill.tags}
-
-[Examples]
-{skill.examples}
-```
-
-语义字段只包括 Card 的 `name/description` 和 Skill 的 `name/description/tags/examples`。所有字符串先执行 Unicode NFC 规范化和首尾空白清理；tags 去重后按 Unicode 码点升序并以 `, ` 连接，examples 去重后保留 Card 声明顺序并逐行添加 `- ` 前缀；空列表对应的 section 保留并写入 `<none>`。该格式属于 `candidateFormatVersion` 契约，禁止实现自行使用 List.toString()。
-
-长度统一按 NFC 规范化后的 Unicode code point 计数。任一字段、tags/examples 数量或最终文档超过配置上限时过滤对应 Skill 并记录初始化诊断，禁止静默截断后参与评分。Card 的 name/description 超限时过滤整张 Card。
-
-### 3.6 评分、聚合与接受门
-
-第一版使用 `agent-core-java` 的 `Reranker`：
+### 2.7 Workflow 组件接入
 
 ```java
-Map<String, Double> scores = reranker.rerankScores(
-        utterance,
-        candidateBatch,
-        "判断用户请求是否应由给定的候选能力处理。",
-        Map.of());
-```
+public final class IntentMatchingComponent implements ComponentComposable {
+    public IntentMatchingComponent(IntentSuite suite);
 
-推荐由调用方注入连接本地 TEI 的 `StandardReranker`，模型使用 `Alibaba-NLP/gte-multilingual-reranker-base`。意图模块不创建 HTTP Client，不读取 `apiBase/apiKey`，不实现模型调用重试。
-
-全量评分表示一次识别覆盖目录中的全部 candidate，不要求把全部 candidate 放进一个 HTTP payload。recognizer 按稳定的 candidateId 顺序切分为不超过 `maxBatchSize` 的批次，逐批调用同一个 Reranker 并合并结果；任一批失败则整次识别返回 fallback，禁止使用部分批次结果。
-
-每批最终 Map 必须满足：key 集合与该批提交的 candidateId 完全相等，且每个 score 都是有限 double；缺少 ID、未知 ID、null、NaN 或 Infinity 返回 `INVALID_SCORER_RESPONSE`。`StandardReranker` 内部会把原始响应中遗漏的 index 转为 `0.0`，扩展模块无法再区分真实零分和原始漏项，因此不承诺检测 TEI 原始响应中的重复/遗漏 index；可见的 `0.0` 按正常低分进入接受门。
-
-recognizer 使用信号量把同时进入 Reranker 的识别数限制为 `maxConcurrentRecognitions`。`StandardReranker` 的配置在 recognizer 构建后不得再修改；注入其他 Reranker 时，调用方必须保证其在该并发度下安全，无法保证时把并发度设为 1。
-
-聚合规则：
-
-```text
-targetScore(target) = max(candidateScore in target)
-```
-
-设不同目标最高两个分数为 `s1`、`s2`：
-
-```text
-scoreGate  = s1 >= scoreThreshold
-marginGate = s1 - s2 >= marginThreshold
-```
-
-只有两个 gate 同时通过才返回 top1 目标。同一目标内多个 Skill 分数接近不构成冲突；margin 只比较不同目标。
-
-目录只有一个 eligible target 时不存在 `s2`，margin gate 视为通过，但仍必须通过 score gate；不能因为目录只有一个目标而无条件命中。
-
-`scoreThreshold` 和 `marginThreshold` 必须显式配置且大于零。阈值来自目标目录 calibration set，不提供生产默认值。
-
-### 3.7 Agent Tool
-
-ToolCard 的 LLM 可见 `name` 默认固定为 `intent_recognition`，资源 `id` 必须全局唯一，二者不能使用同一个固定值：
-
-```java
-public record IntentRecognitionToolConfig(
-        String toolId,
-        String toolName) {
+    public Executable<?, ?> toExecutable();
 }
-```
 
-`toolId` 由调用方提供且不能为空，必须在 JVM 级 `Runner.resourceMgr()` 生命周期内全局唯一；重建 recognizer/Tool 时必须分配新 ID，例如 `intent_recognition_{agentInstanceId}_{UUID}`。不能只用 catalog hash 派生 ID，因为非语义 Card 字段变化时 catalog hash 可以不变，而 DeepAgent 遇到已存在 ID 会跳过新 Tool 注册。`toolName` 为空时使用 `intent_recognition`，使 LLM 看到稳定名称。同一个 Agent 内只允许注册一个相同 toolName。
-
-Tool 构造器必须用 `ToolCard.builder()` 设置 `id=toolId`、`name=toolName`、用途描述和第 2.2 节生成的 `inputParams`，再传给 `Tool` 基类。配置对象、生成后的 ToolCard 和 Schema Map 均建立防御性副本，构造完成后不允许调用方修改；否则 LLM 可见 Schema 与 recognizer 输入限制可能漂移。
-
-```java
-public final class IntentRecognitionTool<T> extends Tool {
-    private final IntentRecognizer<T> recognizer;
-    private final IntentResultEncoder<T> encoder;
-
-    @Override
-    public Object invoke(Map<String, Object> inputs,
-            Map<String, Object> kwargs) {
-        String utterance = extractUtterance(inputs);
-        return encodeOrFallback(encoder, recognizer.recognize(utterance));
-    }
-
-    @Override
-    public Iterator<Object> stream(Map<String, Object> inputs,
-            Map<String, Object> kwargs) {
-        return List.<Object>of(invoke(inputs, kwargs)).iterator();
-    }
-}
-```
-
-Tool 返回 encoder 生成的 Jackson `JsonNode`，而不是普通 `Map`。原因是 `AbilityManager` 使用 `String.valueOf(result)` 构造 `ToolMessage`；`JsonNode.toString()` 可以保证进入 LLM 上下文的是合法 JSON。编码失败时 `encodeOrFallback` 使用不依赖目标 encoder 的固定 envelope 返回 `RESULT_ENCODING_FAILED`。
-
-ReAct Agent 注册：
-
-```java
-Runner.resourceMgr().addTool(tool, reactAgent.getCard().getId());
-reactAgent.getAbilityManager().add(tool.getCard());
-```
-
-DeepAgent 注册：
-
-```java
-DeepAgentConfig config = DeepAgentConfig.builder()
-        .tools(List.of(tool))
-        .build();
-```
-
-### 3.8 Workflow Component
-
-```java
-public final class IntentRecognitionComponent<T>
-        implements ComponentComposable {
-    private final IntentRecognizer<T> recognizer;
-    private final IntentResultEncoder<T> encoder;
-
-    @Override
-    public Executable<?, ?> toExecutable() {
-        return new IntentRecognitionExecutable<>(recognizer, encoder);
-    }
-}
-```
-
-```java
-public final class IntentRecognitionExecutable<T>
-        extends ComponentExecutable {
-    private final IntentRecognizer<T> recognizer;
-    private final IntentResultEncoder<T> encoder;
-
-    @Override
-    public Object invoke(Object inputs,
+final class IntentMatchingExecutable extends ComponentExecutable {
+    public Object invoke(
+            Object inputs,
             NodeSessionApi session,
-            ModelContext context) {
-        String utterance = extractUtterance(inputs);
-        JsonNode output = encodeOrFallback(encoder, recognizer.recognize(utterance));
-        return OBJECT_MAPPER.convertValue(output, MAP_TYPE);
-    }
+            ModelContext context);
 }
 ```
 
-Workflow 返回 `Map<String, Object>`，使表达式可以读取：
+Workflow 输入为 `{"semantic": ...}`，输出为 `IntentResult` 的 Map 表示。Executable 只调用 `IntentSuite.match` 并把结果交给下一个节点，不注册 Agent Tool、不调用 LLM、不读取 Workflow Session 作为初始化 `kwargs`。
+
+Workflow 根据 `status` 和 `action.type` 显式连接后续节点：Agent Card 结果进入 FEAT-008 的远端调用适配节点；`CALL_TOOL` 进入本地工具节点；`DIRECT_RESPONSE`、fallback 和未匹配进入业务响应节点。Workflow 不注入 Agent 提示词，也不自动识别或重新匹配意图跳变。
+
+## 3. 核心运行模型
+
+### 3.1 初始化流程
 
 ```text
-${intent.matched}
-${intent.target}
-${intent.reason}
+Agent/Workflow 创建阶段
+  -> 调用方准备 AgentCardIntentSource 列表和初始化 kwargs
+  -> IntentInitializer.initialize
+       -> 每条 Agent Card Skill -> IntentItem
+       -> 每个 description + resultFunction -> IntentItem
+       -> fallback -> 独立 FallbackIntent
+       -> 保存匹配阈值和初始化 kwargs
+  -> IntentSuite 校验并冻结 IntentCatalog
+  -> ReAct Agent: 配置完成后绑定 IntentMatchingTool + 提示词 section
+     DeepAgent: 创建前把 IntentMatchingTool + 提示词写入 DeepAgentConfig
+     Workflow: 创建 IntentMatchingComponent
 ```
 
-Tool 的 `JsonNode` 与 Workflow 的 Map 使用完全相同的字段协议，仅承载类型适配各自框架的消费方式。
+初始化完成后不读取外部 Card 或配置变化。需要更新 description、Skill 或 result function 时，应用创建新的 `IntentSuite`，并在新的 Agent/Workflow 实例对外服务前完成绑定；当前版本不提供运行中热更新。
 
-### 3.9 诊断信息
-
-内部 trace 至少包含：
-
-```java
-public record IntentRecognitionTrace(
-        String targetKey,
-        String candidateId,
-        double topScore,
-        double secondTargetScore,
-        IntentRecognitionReason reason,
-        String catalogHash,
-        String modelVersion,
-        String candidateFormatVersion) {
-}
-```
-
-trace 通过日志或观察回调输出，不放入 Tool/Workflow 业务结果。模型原始相关性分数不能被 Agent 当作业务概率使用。
-
-`IntentTraceListener` 在当前识别线程中同步接收不可变 trace。listener 异常必须捕获并记录 WARN，不改变已经得到的匹配结果；listener 实现若访问共享状态，必须自行保证线程安全。默认使用 no-op listener。
-
----
-
-## 4. 代码结构
-
-### 4.1 仓库与包结构
+### 3.2 默认匹配与结果生成流程
 
 ```text
-agent-core-ext-java/
-├── pom.xml
-└── src/
-    ├── main/java/com/openjiuwen/ext/intent/
-    │   ├── api/
-    │   │   ├── IntentRecognizer.java
-    │   │   ├── IntentRecognizers.java
-    │   │   ├── IntentTargetAdapter.java
-    │   │   ├── IntentResultEncoder.java
-    │   │   ├── IntentCandidate.java
-    │   │   ├── IntentRecognitionResult.java
-    │   │   └── IntentRecognitionReason.java
-    │   ├── catalog/
-    │   │   ├── IntentCatalog.java
-    │   │   └── IntentCatalogCompiler.java
-    │   ├── reranker/
-    │   │   ├── RerankerIntentRecognizer.java
-    │   │   └── IntentRecognizerConfig.java
-    │   ├── adapter/a2a/
-    │   │   ├── A2AAgentCardIntentAdapter.java
-    │   │   ├── A2AAgentCardResultEncoder.java
-    │   │   ├── A2AAgentCardSnapshots.java
-    │   │   ├── A2AEligibilityPolicy.java
-    │   │   ├── A2ASecurityRequirementEvaluator.java
-    │   │   └── A2AContentTrustEvaluator.java
-    │   ├── tool/
-    │   │   ├── IntentRecognitionTool.java
-    │   │   └── IntentRecognitionToolConfig.java
-    │   ├── workflow/
-    │   │   ├── IntentRecognitionComponent.java
-    │   │   └── IntentRecognitionExecutable.java
-    │   └── trace/
-    │       ├── IntentRecognitionTrace.java
-    │       └── IntentTraceListener.java
-    └── test/java/com/openjiuwen/ext/intent/
+semantic
+  -> IntentMatchingTool / IntentMatchingComponent
+  -> IntentSuite.match
+  -> RerankerIntentMatcher
+       -> 空候选: 正常未匹配
+       -> 全候选评分
+       -> top1 达阈值: 选择 IntentItem
+       -> top1 未达阈值: 正常未匹配
+  -> 命中: IntentResultGenerator.generate(IntentItem)
+  -> 未命中且有 fallback: IntentResultGenerator.generate(FallbackIntent)
+  -> 未命中且无 fallback: UNMATCHED
+  -> 最终 IntentResult 返回上游
 ```
 
-### 4.2 Maven 依赖
+### 3.3 Agent 后续处理
 
-```xml
-<properties>
-  <maven.compiler.release>17</maven.compiler.release>
-  <agent-core.version>0.1.13</agent-core.version>
-  <a2a-sdk.version>1.0.0.Final</a2a-sdk.version>
-</properties>
-
-<dependencies>
-  <dependency>
-    <groupId>com.openjiuwen</groupId>
-    <artifactId>agent-core-java</artifactId>
-    <version>${agent-core.version}</version>
-  </dependency>
-  <dependency>
-    <groupId>org.a2aproject.sdk</groupId>
-    <artifactId>a2a-java-sdk-spec</artifactId>
-    <version>${a2a-sdk.version}</version>
-  </dependency>
-</dependencies>
+```text
+LLM -> intent_match -> IntentResult
+  -> DELEGATE_AGENT: LLM 调用 action.target 对应的远端 Tool
+  -> CALL_TOOL: LLM 调用 action.target 对应的本地 Tool
+  -> DIRECT_RESPONSE / UNMATCHED: LLM 直接答复
+  -> 下游 Tool 正常结束: 本轮结束
+  -> 下游 Tool 中断续接后返回 IntentShiftSignal:
+       ToolMessage 携带 latestIntent
+       -> LLM 再次调用 intent_match(latestIntent)
+       -> 进入新的处理循环
 ```
 
-扩展模块不得依赖 A2A Client 或 Server artifact，因为本特性不负责 Card 拉取或 Agent 调用。
+重新匹配发生在下游 Tool loop，不发生在前一次 `IntentMatcher#match` 中。意图套件不检查用户续接输入，也不把任意工具失败解释为意图跳变。
+
+### 3.4 Workflow 后续处理
+
+```text
+Workflow 输入
+  -> IntentMatchingComponent
+  -> IntentResult
+  -> 显式 Workflow 分支
+       -> Agent Card: FEAT-008 远端调用适配
+       -> 自定义 action: 本地节点或响应节点
+       -> fallback / UNMATCHED: 响应节点
+```
+
+Workflow 只在流程经过该组件时匹配一次。远端调用完成或中断续接后，FEAT-008 不回到该组件自动匹配。
+
+### 3.5 失败处理
+
+| 失败阶段 | 对外行为 | fallback |
+|---|---|---|
+| 初始化参数、候选或阈值非法 | 抛 `IntentInitializationException`，套件不创建 | 不执行 |
+| matcher SPI 抛错或返回非法结果 | `FAILED / MATCH_FAILED` | 不执行 |
+| Reranker 失败或分数非法 | `FAILED / RERANK_FAILED` | 不执行 |
+| result generator SPI 失败 | `FAILED / RESULT_GENERATION_FAILED` | 不执行 |
+| result function 抛错 | `FAILED / RESULT_FUNCTION_FAILED` | 不执行 |
+| result function 产生中断 | `FAILED / RESULT_FUNCTION_INTERRUPT_NOT_ALLOWED` | 不执行 |
+| 正常未匹配且有 fallback | 执行 fallback result function | 执行一次 |
+| 正常未匹配且无 fallback | `UNMATCHED / 意图未匹配` | 不执行 |
+
+## 4. 代码结构与类级设计
+
+### 4.1 Maven 模块
+
+```text
+common/agent-core-ext-java/
+├── pom.xml                         # 新增 <module>agent-intent</module>
+└── agent-intent/
+    ├── pom.xml                     # artifactId: agent-intent
+    └── src/
+        ├── main/java/com/openjiuwen/agents/intent/
+        └── test/java/com/openjiuwen/agents/intent/
+```
+
+`agent-intent` 依赖：
+
+- `com.openjiuwen:agent-core-java`，复用 Tool、ReAct/DeepAgent、Workflow 和 Reranker；
+- `org.a2aproject.sdk:a2a-java-sdk-spec`，直接使用标准 AgentCard/AgentSkill；
+- 与 AgentCore 版本对齐的 Jackson，用于 Agent Tool 的合法 JSON 输出。
+
+模块不依赖 `agent-runtime-java`、Spring Boot、A2A client/server 或 `agent-runtime-ext-java`，避免 Core 扩展反向依赖 Runtime。
+
+### 4.2 包与关键类
+
+```text
+com.openjiuwen.agents.intent
+├── api
+│   ├── IntentInitializer.java
+│   ├── IntentMatcher.java
+│   ├── IntentResultGenerator.java
+│   ├── IntentResultFunction.java
+│   ├── IntentSuite.java
+│   └── IntentModels.java           # 实际实现按公开类型拆文件
+├── initializer
+│   └── DefaultIntentInitializer.java
+├── matcher
+│   └── RerankerIntentMatcher.java
+├── result
+│   ├── DefaultIntentResultGenerator.java
+│   └── AgentCardIntentResultFunction.java
+├── agent
+│   ├── IntentMatchingTool.java
+│   ├── IntentAgentBinder.java
+│   ├── IntentDeepAgentConfigurer.java
+│   └── DefaultIntentPrompt.java
+└── workflow
+    ├── IntentMatchingComponent.java
+    └── IntentMatchingExecutable.java
+```
+
+职责约束：
+
+- `IntentSuite` 只编排 SPI 生命周期，不包含默认匹配算法。
+- `DefaultIntentInitializer` 不调用 Reranker 或结果函数。
+- `RerankerIntentMatcher` 不直接调用用户 result function，只调用 `IntentResultGenerator`。
+- `DefaultIntentResultGenerator` 不再次选择意图项。
+- Agent Tool 与 Workflow Component 不各自实现匹配逻辑。
 
 ### 4.3 依赖方向
 
 ```text
-tool / workflow ──> intent api <── catalog <── reranker core
-                         ▲              ▲
-                         │              │
-                  target adapter SPI    │
-                         ▲              │
-                         │              │
-                    A2A adapter ────────┘
+Agent Tool -------> IntentSuite <------- Workflow Component
+                         |
+                         +--> IntentInitializer SPI
+                         +--> IntentMatcher SPI --> IntentResultGenerator SPI
+                                                      |
+                                                      +--> IntentResultFunction
 
-agent-core-ext-java ──> agent-core-java
-agent-core-ext-java ──> official A2A Java SDK spec
+agent-intent --> agent-core-java
+agent-intent --> A2A Java SDK spec
+runtime-ext  --> agent-intent            # FEAT-008 适配方向
+agent-intent -X-> runtime-ext/runtime     # 禁止反向依赖
 ```
 
-- 通用 intent API 不依赖 A2A。
-- A2A adapter 依赖 intent API 和官方 A2A spec。
-- Tool/Workflow 适配依赖 agent-core-java 原型。
-- Tool 和 Workflow 不互相依赖，也不各自实现评分逻辑。
+## 5. 关键数据与映射设计
 
----
+### 5.1 Agent Card Skill 映射
 
-## 5. 运行流程
+| 来源 | `IntentItem` / action 字段 |
+|---|---|
+| runtime 注册名 | `remoteTargetId`，同时参与 item ID |
+| runtime 远端 Tool 名 | `delegateToolName`、`action.target` |
+| 完整 `AgentCard` | `sourceData.agentCard`、`action.data.agentCard` |
+| 当前 `AgentSkill` | 独立 item 的 description 来源、`action.data.skill` |
+| 初始化 context | `sourceData.context`，按需返回给上游 |
+| 本次待匹配语义 | `action.data.semantic`，供远端调用或下个节点使用 |
 
-### 5.1 初始化流程
+同一 Agent Card 的多条 Skill 分别生成 item，但 `remoteTargetId` 和 `delegateToolName` 相同。结果中返回的是命中的单条 Skill，不把 Card 级命中误表述为所有 Skill 同时命中。
 
-```text
-调用方取得受信目标集合
-  │
-  ▼
-IntentRecognizers.builder()
-  ├─ targets(agentCards)
-  ├─ targetAdapter(a2aAdapter)
-  ├─ reranker(existingReranker)
-  └─ config(calibratedThresholds)
-  │
-  ▼
-IntentCatalogCompiler
-  ├─ 建立官方 AgentCard 防御性快照
-  ├─ A2A eligibility 过滤
-  ├─ Skill -> IntentCandidate
-  ├─ 唯一 ID 与目录上限校验
-  └─ catalogHash
-  │
-  ▼
-共享的不可变 IntentRecognizer<AgentCard>
-  ├─ IntentRecognitionTool
-  └─ IntentRecognitionComponent
-```
+### 5.2 用户自定义意图与 fallback 映射
 
-目录变化时，上游重新构建 recognizer/Tool/Component，并在应用层原子替换。单次 `recognize()` 不观察半更新目录。
-
-### 5.2 调用流程
-
-```text
-{"utterance":"查询订单物流"}
-  │
-  ├─ 校验和规范化输入
-  ├─ 全量候选构造 RetrievalResult
-  ├─ Reranker 批量评分
-  ├─ candidateId 关联分数
-  ├─ targetIndex 维度 max 聚合
-  ├─ top1 score gate
-  ├─ top1-top2 margin gate
-  └─ IntentRecognitionResult
-       ├─ Tool -> JsonNode
-       └─ Workflow -> Map
-```
-
-### 5.3 错误与降级
-
-| 场景 | 阶段 | 行为 | 对外结果 |
-|---|---|---|---|
-| 配置缺失或阈值非法 | 初始化 | 抛初始化异常 | 不创建 recognizer |
-| 目标数量或候选数量超限 | 初始化 | 抛初始化异常 | 不创建 recognizer |
-| targetKey 或 candidateId 重复 | 初始化 | 抛初始化异常并报告冲突 key | 不创建 recognizer |
-| 单张 Card/Skill 不合格 | 初始化 | 过滤并记录诊断 | 其他候选继续可用 |
-| 全部候选被过滤 | 初始化/调用 | 允许建立空目录 | `NO_ELIGIBLE_TARGET` |
-| utterance 无效 | 调用 | 不调用 scorer | `EMPTY_INPUT` |
-| utterance 超长 | 调用 | 不截断、不调用 scorer | `INPUT_TOO_LONG` |
-| top1 分数不足 | 调用 | fail closed | `BELOW_SCORE_THRESHOLD` |
-| 不同目标分差不足 | 调用 | fail closed | `INSUFFICIENT_MARGIN` |
-| 任一 reranker 批次超时或异常 | 调用 | 丢弃全部批次，不返回部分结果 | `SCORER_UNAVAILABLE` |
-| scorer 最终 Map 的 ID 集合或数值非法 | 调用 | 丢弃本次结果 | `INVALID_SCORER_RESPONSE` |
-| target 输出编码失败 | 输出适配 | 返回固定失败 envelope | `RESULT_ENCODING_FAILED` |
-| Card 在外部发生变化 | 运行期 | 当前快照不变 | 新建实例后才生效 |
-
-现有 `StandardReranker` 会把原始响应中缺失的候选分数初始化为 `0.0`。当生产阈值强制大于零时，该行为对该候选是失败关闭，但扩展模块无法区分“真实零分”和“服务漏返回”。该限制需要记录监控；若必须严格识别 TEI 原始响应的缺失或重复索引，应增强 `agent-core-java` 的 reranker 响应校验层，而不是在意图模块重写 HTTP 调用。
-
-### 5.4 多意图边界
-
-cross-encoder 不负责通用多意图解析。若一句请求同时强匹配不同目标，通常会因 margin 不足 fallback；但这不是完整的多意图检测保证。第一版不得宣称支持任意多意图拆分。
-
----
-
-## 6. 配置与使用
-
-### 6.1 recognizer 配置
-
-```java
-public record IntentRecognizerConfig(
-        double scoreThreshold,
-        double marginThreshold,
-        int maxUtteranceLength,
-        int maxTargets,
-        int maxCandidates,
-        int maxFieldLength,
-        int maxCandidateLength,
-        int maxTagsPerCandidate,
-        int maxExamplesPerCandidate,
-        int maxBatchSize,
-        int maxConcurrentRecognitions,
-        String candidateFormatVersion,
-        String modelVersion) {
-}
-```
-
-| 属性 | 是否必填 | 说明 |
+| 输入 | 初始化结果 | 命中后行为 |
 |---|---|---|
-| `scoreThreshold` | 是 | top1 最低接受分数，必须来自 calibration set |
-| `marginThreshold` | 是 | 不同目标 top1/top2 最低分差 |
-| `maxUtteranceLength` | 否，默认 4096 | 规范化后用户请求最大字符数，同时写入 Tool Schema `maxLength` |
-| `maxTargets` | 否，默认 100 | 防止不受控目录扩张 |
-| `maxCandidates` | 否，默认 1000 | 全目录 Skill 数上限 |
-| `maxFieldLength` | 否，默认 4096 | 单个 Card/Skill 文本字段上限 |
-| `maxCandidateLength` | 否，默认 16384 | 拼接后候选文档上限 |
-| `maxTagsPerCandidate` | 否，默认 32 | 单个 Skill 允许的最大 tags 数 |
-| `maxExamplesPerCandidate` | 否，默认 16 | 单个 Skill 允许的最大 examples 数 |
-| `maxBatchSize` | 否，默认 128 | 单次提交给 Reranker 的最大候选数，全量目录可拆成多批 |
-| `maxConcurrentRecognitions` | 否，默认 8 | 同时进入 Reranker 的识别数；非线程安全实现必须设为 1 |
-| `candidateFormatVersion` | 是 | 候选模板版本，参与 catalog hash |
-| `modelVersion` | 是 | 模型与量化版本标识，用于 trace 和验收冻结 |
+| `CustomIntentDefinition` | 可匹配 `IntentItem` | result generator 同步调用其 result function。 |
+| fallback 意图项 | 独立 `FallbackIntent(type=INTENT)` | 正常未匹配后调用 result function。 |
+| fallback 工具 | 独立 `FallbackIntent(type=TOOL)` | 正常未匹配后调用同一接口。 |
+| 无 fallback | 无 `FallbackIntent` | 返回 `UNMATCHED`，不执行函数。 |
 
-除两个阈值外的默认值是第一版安全上限，不代表性能承诺；发布前通过目标环境负载测试调整。所有数值配置必须在 builder 构建时校验为正数，threshold 和 scorer 返回值还必须是有限 double。
+### 5.3 初始化与调用 `kwargs`
 
-### 6.2 初始化示例
+```text
+Agent/Workflow 创建时提供的 kwargs
+  -> IntentInitializationRequest.kwargs
+  -> IntentCatalog.initializationKwargs
+  -> IntentResultFunctionContext.initializationKwargs
 
-```java
-RerankerConfig rerankerConfig = new RerankerConfig();
-rerankerConfig.setApiBase("http://127.0.0.1:8080");
-rerankerConfig.setModelName("Alibaba-NLP/gte-multilingual-reranker-base");
-rerankerConfig.setTimeout(3.0);
-
-Reranker reranker = new StandardReranker(rerankerConfig);
-A2AAgentCardResultEncoder resultEncoder = new A2AAgentCardResultEncoder();
-String toolId = "intent_recognition_order-router_" + UUID.randomUUID();
-
-IntentRecognizer<AgentCard> recognizer =
-        IntentRecognizers.<AgentCard>builder()
-                .targets(agentCards)
-                .targetAdapter(new A2AAgentCardIntentAdapter(eligibilityPolicy))
-                .reranker(reranker)
-                .config(intentConfig)
-                .build();
-
-IntentRecognitionTool<AgentCard> tool = new IntentRecognitionTool<>(
-        recognizer,
-        resultEncoder,
-        new IntentRecognitionToolConfig(toolId, "intent_recognition"));
+Agent loop 的 Tool.invoke invocationKwargs
+  -> 仅由 AgentCore 提供给 IntentMatchingTool
+  -> 不进入上述链路
 ```
 
-这里的 `StandardReranker` 由调用方创建。意图模块只调用 `Reranker`，不实现或直接配置 HTTP Client。
+二者没有覆盖或合并关系。初始化 `kwargs` 的引用生命周期与 `IntentSuite` 一致。
 
-### 6.3 Workflow 挂接示例
+## 6. 配置与接入设计
+
+### 6.1 默认套件创建
+
+```java
+Map<String, Object> initializationKwargs = Map.of(
+        "customIntents", List.of(
+                new CustomIntentDefinition(
+                        "local-order-query",
+                        "查询本地订单缓存",
+                        context -> IntentAction.callTool(
+                                "query_local_order",
+                                "调用本地订单工具",
+                                Map.of("semantic", context.semantic())))),
+        "fallback", FallbackDefinition.tool(
+                "default-fallback",
+                context -> IntentAction.directResponse("请重新描述需要处理的任务")),
+        "matchThreshold", 0.65D);
+
+IntentSuite suite = IntentSuite.create(
+        new IntentInitializationRequest(agentCardSources, initializationKwargs),
+        new DefaultIntentInitializer(),
+        new RerankerIntentMatcher(reranker),
+        new DefaultIntentResultGenerator());
+```
+
+阈值必须由当前意图目录和实际 Reranker 的验收数据确定，L2 示例值不作为生产默认值。默认 matcher 不提供“总是接受 top1”的隐式阈值。
+
+### 6.2 Agent 接入
+
+ReAct Agent 在完成 `configure(...)` 后绑定：
+
+```java
+IntentAgentBinder.bind(reactAgent, suite,
+        IntentAgentOptions.builder()
+                .toolId("intent-match-router-01")
+                .build());
+```
+
+DeepAgent 在创建前准备配置：
+
+```java
+DeepAgentConfig config = IntentDeepAgentConfigurer.configure(
+        baseConfig,
+        suite,
+        IntentAgentOptions.builder()
+                .toolId("intent-match-router-01")
+                .build());
+DeepAgent deepAgent = HarnessFactory.createDeepAgent(agentCard, config, workspace);
+```
+
+`promptOverride` 为空时使用默认意图提示词；非空时完整覆盖默认意图提示词。DeepAgent 配置器保留并追加到原有 `systemPrompt`，同时复制原有 Tool 列表后加入意图 Tool。Tool `id` 在 AgentCore ResourceManager 中必须唯一，Tool `name` 默认保持 `intent_match`，便于提示词稳定引用。
+
+### 6.3 Workflow 接入
 
 ```java
 workflow.addWorkflowComp(
-        "intent",
-        new IntentRecognitionComponent<>(recognizer, resultEncoder),
-        Map.of("utterance", "${start.query}"));
+        "intent_match",
+        new IntentMatchingComponent(suite),
+        Map.of("semantic", "${start.query}"),
+        null);
 ```
 
----
+下一节点读取 `${intent_match.status}`、`${intent_match.action.type}`、`${intent_match.action.target}` 和 `${intent_match.action.data}`。Workflow 不接受 `IntentAgentOptions`，也没有提示词配置。
 
-## 7. 测试与验收
+## 7. 集成测试与验收设计
 
-### 7.1 单元测试
+### 7.1 SPI 与默认实现测试
 
 | 测试组 | 必测内容 |
 |---|---|
-| 通用目录 | candidateId/targetKey 唯一、canonical hash、数量/长度限制、目标变更隔离 |
-| 聚合 | 同 target 取 max、margin 只比较不同 target |
-| 接受门 | 阈值等值边界、低分、冲突、单目标目录 |
-| scorer 异常 | 分批合并、任一批失败、最终 Map 缺失/未知 ID、NaN、Infinity；不虚构原始响应可见性 |
-| A2A 适配 | 官方类型、深快照、字段提取、media mode 继承/覆盖、资格和内容信任过滤 |
-| 文档安全 | URL/provider/security/signature 不进入候选，文本规范化、确定性列表格式和超限过滤 |
-| Tool | 固定 inputs、超长输入、忽略 kwargs、全局唯一资源 ID、重建不复用旧 Tool、合法 JsonNode、编码失败 fallback |
-| Workflow | 输入映射、完整目标字段可寻址、与 Tool 语义一致 |
-| 并发 | 并发上限、共享 recognizer 不改变目录、listener 异常隔离 |
+| `DefaultIntentInitializerTest` | 多 Card、单 Card 多 Skill、完整远端关联、自定义项、fallback、重复/缺失字段、不可变目录。 |
+| `RerankerIntentMatcherTest` | 全候选评分、top1 达阈值、低于阈值、确定性并列、空候选不调用 Reranker。 |
+| `DefaultIntentResultGeneratorTest` | Agent Card、自定义项、fallback 使用同一 SPI；同步返回、异常、空结果和中断拒绝。 |
+| `IntentFailureBoundaryTest` | 初始化、匹配、结果生成失败均不触发 fallback 或其他意图项。 |
+| `IntentSpiReplacementTest` | 三个 SPI 分别可替换；自定义 matcher 通过 spy 验证实际调用 result generator。 |
+| `IntentKwargsLifecycleTest` | 初始化 `kwargs` 固定，Agent Tool 调用 `kwargs` 不能覆盖；重新创建套件后新配置才生效。 |
 
-### 7.2 框架集成测试
+### 7.2 Agent 集成测试
 
-1. ReAct Agent 注册 Tool 后，模型生成 `intent_recognition` tool call，参数只含 `utterance`。
-2. `AbilityManager` 注入 Session kwargs 时 Tool 正常工作且不写 Session。
-3. DeepAgent 通过 `DeepAgentConfig.tools` 注册并调用相同 Tool。
-4. 两个 Agent 使用不同 Card 目录注册同名但不同 ID 的 Tool，分别命中各自目录且不发生全局资源替换。
-5. Workflow 通过 `addWorkflowComp` 挂接节点，并由下游节点读取三个输出字段。
-6. Tool 与 Workflow 共享同一个 recognizer 和 encoder，对相同 utterance 返回字段完全一致的 AgentCard。
-7. 反射遍历完整 AgentCard 的 record components（含 provider、capabilities、interfaces、security、extensions、signatures 和兼容字段），执行官方类型到 JsonNode/Map 的契约测试。
-8. 使用本地 TEI 的 `StandardReranker` 做最小真实模型冒烟测试。
-
-### 7.3 数据集覆盖
-
-- 每个 Card 的正常请求；
-- 跨 Card 近邻和 sibling-skill hard negatives；
-- 同领域但未支持的 ID-OOS；
-- 完全无关 OOS；
-- 歧义、多意图、否定、极短、错别字；
-- 中文、英文和中英混合；
-- 多 Skill Card 和目录扩容场景。
-
-数据分为互不重叠的 calibration set、acceptance set 和 shadow-production validation set。阈值只能在 calibration set 选择，最终结论必须来自 untouched acceptance set。
-
-### 7.4 验收指标
-
-| 指标 | 说明 |
-|---|---|
-| accepted-route error | 已返回目标中的错误比例 |
-| coverage | 非 fallback 比例，防止 fallback-all 伪装高质量 |
-| OOS false-accept rate | 不支持请求被错误接受的比例 |
-| in-scope false-fallback rate | 可处理请求被错误拒绝的比例 |
-| per-target precision/recall | 防止总体指标掩盖弱目标 |
-| collision matrix | 定位经常相互混淆的目标 |
-| P50/P95/P99 latency | 本地推理时延 |
-| memory/CPU/GPU | 部署资源消耗 |
-
-发布前必须定义 accepted-route error、OOS false-accept、coverage 和高风险目标的验收上限。Card 内容、目录、模型、tokenizer、量化或候选模板发生变化后重新验收。
-
----
-
-## 8. 实施顺序
-
-1. 创建独立 `agent-core-ext-java` Maven 仓和 `intent` 包结构。
-2. 定义通用 `IntentRecognizer<T>`、target snapshot adapter、result encoder 和不可变 catalog。
-3. 使用伪造 `Reranker` 以测试驱动实现聚合、score/margin gate 和 fallback。
-4. 接入官方 A2A SDK spec，实现 AgentCard eligibility 与候选文档构造。
-5. 实现 `IntentRecognitionTool` 并验证 ReAct/DeepAgent 注册链。
-6. 实现 `IntentRecognitionComponent/Executable` 并验证 Workflow 输出映射。
-7. 接入本地 TEI + GTE，完成端到端模型冒烟。
-8. 构建真实目录 calibration/acceptance 数据并选择阈值。
-9. shadow 运行，验证冲突、OOS、coverage、延迟和资源。
-10. 仅当全量评分不满足目标时，另立设计增加 Top-K 召回层。
-
----
-
-## 9. 当前限制与风险
-
-| 限制或风险 | 影响 | 控制措施 |
+| 场景 | Given / When | Then |
 |---|---|---|
-| AgentCard 描述宽泛或范围重叠 | 模型无法创造不存在的业务边界 | 改善 Card/Skill 描述，冲突时 fallback |
-| 没有校准数据 | 阈值无生产意义 | 仅 shadow/PoC，不宣称生产准确率 |
-| Card Skill 数量差异大 | 多 Skill Card 有更多偶然高分机会 | 按 Skill 数分层验收，不拍脑袋惩罚 |
-| 全量 cross-encoder 延迟 | 大目录吞吐受限 | 先测量，必要时再增加 shortlist |
-| TEI 或模型不可用 | 无法评分 | fail closed，不返回近似目标 |
-| 多意图检测不完整 | 复杂请求可能未被显式拆分 | margin fallback；后续独立能力演进 |
-| StandardReranker 缺失分数归零 | 无法区分真实零分和漏返回 | 阈值必须大于零并监控；必要时增强上游校验 |
-| Tool/Workflow 输出承载不同 | Tool 需要合法 JSON，Workflow 需要字段寻址 | 保持同一 encoder 和字段协议，分别使用 JsonNode/Map |
-| 外部 Card 文本进入 LLM | 签名有效的 Card 仍可能包含恶意指令 | 共享目录只接受通过 contentTrustEvaluator 的 Card；需要不同信任边界时创建独立 recognizer，不在 Tool/Workflow 入口临时分叉 |
+| ReAct Tool 调用 | Scripted Model 生成 `intent_match` Tool call。 | Tool 只调用 matcher；合法 JSON 结果写入 ToolMessage。 |
+| DeepAgent 远端意图 | 多 Card 且某 Card 有多 Skill。 | 命中单条 Skill；返回正确 Card、Skill、remoteTargetId 和 delegateToolName。 |
+| 自定义本地工具指示 | 自定义 result function 返回 `CALL_TOOL`。 | 回调在意图 Tool 内同步完成；下一轮 LLM 调用指定本地 Tool。 |
+| 直接答复 | 自定义项或 fallback 返回 `DIRECT_RESPONSE`。 | LLM 使用结果答复，不调用其他 Tool。 |
+| fallback / 无 fallback | Reranker 首项低于阈值。 | 分别执行 fallback 一次或返回 `UNMATCHED`。 |
+| 正常 Tool 完成 | 远端或本地 Tool 正常返回。 | LLM 完成本轮，不再次调用 `intent_match`。 |
+| 意图跳变 | 下游 Tool 中断续接后返回 `IntentShiftSignal(latestIntent)`。 | ToolMessage 包含最新意图；Scripted Model 再次调用 `intent_match`，参数为 `latestIntent`。 |
+| 非法跳变 | 普通失败、普通结果或信号缺少最新意图。 | 不重新匹配。 |
+| 提示词覆盖 | ReAct 在配置后绑定；DeepAgent 在创建前配置；分别使用默认意图提示词和用户覆盖提示词。 | Agent 原提示词保留，模型输入只包含一个生效的意图提示词版本；Workflow 不受影响。 |
 
----
+ReAct 与 DeepAgent 的真实框架测试使用可编程 Model，断言 Tool call 序列和入参，避免仅依赖不稳定的自然语言输出。另保留一个带真实 LLM 的可选 smoke test，不能替代确定性集成测试。
 
-## 10. 参考资料
+### 7.3 Workflow 集成测试
 
-- A2A Protocol v1.0.1 Specification: <https://a2a-protocol.org/v1.0.1/specification/>
-- Official A2A Java SDK: <https://github.com/a2aproject/a2a-java>
-- mGTE, EMNLP 2024 Industry Track: <https://aclanthology.org/2024.emnlp-industry.103/>
-- ToolRet, ACL 2025: <https://arxiv.org/abs/2503.01763>
-- CLINC150 OOS: <https://aclanthology.org/D19-1131/>
+| 场景 | 验收标准 |
+|---|---|
+| Agent Card Skill | Component 输出 `DELEGATE_AGENT`，字段与 Agent Tool 对同一 semantic 的结果一致。 |
+| 自定义意图项 | result function 在组件调用内同步执行，结果可被下一节点读取。 |
+| fallback | 未命中后执行一次 fallback，且 fallback 从未进入 Reranker 候选。 |
+| 无 fallback | 输出 `UNMATCHED / 意图未匹配` 并进入业务响应节点。 |
+| 提示词边界 | 创建和执行 Workflow 不修改任何 Agent PromptBuilder。 |
+| 重匹配边界 | Workflow 只在图经过该组件时调用 matcher；组件自身不循环。 |
+
+### 7.4 跨特性集成验收
+
+与 FEAT-008 的集成测试至少证明：
+
+1. runtime 注册名同时成为 `remoteTargetId`，每条 Skill 结果的 `delegateToolName` 与实际注入 Tool 完全一致；
+2. Agent 根据 `DELEGATE_AGENT` 结果进入 FEAT-004 远端调用链，`input-required` 和续接由 FEAT-008 处理；
+3. Workflow 的同类结果由 runtime-ext 转换为 `resume=false` 的远端委派，不依赖 Agent 提示词；
+4. 远端或本地 Tool 续接后返回 `IntentShiftSignal` 时，runtime 只透传，重新匹配由 Agent 提示词和 LLM 完成；
+5. Agent Card 或 Skill 在 registry 中变化后，既有 suite 不变；创建并绑定新 suite 后新描述才参与匹配。
