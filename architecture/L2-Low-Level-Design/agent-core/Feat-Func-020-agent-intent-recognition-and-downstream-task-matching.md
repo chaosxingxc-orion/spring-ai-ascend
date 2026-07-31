@@ -1,6 +1,6 @@
 ---
 level: L2-LLD
-module: agent-core-ext
+module: agent-core
 feature_type: functional
 feature_id: FEAT-020
 status: active
@@ -44,20 +44,20 @@ FEAT-020 在 `agent-solution/common/agent-core-ext-java` 新增独立的 `agent-
 | 默认 Reranker 匹配 | 对全部候选评分，只接受达到初始化阈值的首项；空候选不调用 Reranker。 |
 | 意图结果生成 SPI | `IntentResultGenerator#generate` 统一执行 Agent Card、自定义项和 fallback 的结果工具函数。 |
 | 同步不可中断回调 | `IntentResultFunction` 是同步函数，不接收 Agent loop 的 Session `kwargs`；中断被转换为失败。 |
-| Agent 接入 | `IntentMatchingTool` 通过 `IntentAgentBinder` 接入 ReAct Agent，通过 `IntentDeepAgentConfigurer` 在 DeepAgent 创建前接入。 |
+| Agent 接入 | `IntentMatchingTool` 通过 `IntentAgentBinder` 接入 ReAct Agent 和 DeepAgent；DeepAgent 使用公开的 `registerHarnessTool(...)` 与 `getAgent()` 完成 Tool 和提示词绑定。 |
 | Agent 提示词 | 默认提示词随 Tool 注入，可由用户完整覆盖；明确正常结束和意图跳变重匹配边界。 |
 | Workflow 接入 | `IntentMatchingComponent` 独立调用同一 `IntentSuite`，不注册 Agent Tool、不注入提示词。 |
 | 描述固定 | `IntentCatalog` 初始化后不可变，无动态更新 API；变更时创建并绑定新的套件。 |
 
-### 1.3 代码基线与约束
+### 1.3 当前实现差距
 
-设计基于以下当前代码事实：
+当前代码已提供 `Tool`、ReAct Agent、DeepAgent、Workflow Component 和 `Reranker` 等基础能力，但尚未形成 FEAT-020 的完整意图套件：
 
-- `Tool.invoke(inputs, kwargs)` 是 AgentCore Tool 执行原型；`AbilityManager` 会在运行时 `kwargs` 中注入 Session，并使用 `String.valueOf(result)` 构造 `ToolMessage`。
-- `ReActAgent` 提供 `addPromptBuilderSection(...)`；DeepAgent 提供 `DeepAgentConfig.systemPrompt`、`DeepAgentConfig.tools` 和 `registerHarnessTool(...)`，但不公开其内部 ReActAgent 或创建后的提示词修改入口。
-- `Reranker` 已提供批量评分和排序能力，但不负责匹配阈值、fallback 或结果函数执行。
-- Workflow 已有公开的 `IntentDetectionComponent`。本特性使用 `IntentMatchingComponent` 命名，避免与现有 LLM 分类组件发生 API 混淆。
-- ReAct 中断恢复后会把被续接工具的返回值作为 `ToolMessage` 加入模型上下文，但不会自动把续接输入新增为一条 `UserMessage`。因此意图跳变必须由下游工具返回包含最新意图的显式信号。
+- `Reranker` 只提供候选评分与排序，不负责匹配阈值、fallback 或结果函数执行；缺少把三者串联起来的意图匹配 SPI。
+- 现有 `IntentDetectionComponent` 是基于 LLM 的 Workflow 分类组件，不能承载 Agent Card Skill、自定义结果函数和统一 fallback 语义。
+- ReAct Agent 与 DeepAgent 都支持新增 Tool 和提示词 section，但当前没有同时适配两类 Agent 的意图 Tool 绑定器。DeepAgent 已公开 `registerHarnessTool(...)`，并通过 Lombok `@Getter` 暴露内部 `ReActAgent` 的 `getAgent()`，无需创建前改写 `DeepAgentConfig` 或使用反射。
+- `AbilityManager` 使用 `String.valueOf(result)` 生成 `ToolMessage`；直接返回普通 Java Map 不能保证模型看到合法 JSON，意图结果需要统一 JSON 编码。
+- ReAct 中断恢复会把被续接 Tool 的返回值加入模型上下文，但不会自动新增一条包含续接输入的 `UserMessage`；下游 Tool 必须显式返回携带最新意图的结构化跳变信号。
 
 ## 2. 公共接口设计
 
@@ -104,11 +104,12 @@ public record AgentCardIntentSource(
         org.a2aproject.sdk.spec.AgentCard agentCard,
         String remoteTargetId,
         String delegateToolName,
+        String delegateInputName,
         Map<String, Object> context) {
 }
 ```
 
-`remoteTargetId` 是 runtime 注册表中的稳定远端目标标识；`delegateToolName` 是 Agent 可见的实际远端 Tool 名称。二者都由 FEAT-008 提供，Core 不推导 runtime 命名规则。`context` 用于携带来源、租户或其他初始化信息，不进入 Agent loop 的 Tool `kwargs`。
+`remoteTargetId` 是 runtime 注册表中的稳定远端目标标识；`delegateToolName` 是 Agent 可见的实际远端 Tool 名称；`delegateInputName` 是该 Tool 接收远端请求文本的字段名。三者都由 FEAT-008 提供，Core 不推导 runtime 命名或 Tool 入参规则。`context` 用于携带来源、租户或其他初始化信息，不进入 Agent loop 的 Tool `kwargs`。
 
 初始化输出：
 
@@ -133,6 +134,21 @@ public record FallbackIntent(
         FallbackType type,
         Map<String, Object> sourceData,
         IntentResultFunction resultFunction) implements IntentExecutionTarget {
+}
+
+public enum IntentSourceType {
+    AGENT_CARD_SKILL, CUSTOM
+}
+
+public enum FallbackType {
+    INTENT, TOOL
+}
+
+public sealed interface IntentExecutionTarget
+        permits IntentItem, FallbackIntent {
+    String id();
+    Map<String, Object> sourceData();
+    IntentResultFunction resultFunction();
 }
 ```
 
@@ -164,11 +180,11 @@ public record FallbackDefinition(
 
 1. 按 `remoteTargetId + skill.id` 生成稳定且全目录唯一的 Agent Card 意图项 ID。
 2. 每条 Skill 单独生成一个意图项；匹配文本由 Card 名称、Skill 名称、Skill 描述、tags 和 examples 组成，不把接口 URL、安全配置或认证信息加入匹配文本。
-3. Agent Card 意图项保存完整 Card、当前 Skill、`remoteTargetId`、`delegateToolName` 和来源 context。
+3. Agent Card 意图项保存完整 Card、当前 Skill、`remoteTargetId`、`delegateToolName`、`delegateInputName` 和来源 context。
 4. 每个 `CustomIntentDefinition` 生成一个意图项，匹配文本使用其 `description`。
 5. fallback 单独保存，不加入 `items`。
 6. `kwargs` 保存为只读顶层 Map；结果函数执行时取得的是本次初始化保存的内容。
-7. 空白描述、重复 ID、缺少结果函数、Agent Card 缺少必要 Skill 信息或远端标识不完整时初始化失败，不静默覆盖或丢弃。
+7. 空白描述、重复 ID、缺少结果函数、Agent Card 缺少必要 Skill 信息，或远端目标、Tool 名和 Tool 入参名不完整时初始化失败，不静默覆盖或丢弃。
 
 ### 2.3 意图匹配 SPI
 
@@ -216,6 +232,10 @@ public record IntentResultRequest(
         IntentExecutionKind executionKind,
         IntentExecutionTarget target,
         Map<String, Object> initializationKwargs) {
+}
+
+public enum IntentExecutionKind {
+    MATCHED_ITEM, FALLBACK
 }
 
 @FunctionalInterface
@@ -269,19 +289,43 @@ public record IntentResult(
         String message,
         IntentFailure failure) {
 }
+
+public enum IntentFailureStage {
+    MATCH, RESULT_GENERATION, RESULT_FUNCTION
+}
+
+public record IntentFailure(
+        IntentFailureStage stage,
+        String code,
+        String message) {
+}
 ```
 
 `type` 固定为 `intent_result`，供 Workflow 与 runtime 可靠识别。各路径输出如下：
 
 | 路径 | `status` | `action` / `message` |
 |---|---|---|
-| Agent Card Skill 命中 | `MATCHED` | `DELEGATE_AGENT`；`target=delegateToolName`；data 包含完整 Agent Card、当前 Skill、`remoteTargetId`、`delegateToolName` 和本次 semantic。 |
+| Agent Card Skill 命中 | `MATCHED` | `DELEGATE_AGENT`；`target=delegateToolName`；data 包含完整 Agent Card、当前 Skill、`remoteTargetId`、`delegateToolName`、`delegateArguments={delegateInputName: semantic}` 和本次 semantic。 |
 | 自定义意图项命中 | `MATCHED` | 用户 result function 返回的 action。 |
 | fallback | `FALLBACK` | fallback result function 返回的 action。 |
 | 无 fallback 未匹配 | `UNMATCHED` | `message=意图未匹配`，无 action。 |
 | 匹配或结果生成失败 | `FAILED` | `failure` 包含阶段、错误码和安全错误信息。 |
 
 Agent Card 默认 result function 只生成 `DELEGATE_AGENT` action，不调用远端 Agent。Agent 场景由 LLM 调用 `target` 指定的 runtime Tool；Workflow 场景由 FEAT-008 适配器消费同一 action。
+
+字段约束固定为：`MATCHED` 必须包含 `intentId/sourceType/action`；`FALLBACK` 必须包含 fallback `intentId` 和 `action`，`sourceType` 为空；`UNMATCHED` 只包含默认 message；`FAILED` 只包含 failure。互斥路径的字段必须为空，避免上游把失败或未匹配误当成可执行 action。
+
+`IntentResultCodec` 是 Agent Tool、Workflow Component 与 runtime-ext 共用的结构化边界：
+
+```java
+public final class IntentResultCodec {
+    public com.fasterxml.jackson.databind.JsonNode toJson(IntentResult result);
+    public Map<String, Object> toMap(IntentResult result);
+    public IntentResult from(Object value) throws IntentResultFormatException;
+}
+```
+
+`IntentMatchingTool` 使用 `toJson`，`IntentMatchingComponent` 使用 `toMap`，FEAT-008 的 Workflow 结果适配器使用 `from`。编解码必须保留枚举值、Agent Card、Skill、action data 和失败信息；未知 `type`、缺少必填字段或不合法枚举值必须拒绝，不能按远端委派处理。
 
 ### 2.6 Agent Tool 与提示词接入
 
@@ -327,29 +371,38 @@ public final class IntentAgentBinder {
             ReActAgent agent,
             IntentSuite suite,
             IntentAgentOptions options);
-}
 
-public final class IntentDeepAgentConfigurer {
-    public static DeepAgentConfig configure(
-            DeepAgentConfig config,
+    public static IntentAgentBinding bind(
+            DeepAgent agent,
             IntentSuite suite,
             IntentAgentOptions options);
+}
+
+public record IntentAgentBinding(
+        IntentMatchingTool tool,
+        String promptSectionName) {
+}
+
+public record IntentAgentOptions(
+        String toolId,
+        String promptOverride) {
+    public static IntentAgentOptions defaults();
 }
 ```
 
 `IntentAgentBinder` 负责：
 
-- 为 ReAct Agent 在 `Runner.resourceMgr()` 注册 Tool 实例，并在其 `AbilityManager` 注册 ToolCard；
-- 在 ReAct Agent 的 `intent-routing` section 注入提示词；
+- 对 ReAct Agent，在 `Runner.resourceMgr()` 注册 Tool 实例，在 `AbilityManager` 注册 ToolCard，并通过 `addPromptBuilderSection(...)` 注入 `intent-routing` section；
+- 对 DeepAgent，调用 `deepAgent.registerHarnessTool(intentTool)` 注册同一个 Tool，再通过 `deepAgent.getAgent().addPromptBuilderSection(...)` 注入同名 section；
 - 校验同一 Agent 不存在同名 Tool；
-- 要求在 Agent 配置完成后、对外提供服务前绑定，避免后续 `configure` 重建 PromptBuilder 时丢失 section。
+- 要求在 Agent 自身配置完成后、首次执行前绑定。ReAct Agent 后续再次调用 `configure(...)` 会重建 PromptBuilder，因此必须重新创建并绑定 Agent；当前版本不支持在运行中的 Agent 替换套件。
 
-`IntentDeepAgentConfigurer` 必须在 `HarnessFactory.createDeepAgent(...)` 或 `new DeepAgent(...)` 之前调用。它复制传入配置的 Tool 列表，把同一个 `IntentMatchingTool` 加入列表，将生效的意图提示词附加到 `DeepAgentConfig.systemPrompt`，更新传入的可变配置对象并将其返回；调用方原有的 Tool 集合不被原位修改。传入 `null` 时创建默认 `DeepAgentConfig`。已经创建的 DeepAgent 只公开 Tool 注册接口而没有提示词修改入口，因此本模块不提供“创建后绑定”方法；禁止通过反射访问其内部 ReActAgent。
+DeepAgent 先按原有 `DeepAgentConfig` 完成创建，再执行 `IntentAgentBinder.bind(deepAgent, ...)`。绑定器不修改 `DeepAgentConfig.systemPrompt` 或原 Tool 列表，也不通过反射访问内部 Agent。这样默认意图提示词或用户覆盖提示词只替换 `intent-routing` section，不覆盖 DeepAgent 原有 system prompt。
 
-未配置用户意图提示词时使用默认意图提示词；配置后由用户内容完整替换默认意图提示词，但不覆盖 Agent 原有的其他 system prompt。默认意图提示词至少包含这些规则：
+`toolId` 是 ResourceManager 中的资源 ID，默认生成当前 Agent 内唯一值；ToolCard name 固定为 `intent_match`。`promptOverride` 为空时使用默认意图提示词，非空时由用户内容完整替换默认意图提示词，但不覆盖 Agent 原有的其他 system prompt。默认意图提示词至少包含这些规则：
 
 1. 需要选择处理目标时，调用 `intent_match` 并传入完整用户请求或 DeepAgent 子任务。
-2. 返回 `DELEGATE_AGENT` 时，调用 `action.target` 指定的远端 Tool，并把当前 semantic 作为远端请求。
+2. 返回 `DELEGATE_AGENT` 时，调用 `action.target` 指定的远端 Tool，并使用 `action.data.delegateArguments` 作为 Tool 实参，不自行猜测 Tool 名或字段名。
 3. 返回 `CALL_TOOL` 时，调用 action 指定的本地 Tool；返回 `DIRECT_RESPONSE` 时直接答复。
 4. fallback 和未匹配按结果内容处理，不自行虚构命中目标。
 5. 下游工具正常完成后完成本轮答复，不再次匹配。
@@ -366,7 +419,7 @@ public record IntentShiftSignal(
 }
 ```
 
-该信号由意图匹配完成后调用的远端 Agent Tool 或其他本地 Tool 返回，不由意图套件生成。信号缺失、`latestIntent` 为空或工具正常完成时均不得触发重新匹配。
+该信号由意图匹配完成后调用的远端 Agent Tool 或其他本地 Tool 返回，不由意图套件生成。信号以 `{"signal":"intent_shift","latestIntent":"...","message":"..."}` 的 JSON 结构进入 `ToolMessage`；本地 Tool 使用本模块的 Jackson 编码能力返回合法 JSON，远端 Agent 将同一结构放入 A2A 结果文本。信号缺失、`latestIntent` 为空或工具正常完成时均不得触发重新匹配。
 
 ### 2.7 Workflow 组件接入
 
@@ -387,7 +440,7 @@ final class IntentMatchingExecutable extends ComponentExecutable {
 
 Workflow 输入为 `{"semantic": ...}`，输出为 `IntentResult` 的 Map 表示。Executable 只调用 `IntentSuite.match` 并把结果交给下一个节点，不注册 Agent Tool、不调用 LLM、不读取 Workflow Session 作为初始化 `kwargs`。
 
-Workflow 根据 `status` 和 `action.type` 显式连接后续节点：Agent Card 结果进入 FEAT-008 的远端调用适配节点；`CALL_TOOL` 进入本地工具节点；`DIRECT_RESPONSE`、fallback 和未匹配进入业务响应节点。Workflow 不注入 Agent 提示词，也不自动识别或重新匹配意图跳变。
+Workflow 根据 `status` 和 `action.type` 显式连接后续节点：`DELEGATE_AGENT` 分支保留完整 `IntentResult` 作为 Workflow 正常终态，待 Workflow 完成后由 FEAT-008 Runtime Handler 适配远端调用；`CALL_TOOL` 进入本地工具节点；`DIRECT_RESPONSE/CUSTOM` 进入对应业务节点；`UNMATCHED` 和 `FAILED` 分别进入未匹配与失败节点。fallback 依据其结果函数返回的 action 使用同一分支规则。Workflow 不在图内创建远端调用中断，不注入 Agent 提示词，也不自动识别或重新匹配意图跳变。
 
 ## 3. 核心运行模型
 
@@ -403,7 +456,7 @@ Agent/Workflow 创建阶段
        -> 保存匹配阈值和初始化 kwargs
   -> IntentSuite 校验并冻结 IntentCatalog
   -> ReAct Agent: 配置完成后绑定 IntentMatchingTool + 提示词 section
-     DeepAgent: 创建前把 IntentMatchingTool + 提示词写入 DeepAgentConfig
+     DeepAgent: 创建完成后通过公开 API 绑定 IntentMatchingTool + 提示词 section
      Workflow: 创建 IntentMatchingComponent
 ```
 
@@ -449,9 +502,10 @@ Workflow 输入
   -> IntentMatchingComponent
   -> IntentResult
   -> 显式 Workflow 分支
-       -> Agent Card: FEAT-008 远端调用适配
-       -> 自定义 action: 本地节点或响应节点
-       -> fallback / UNMATCHED: 响应节点
+       -> DELEGATE_AGENT: 保留 IntentResult 作为正常终态
+            -> Workflow 完成后由 FEAT-008 Runtime Handler 适配远端调用
+       -> CALL_TOOL / DIRECT_RESPONSE / CUSTOM: 对应本地或业务节点
+       -> UNMATCHED / FAILED: 未匹配或失败节点
 ```
 
 Workflow 只在流程经过该组件时匹配一次。远端调用完成或中断续接后，FEAT-008 不回到该组件自动匹配。
@@ -489,6 +543,8 @@ common/agent-core-ext-java/
 - `org.a2aproject.sdk:a2a-java-sdk-spec`，直接使用标准 AgentCard/AgentSkill；
 - 与 AgentCore 版本对齐的 Jackson，用于 Agent Tool 的合法 JSON 输出。
 
+`agent-core-ext-java/pom.xml` 在 dependency management 中统一声明 A2A SDK spec 与 Jackson 版本，并把 `agent-intent` 加入 modules；`agent-intent/pom.xml` 对上述依赖做直接声明，不能依赖 `agent-core-java` 的传递依赖偶然提供 A2A 或 Jackson API。
+
 模块不依赖 `agent-runtime-java`、Spring Boot、A2A client/server 或 `agent-runtime-ext-java`，避免 Core 扩展反向依赖 Runtime。
 
 ### 4.2 包与关键类
@@ -508,11 +564,11 @@ com.openjiuwen.agents.intent
 │   └── RerankerIntentMatcher.java
 ├── result
 │   ├── DefaultIntentResultGenerator.java
-│   └── AgentCardIntentResultFunction.java
+│   ├── AgentCardIntentResultFunction.java
+│   └── IntentResultCodec.java
 ├── agent
 │   ├── IntentMatchingTool.java
 │   ├── IntentAgentBinder.java
-│   ├── IntentDeepAgentConfigurer.java
 │   └── DefaultIntentPrompt.java
 └── workflow
     ├── IntentMatchingComponent.java
@@ -551,6 +607,7 @@ agent-intent -X-> runtime-ext/runtime     # 禁止反向依赖
 |---|---|
 | runtime 注册名 | `remoteTargetId`，同时参与 item ID |
 | runtime 远端 Tool 名 | `delegateToolName`、`action.target` |
+| runtime 远端 Tool 输入字段 | `delegateInputName`；结果中生成 `delegateArguments={delegateInputName: semantic}` |
 | 完整 `AgentCard` | `sourceData.agentCard`、`action.data.agentCard` |
 | 当前 `AgentSkill` | 独立 item 的 description 来源、`action.data.skill` |
 | 初始化 context | `sourceData.context`，按需返回给上游 |
@@ -612,28 +669,22 @@ IntentSuite suite = IntentSuite.create(
 
 ### 6.2 Agent 接入
 
-ReAct Agent 在完成 `configure(...)` 后绑定：
+ReAct Agent 在完成 `configure(...)` 后、首次执行前绑定：
 
 ```java
 IntentAgentBinder.bind(reactAgent, suite,
-        IntentAgentOptions.builder()
-                .toolId("intent-match-router-01")
-                .build());
+        new IntentAgentOptions("intent-match-router-01", null));
 ```
 
-DeepAgent 在创建前准备配置：
+DeepAgent 按原配置创建后、首次执行前绑定：
 
 ```java
-DeepAgentConfig config = IntentDeepAgentConfigurer.configure(
-        baseConfig,
-        suite,
-        IntentAgentOptions.builder()
-                .toolId("intent-match-router-01")
-                .build());
-DeepAgent deepAgent = HarnessFactory.createDeepAgent(agentCard, config, workspace);
+DeepAgent deepAgent = HarnessFactory.createDeepAgent(agentCard, baseConfig, workspace);
+IntentAgentBinder.bind(deepAgent, suite,
+        new IntentAgentOptions("intent-match-router-01", null));
 ```
 
-`promptOverride` 为空时使用默认意图提示词；非空时完整覆盖默认意图提示词。DeepAgent 配置器保留并追加到原有 `systemPrompt`，同时复制原有 Tool 列表后加入意图 Tool。Tool `id` 在 AgentCore ResourceManager 中必须唯一，Tool `name` 默认保持 `intent_match`，便于提示词稳定引用。
+`promptOverride` 为空时使用默认意图提示词；非空时完整覆盖默认意图提示词 section。Agent 原有 system prompt 和其他 section 保持不变。Tool `id` 在 AgentCore ResourceManager 中必须唯一，Tool `name` 默认保持 `intent_match`，便于提示词稳定引用。
 
 ### 6.3 Workflow 接入
 
@@ -656,6 +707,7 @@ workflow.addWorkflowComp(
 | `DefaultIntentInitializerTest` | 多 Card、单 Card 多 Skill、完整远端关联、自定义项、fallback、重复/缺失字段、不可变目录。 |
 | `RerankerIntentMatcherTest` | 全候选评分、top1 达阈值、低于阈值、确定性并列、空候选不调用 Reranker。 |
 | `DefaultIntentResultGeneratorTest` | Agent Card、自定义项、fallback 使用同一 SPI；同步返回、异常、空结果和中断拒绝。 |
+| `IntentResultCodecTest` | IntentResult 在 JsonNode/Map/Java 对象间无损转换；非法 type、必填字段和枚举值被拒绝。 |
 | `IntentFailureBoundaryTest` | 初始化、匹配、结果生成失败均不触发 fallback 或其他意图项。 |
 | `IntentSpiReplacementTest` | 三个 SPI 分别可替换；自定义 matcher 通过 spy 验证实际调用 result generator。 |
 | `IntentKwargsLifecycleTest` | 初始化 `kwargs` 固定，Agent Tool 调用 `kwargs` 不能覆盖；重新创建套件后新配置才生效。 |
@@ -665,14 +717,14 @@ workflow.addWorkflowComp(
 | 场景 | Given / When | Then |
 |---|---|---|
 | ReAct Tool 调用 | Scripted Model 生成 `intent_match` Tool call。 | Tool 只调用 matcher；合法 JSON 结果写入 ToolMessage。 |
-| DeepAgent 远端意图 | 多 Card 且某 Card 有多 Skill。 | 命中单条 Skill；返回正确 Card、Skill、remoteTargetId 和 delegateToolName。 |
+| DeepAgent 远端意图 | 多 Card 且某 Card 有多 Skill。 | 命中单条 Skill；返回正确 Card、Skill、remoteTargetId、delegateToolName 和 delegateArguments。 |
 | 自定义本地工具指示 | 自定义 result function 返回 `CALL_TOOL`。 | 回调在意图 Tool 内同步完成；下一轮 LLM 调用指定本地 Tool。 |
 | 直接答复 | 自定义项或 fallback 返回 `DIRECT_RESPONSE`。 | LLM 使用结果答复，不调用其他 Tool。 |
 | fallback / 无 fallback | Reranker 首项低于阈值。 | 分别执行 fallback 一次或返回 `UNMATCHED`。 |
 | 正常 Tool 完成 | 远端或本地 Tool 正常返回。 | LLM 完成本轮，不再次调用 `intent_match`。 |
 | 意图跳变 | 下游 Tool 中断续接后返回 `IntentShiftSignal(latestIntent)`。 | ToolMessage 包含最新意图；Scripted Model 再次调用 `intent_match`，参数为 `latestIntent`。 |
 | 非法跳变 | 普通失败、普通结果或信号缺少最新意图。 | 不重新匹配。 |
-| 提示词覆盖 | ReAct 在配置后绑定；DeepAgent 在创建前配置；分别使用默认意图提示词和用户覆盖提示词。 | Agent 原提示词保留，模型输入只包含一个生效的意图提示词版本；Workflow 不受影响。 |
+| 提示词覆盖 | ReAct 和 DeepAgent 均在自身配置完成后、首次执行前绑定；分别使用默认意图提示词和用户覆盖提示词。 | Agent 原提示词保留，模型输入只包含一个生效的意图提示词 section；Workflow 不受影响。 |
 
 ReAct 与 DeepAgent 的真实框架测试使用可编程 Model，断言 Tool call 序列和入参，避免仅依赖不稳定的自然语言输出。另保留一个带真实 LLM 的可选 smoke test，不能替代确定性集成测试。
 
@@ -680,7 +732,7 @@ ReAct 与 DeepAgent 的真实框架测试使用可编程 Model，断言 Tool cal
 
 | 场景 | 验收标准 |
 |---|---|
-| Agent Card Skill | Component 输出 `DELEGATE_AGENT`，字段与 Agent Tool 对同一 semantic 的结果一致。 |
+| Agent Card Skill | Component 输出 `DELEGATE_AGENT`，字段与 Agent Tool 对同一 semantic 的结果一致；Workflow 正常结束后才由 FEAT-008 Runtime Handler 消费。 |
 | 自定义意图项 | result function 在组件调用内同步执行，结果可被下一节点读取。 |
 | fallback | 未命中后执行一次 fallback，且 fallback 从未进入 Reranker 候选。 |
 | 无 fallback | 输出 `UNMATCHED / 意图未匹配` 并进入业务响应节点。 |
@@ -691,7 +743,7 @@ ReAct 与 DeepAgent 的真实框架测试使用可编程 Model，断言 Tool cal
 
 与 FEAT-008 的集成测试至少证明：
 
-1. runtime 注册名同时成为 `remoteTargetId`，每条 Skill 结果的 `delegateToolName` 与实际注入 Tool 完全一致；
+1. runtime 注册名同时成为 `remoteTargetId`，每条 Skill 结果的 `delegateToolName` 与实际注入 Tool 完全一致，`delegateArguments` 使用该 Tool 的真实输入字段；
 2. Agent 根据 `DELEGATE_AGENT` 结果进入 FEAT-004 远端调用链，`input-required` 和续接由 FEAT-008 处理；
 3. Workflow 的同类结果由 runtime-ext 转换为 `resume=false` 的远端委派，不依赖 Agent 提示词；
 4. 远端或本地 Tool 续接后返回 `IntentShiftSignal` 时，runtime 只透传，重新匹配由 Agent 提示词和 LLM 完成；
