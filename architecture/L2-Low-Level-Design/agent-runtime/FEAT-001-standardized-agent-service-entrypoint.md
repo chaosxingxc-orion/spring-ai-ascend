@@ -4,7 +4,7 @@ module: agent-runtime
 feature_type: functional
 feature_id: FEAT-001
 status: active
-updated: 2026-07-25
+updated: 2026-07-27
 dependency:
   - ../../L1-High-Level-Design/agent-runtime/README.md
   - ../../L1-High-Level-Design/agent-runtime/development.md
@@ -37,7 +37,7 @@ agent-bus forwarding 在 FEAT-001 中只作为标准入口调用来源之一。r
 | 阻塞调用 | MUST | 已实现主路径 | 不携带 push config 时复用同一 executor，`_a2a_stream=false`；携带 push config 时进入异步接受路径，创建 Task 后尽快返回 Task 表面。 |
 | 异步查询 | MUST | 已实现 | `GetTask` 通过 SDK `RequestHandler#onGetTask()` 查询 `TaskStore`。 |
 | SendMessage 内联 Push Notification Config | MUST | 已实现首迭代 | `SendMessage` 内联携带 push config，并通过 SDK `PushNotificationConfigStore` 随本次 Task 创建同步关联；独立 Create/Read/Update/Delete method 显式排除。 |
-| runtime-to-runtime callback | MUST | 已实现首迭代 | `PushNotificationSender` 已替换为 HTTP sender，支持 trusted host 校验、稳定 notification id、投递结果记录和固定 receiver 回灌；持久化重试不纳入首迭代强验收。 |
+| runtime-to-runtime callback | MUST | 已实现首迭代 | 仅 `COMPLETED`、`FAILED` 触发 `PushNotificationSender`；一次携带 push notification config 的 `SendMessage` 只产生一次逻辑回调，并使用稳定 notification id 投递到固定 receiver。 |
 | Agent Card capabilities | MUST | 已实现首迭代 | `pushNotifications` 由配置、HTTP sender、trusted hosts、callback store/handler 等可用性共同决定。 |
 | JSON-RPC 错误表面 | MUST | 部分实现 | parse error、method-not-found 已覆盖；invalid request/invalid params 需从 internal error 收敛为标准错误。 |
 | HTTP + SSE | MUST | 已实现 | 当前 northbound 只承诺 HTTP JSON-RPC 和 SSE。 |
@@ -48,8 +48,9 @@ agent-bus forwarding 在 FEAT-001 中只作为标准入口调用来源之一。r
 当前实现已经形成 Agent Card、`/a2a`、blocking、streaming、`GetTask`、SDK TaskStore、QueueManager、基础 executor bridge 和 callback 首迭代主路径。当前实现约束是：
 
 - `A2aJsonRpcController` 保留 `SendMessage` 的 `params.pushNotificationConfig`，并交由 SDK `MessageSendConfiguration` / `PushNotificationConfigStore` 随 Task 创建关联；`Create/Get/List/Update/DeleteTaskPushNotificationConfig` 当前版本显式排除。
-- `PushNotificationSender` 已替换为 HTTP sender，按绑定的 push config 向调用方固定 callback receiver 发起 HTTP POST。
+- `PushNotificationSender` 已替换为 HTTP sender，只在 Task 进入 `COMPLETED` 或 `FAILED` 时按绑定的 push config 向调用方固定 callback receiver 发起 HTTP POST；其他状态不触发 callback。
 - callback target 首迭代按 trusted host 校验，投递使用稳定 notification id，并保留内存投递记录。
+- 一次携带 push notification config 的 `SendMessage` 对应一个 Task/push config 绑定和一次逻辑 callback；成功投递后重复终态事件不得再次 POST，失败重试复用同一 notification id，不形成新的逻辑 callback。
 - Agent Card 的 `pushNotifications` 已与配置开关、HTTP sender、trusted hosts、callback store/handler 等可用性绑定；完整授权策略和持久化重试不参与首迭代 capability 强判定。
 - JSON-RPC params shape/type 错误可能被兜底成 `-32603 Internal error`，需要收敛为 `-32600 Invalid Request` 或 `-32602 Invalid params`。
 - A2A 入站 request 的 header/context 透传当前较弱：`A2AMessageContext.headers` 未从 servlet request 填充，`A2AProtocolAdapter` 只能在 headers 存在时映射 `x-user-id`、`x-space-id`、`x-tenant-id`；该项属于标准入口增强，不作为 callback 首迭代强验收。
@@ -324,12 +325,11 @@ callback body 必须复用 `SendMessage` 的 JSON-RPC response/result 表面，�
 |-----------|----------|---------|
 | `completed` | 是 | `SendMessage` result 中可表达的文本结果、Task artifact 或结果引用。 |
 | `failed` | 是 | 优先以 `SendMessage` result 中的 failed Task status、status message 或 SDK error 字段表达。 |
-| `canceled` | 仅当 SDK/handler 明确产出 | 取消状态和原因；当前版本无外部任务取消入口。 |
-| `rejected` | 仅当 SDK/handler 明确产出 | 拒绝状态和原因。当前实现无独立映射来源。 |
-| `submitted` / `working` / artifact update / progress | 否 | 不通过 callback 推中间态。 |
-| `input-required` / `auth-required` | 扩展 | 首迭代核心验收以结果性状态为主；实现可接收并恢复为本地等待态，但不作为 HITL continuation 完整契约。 |
+| `submitted` / `working` / artifact update / progress | 否 | 中间状态和过程事件不触发 callback。 |
+| `input-required` / `auth-required` | 否 | 等待调用方继续输入或授权，不是本次 Task 的 callback 终态。 |
+| `canceled` / `rejected` / 其他状态 | 否 | 当前 callback 契约只接受 `completed` 和 `failed` 两个触发状态。 |
 
-callback 投递失败不得改变远端 Task 终态。接收方按 `notificationId` 幂等处理：同一 notification 重试返回同一接收结果；同一 id 对应不同 payload 时拒绝。投递记录和幂等记录在首迭代采用运行时内存承载。
+每次携带 push notification config 的 `SendMessage` 只产生一次逻辑 callback。sender 以 taskId 和 push config id 生成稳定 `notificationId`；成功投递后，即使事件总线再次观察到同一 `COMPLETED` 或 `FAILED` 状态，也不得再次 POST。callback 投递失败不得改变远端 Task 终态；后续传输重试必须复用同一 `notificationId`，不视为新的逻辑 callback。接收方按 `notificationId` 幂等处理：同一 notification 重试返回同一接收结果；同一 id 对应不同 payload 时拒绝。投递记录和幂等记录在首迭代采用运行时内存承载。
 
 ## 3. 核心运行模型
 
@@ -484,21 +484,24 @@ Caller runtime
        error -> emitter.fail()
   -> A2aJsonRpcController returns SendMessage JSON-RPC result immediately after Task is accepted
        result = created/accepted Task surface, not final Agent result
-  -> Task terminal event is observed by MainEventBusProcessor
-       PushNotificationSender loads bound push config
-       PushNotificationSender implementation validates delivery target before POST
-       PushNotificationSender builds callback body from SendMessage response/result surface
-       delivery attempt is recorded by the HTTP sender runtime record
+  -> Task status event is observed by MainEventBusProcessor
+       COMPLETED or FAILED -> invoke PushNotificationSender
+       any other state -> do not produce callback behavior
+  -> PushNotificationSender produces the single logical callback for this SendMessage
+       load the bound push config and validate delivery target before POST
+       derive one stable notificationId from taskId + push config id
+       if that notificationId was delivered successfully -> return without another POST
+       build callback body from SendMessage response/result surface
        HTTP POST caller fixed callback receiver
-       success -> mark delivered
-       failure -> keep Task terminal state and record failure with the same notificationId
+       success -> mark delivered; later duplicate terminal events are ignored
+       failure -> keep Task terminal state and record failure; retry uses the same notificationId
 ```
 
-关键内部承诺：相比 3.3，`SendMessage + pushNotificationConfig` 不是更短链路，而是把“等待最终结果”拆成“同步接收并创建 Task + 后台执行 + 终态事件投递”。它仍必须经过 TaskStore、QueueManager、MainEventBusProcessor、`A2AAgentExecutor`、`ServeOrchestrator` 和 `AgentHandler`，只是 HTTP response 不等待这些后半段完成。该路径必须保证 Task 已可查询、push config 已绑定、后台执行已被可靠调度后才返回 accepted Task 表面。
+关键内部承诺：相比 3.3，`SendMessage + pushNotificationConfig` 不是更短链路，而是把“等待最终结果”拆成“同步接收并创建 Task + 后台执行 + 终态事件投递”。它仍必须经过 TaskStore、QueueManager、MainEventBusProcessor、`A2AAgentExecutor`、`ServeOrchestrator` 和 `AgentHandler`，只是 HTTP response 不等待这些后半段完成。该路径必须保证 Task 已可查询、push config 已绑定、后台执行已被可靠调度后才返回 accepted Task 表面。流程最后两步的触发边界固定为：只有 `COMPLETED` 和 `FAILED` 进入 `PushNotificationSender` 并产生 callback 行为；一次携带 push notification config 的 `SendMessage` 只产生一次逻辑 callback。
 
 如果该执行链继续触发下游 A2A 调用，首迭代由远程调用 metadata 决定是否携带本 runtime callback config；下游 callback 回到本 runtime 后，再推进当前 Task 或继续向上游投递。
 
-当前实现约束：`params.pushNotificationConfig` 已保留并交由 SDK configuration/store 绑定；async accepted 语义依赖 A2A SDK `returnImmediately` 和后台执行链；trusted host 校验应在保存配置和创建异步执行前完成；投递失败只记录运行时事实，不承诺持久化重试。
+当前实现约束：`params.pushNotificationConfig` 已保留并交由 SDK configuration/store 绑定；async accepted 语义依赖 A2A SDK `returnImmediately` 和后台执行链；trusted host 校验应在保存配置和创建异步执行前完成；HTTP sender 过滤非 `COMPLETED`/`FAILED` 状态，并通过稳定 notification id 和成功投递记录抑制重复 callback；投递失败只记录运行时事实，不承诺持久化重试。
 
 ### 3.5 runtime-to-runtime callback 回灌恢复
 
@@ -911,6 +914,7 @@ public class A2aPushNotificationCallbackController {
 // Existing SDK extension point: HTTP sender.
 public class HttpPushNotificationSender implements PushNotificationSender {
     public void send(...);
+    private boolean isCallbackState(Task task);
 }
 
 // Existing stores and processors remain primary state/event carriers.
@@ -930,7 +934,7 @@ public class A2ARemoteAgentClient {
 }
 ```
 
-这些是 callback 能力的承载点选择原则：优先迭代已有类和 SDK 扩展点，而不是为每个步骤创建新抽象。`A2aPushNotificationCallbackController` 是固定 HTTP 入口；`PushNotificationSender` 已替换为 HTTP sender；`PushNotificationConfigStore` 继续承载 inline config；`TaskStore` 的 shadow task 承载 local parent task/context、remote taskId 和 tool call 关联；`MainEventBusProcessor` 和 `QueueManager` 继续承载 Task 状态与事件流转；`A2AEnabledServeOrchestrator` 因为代理 agent 发起远端委派，承载绑定查找和恢复调度；`A2ARemoteAgentClient` 因为接收下游 runtime 的 `SendMessage` 响应，承载远端 taskId 的提取和回填。callback receiver 是独立回灌恢复入口，不是 `/a2a` JSON-RPC method。
+这些是 callback 能力的承载点选择原则：优先迭代已有类和 SDK 扩展点，而不是为每个步骤创建新抽象。`A2aPushNotificationCallbackController` 是固定 HTTP 入口；`PushNotificationSender` 已替换为 HTTP sender，并负责只接受 `COMPLETED`/`FAILED`、用成功投递记录抑制重复 callback；`PushNotificationConfigStore` 继续承载 inline config；`TaskStore` 的 shadow task 承载 local parent task/context、remote taskId 和 tool call 关联；`MainEventBusProcessor` 和 `QueueManager` 继续承载 Task 状态与事件流转；`A2AEnabledServeOrchestrator` 因为代理 agent 发起远端委派，承载绑定查找和恢复调度；`A2ARemoteAgentClient` 因为接收下游 runtime 的 `SendMessage` 响应，承载远端 taskId 的提取和回填。callback receiver 是独立回灌恢复入口，不是 `/a2a` JSON-RPC method。
 
 ### 4.6 远程编排共用类边界
 
@@ -1068,7 +1072,7 @@ Task/push 相关结构化事实至少需要覆盖：
 | 本地 taskId / contextId | `TaskStore` / Task metadata | 本地执行、查询、恢复和上游响应等待的主关联键。 |
 | inline push config id / callback target / auth ref | `PushNotificationConfigStore` | 只随 `SendMessage` 创建和绑定，不提供独立 CRUD 表面。 |
 | caller runtime identity / trace id | Task metadata、push config metadata 或 HTTP metadata | 用于观测关联；首迭代不把 caller identity 作为完整信任根。 |
-| notificationId / delivery attempt / delivery status | HTTP sender 运行时投递记录 | 用于终态 callback 幂等、失败记录和可观察性；投递失败不得改变 Task 终态。 |
+| notificationId / delivery attempt / delivery status | HTTP sender 运行时投递记录 | 一个 Task/push config 绑定只生成一个 notificationId；成功后抑制重复 POST，失败重试沿用该 id；投递失败不得改变 Task 终态。 |
 | remote invocation id / remote taskId | `TaskStore` shadow task 绑定记录 | 下游 callback 回灌恢复的查找键；remote taskId 由 `A2ARemoteAgentClient` 从下游 accepted Task surface 回填。 |
 | bounded wait state | controller 内存句柄 + TaskStore shadow task | `A2aJsonRpcController` 持有等待句柄；窗口超时后仍可通过 shadow task 关联处理后续 callback。 |
 ## 6. 关键配置项设计
@@ -1163,7 +1167,7 @@ Agent Card 的 `capabilities.pushNotifications` 不仅由 `openjiuwen.service.a2
 | `GetTask` | 按 taskId 从 `TaskStore` 查询 Task；不存在、store 异常和正常 Task 分别映射到标准 JSON-RPC/SDK 表面；不重新触发 Agent。 | TaskStore query test。 |
 | `SendMessage` inline push config | `params.pushNotificationConfig` 被保留、校验并与本次 Task 绑定；合法请求返回 created/accepted Task 表面，不等待 Agent 终态。 | async accepted sendMessage test。 |
 | Push config 独立 CRUD method | `Create/Get/List/Update/DeleteTaskPushNotificationConfig` 当前版本均不进入主路径，返回 method-not-found 或等价 unsupported 表面。 | unsupported method matrix test。 |
-| runtime-to-runtime callback 投递 | Task 进入结果性状态后，`PushNotificationSender` 使用绑定配置向固定 callback receiver POST `SendMessage` response/result 表面；失败不改变 Task 终态，并记录运行时投递事实。 | sender contract test；delivery/idempotency test。 |
+| runtime-to-runtime callback 投递 | 仅 Task 进入 `COMPLETED` 或 `FAILED` 时，`PushNotificationSender` 使用绑定配置向固定 callback receiver POST `SendMessage` response/result 表面；一次携带 push notification config 的 `SendMessage` 只产生一次逻辑 callback，成功后重复终态事件不再 POST；失败不改变 Task 终态，重试使用同一 notification id。 | sender terminal-state matrix test；single-callback/idempotency test。 |
 | runtime-to-runtime callback receiver | 固定 endpoint 按现有授权框架拦截，解析 Task result 表面并查找绑定；按 notification id 幂等处理；回灌后恢复本地 agent 执行链或更新 Task。 | callback receiver integration test。 |
 | capability gating | `capabilities.pushNotifications=true` 只能在配置启用、HTTP sender、trusted hosts、callback store/handler 和 inline config 处理可用时声明。 | Agent Card capability gating test。 |
 
@@ -1175,7 +1179,7 @@ Agent Card 的 `capabilities.pushNotifications` 不仅由 `openjiuwen.service.a2
 | 普通 client 阻塞调用 Agent | handler 返回普通文本结果，请求不携带 push config。 | client 调用 `SendMessage`。 | controller 设置 `_a2a_stream=false`；executor 构造 `ServeRequest(stream=false)`；最终 JSON-RPC result 包含 completed Task/Message 表面。 |
 | 普通 client 流式调用 Agent | handler 产生多个 chunk。 | client 调用 `SendStreamingMessage`。 | controller 设置 `_a2a_stream=true`；SSE 逐个输出 JSON-RPC envelope；完成时正常关闭。 |
 | 查询长任务 | Task 已存在于 `TaskStore`。 | client 调用 `GetTask`。 | 返回当前 Task 快照；不调用 `AgentHandler`；Task 不存在时返回标准错误。 |
-| `SendMessage` 同步创建 callback 配置 | callbackUrl 合法且 host 命中 trusted callback hosts。 | 调用方 runtime 发送携带 `params.pushNotificationConfig` 的 `SendMessage`。 | Task 已可查询、push config 已绑定、后台执行已调度；HTTP response 返回 accepted Task 表面；终态通过 callback 投递。 |
+| `SendMessage` 同步创建 callback 配置 | callbackUrl 合法且 host 命中 trusted callback hosts。 | 调用方 runtime 发送携带 `params.pushNotificationConfig` 的 `SendMessage`。 | Task 已可查询、push config 已绑定、后台执行已调度；HTTP response 返回 accepted Task 表面；只有 `COMPLETED` 或 `FAILED` 触发 callback，且本次 SendMessage 只产生一次逻辑 callback。 |
 | 内联 push config 不可信 | callback URL 不合法或 host 不满足 trusted callback hosts。 | 调用方发送携带 push config 的 `SendMessage`。 | 返回 invalid params / trust-policy error；不得保存 push config；不得创建异步执行；不得投递 callback。 |
 | runtime-to-runtime callback 回灌恢复 | 本 runtime 曾向下游发起 callback 模式 A2A 调用，TaskStore 中存在 shadow task 绑定记录。 | 下游 runtime POST 固定 callback receiver。 | receiver 完成授权框架拦截和幂等校验；`A2AEnabledServeOrchestrator` 按 remote taskId 找到绑定；恢复本地 agent 执行。 |
 | 普通 `SendMessage` 内部下游 callback | 普通 client 发起阻塞调用，内部 agent 委派下游 A2A，且下游支持 callback。 | 下游 callback 在 bounded wait 窗口内回灌。 | `A2aJsonRpcController` 持有的等待句柄被本地 agent 最终结果唤醒，原始 client 收到 JSON-RPC result。 |
@@ -1206,7 +1210,7 @@ Agent Card 的 `capabilities.pushNotifications` 不仅由 `openjiuwen.service.a2
 | `A2aJsonRpcControllerTest` | method 分发、trailing slash、invalid request/params、unsupported push CRUD、inline push config parsing。 |
 | `A2AAgentExecutorTest` | blocking/streaming 统一映射、`ServeRequest.stream` 覆盖、文本结果、error、input-required 和 queue drain。 |
 | `A2aSendMessageCallbackTest` | 携带 push config 的 async accepted 语义、Task 可查询、push config 绑定、后台执行调度。 |
-| `PushNotificationSenderTest` | callback payload 映射、target trust 校验、notification id 稳定性、投递失败记录。 |
+| `PushNotificationSenderTest` | callback payload 映射、target trust 校验、仅 `COMPLETED`/`FAILED` 触发、其余状态不触发、成功投递后重复终态事件只产生一次 callback、失败重试沿用稳定 notification id。 |
 | `A2aPushNotificationCallbackControllerTest` | receiver 授权框架拦截、Task result payload 解析、幂等、冲突、binding lookup、malformed request no side effect。 |
 | `A2AEnabledServeOrchestratorCallbackRecoveryTest` | remote invocation 绑定、remote taskId 回填、本地 agent 续跑、bounded wait 唤醒和迟到 callback 更新 Task。 |
 | `AgentCardCapabilityGatingTest` | pushNotifications capability 与配置、`public-url`、receiver、sender、trusted hosts、callback store/handler 的组合 gating。 |
