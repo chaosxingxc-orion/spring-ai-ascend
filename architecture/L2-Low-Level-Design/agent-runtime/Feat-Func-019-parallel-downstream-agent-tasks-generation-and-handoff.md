@@ -615,9 +615,9 @@ shadow Task 的 `Task.metadata` 保存内部远端编排状态。新批次只写
 
 shadow `_remote_batch` 是内部权威状态，父 Task Artifact 是只读、脱敏的客户端投影。coordinator 为每个成员包装独立 observer，在转发远端进度或成员状态变化时从本地 Member 注入关联字段，禁止从远端 payload 提取或信任 `toolCallId`。
 
-流式和非流式入口共用现有 `QueryChunk -> ChunkMapper -> A2AAgentExecutor.addArtifact()` 单 writer 路径。多个远端 Future/observer 可以并发回调 coordinator，但不得并发调用父 `QueryStreamObserver.onNext()`：coordinator 在成员状态临界区内分配 `sequence` 并把投影加入内部 FIFO，由唯一 drain owner 在临界区外按入队顺序调用父 observer。该串行 drain 不新增线程池，也不要求不同成员形成全局业务顺序，只保证父 Task emitter 不被多个成员同时写入。
+流式和非流式入口的成员投影共用现有 `QueryChunk -> ChunkMapper -> A2AAgentExecutor.addArtifact()` 单 writer 路径。多个远端 Future/observer 可以并发回调 coordinator，但不得并发调用父 `QueryStreamObserver.onNext()`：coordinator 在成员状态临界区内分配 `sequence` 并把投影加入内部 FIFO，由唯一 drain owner 在临界区外按入队顺序调用父 observer。该串行 drain 不新增线程池，也不要求不同成员形成全局业务顺序，只保证父 Task emitter 不被多个成员同时写入；批次 Future 完成前必须等待已入队投影排空，防止最终 Artifact 或 Task 终态越过最后一条成员投影。
 
-流式入口在串行父 observer 的 `onNext()` 中立即写入成员投影。非流式 `executeQuery()` 注册同样的一个 observer 并内部消费 `streamQuery()`：成员投影 chunk 到达时立即写入父 Task Artifact，只聚合字符串或 `content/delta/output/response` 等明确业务文本，忽略 `llm_usage` 等遥测 envelope；interrupt 只记录为本轮最终控制结果。收到一次终止信号后再统一决定 `requiresInput` 或返回原单个 JSON-RPC 结果，并且只执行一次 `complete/close + drain`。反射读取 SDK eventQueue 的现有收尾逻辑不因内部流式化改变队列拓扑。这样非流式调用方仍只收到最终响应，但调用期间的 `GetTask` 可以观察成员状态，不新增公共 `ServeOrchestrator` SPI。
+流式入口在串行父 observer 的 `onNext()` 中立即写入成员投影。非流式 `executeQuery()` 调用具体实现类的内部方法 `A2AEnabledServeOrchestrator.queryWithProgress(request, observer)`：orchestrator 仍调用 `AgentHandler.query()`，同步中断、远端批次等待和 Core resume 都沿用原 `QueryResponse` 循环；observer 只转发 `TYPE_REMOTE_AGENT_PROGRESS`，普通 LLM 输出和最终答案不经过 observer 聚合。`A2AAgentExecutor` 在同步调用返回后继续按原逻辑从 `QueryResponse` 处理 `_interrupt/content` 并执行一次 `requiresInput` 或 `complete/close + drain`。这样非流式入口保持 `Runner.runAgent()` 的执行语义，同时调用期间的 `GetTask` 仍可观察成员状态；`queryWithProgress` 只属于 A2A orchestrator 具体类，不修改公共 `ServeOrchestrator` SPI。
 
 coordinator 产生的内部 chunk 使用 `QueryChunk.TYPE_REMOTE_AGENT_PROGRESS`。`content` 保存原远端业务进度或状态摘要，`projection` 只保存本地注入的脱敏关联信息：
 
@@ -850,7 +850,7 @@ Batch READY_TO_RESUME
 | core 原始中断 | 一个 result，`state` 为 list | 多个 `__interaction__` chunk |
 | handler 输出 | 一个 interrupt data batch envelope | 收齐流后输出一个 interrupt data batch envelope |
 | 下游远端调用模式 | 与父入口无关；每个 `remote-agents[].streaming` 独立配置，默认 `false` | 与父入口无关；每个 `remote-agents[].streaming` 独立配置，默认 `false` |
-| 成员状态投影 | 内部消费 streamQuery 事件并在执行期间写入父 Task Artifact，可通过 GetTask 查询；调用方仍只收到最终响应 | 作为 Artifact 事件交错输出并持久化，必须携带成员关联字段 |
+| 成员状态投影 | `queryWithProgress()` 在同步等待期间仅旁路转发成员进度并写入父 Task Artifact，可通过 GetTask 查询；最终结果仍取原 `QueryResponse` | 作为 Artifact 事件交错输出并持久化，必须携带成员关联字段 |
 | 远端业务进度正文 | 调用方不接收实时响应；执行期投影仍可通过 GetTask 查询 | 仅配置 `streaming=true` 且 AgentCard 支持流式的成员可交错输出远端进度；非流成员只投影本地状态和最终结果 |
 | 批次屏障 | 相同 | 相同 |
 | INPUT_REQUIRED | 一个 QueryResponse `_interrupt` | 一个 interrupt QueryChunk 后结束本次流 |
@@ -911,12 +911,12 @@ service/
 | `A2aJsonRpcController` | `extractTextPart()` 使用 `new TextPart(text)`，丢弃输入 Part metadata | 解析并保留 TextPart metadata，使 `toolCallId` 到达 adapter。 |
 | `A2AProtocolAdapter` | 把全部 TextPart 无条件拼成一个字符串，未把父 taskId 放入 ServeRequest，也未隔离外部伪造的内部控制 metadata | 普通消息保持拼接；目标续轮按 `toolCallId` 分组一次；先删除五个保留的 `runtime.*` 控制键，再写入内部 `runtime.parentTaskId/runtime.remoteToolInputs`。 |
 | `ChunkMapper` | 非字符串 chunk 只序列化进 TextPart 正文，不能保存成员关联 metadata | 识别内部远端成员投影 envelope，正文保留业务进度，`_remote_invocation` 写入 TextPart metadata。 |
-| `A2AAgentExecutor` | 流式路径可逐 chunk 写 Artifact，非流式 `executeQuery()` 只处理最终 `QueryResponse` | 继续作为父 Task 单 writer；A2A orchestrator 的非流式入口用一个 observer 消费 `streamQuery()`，实时写成员投影、过滤遥测并聚合最终业务文本，而且只收尾一次。 |
+| `A2AAgentExecutor` | 流式路径可逐 chunk 写 Artifact，非流式 `executeQuery()` 只处理最终 `QueryResponse` | 继续作为父 Task 单 writer；非流式调用 A2A orchestrator 的 `queryWithProgress()`，observer 只把成员投影写入 Artifact，最终内容和中断仍取同步 `QueryResponse`，不聚合普通流式 chunk，而且只收尾一次。 |
 | `A2AProperties` | 只有 endpoint timeout，没有 Runtime 远端调用并发预算和每 Agent 调用模式 | 新增 `remoteInvocation.maxConcurrency/maxQueueSize/queueTimeoutSeconds`，默认 `16/256/30`；`RemoteAgentProperties.streaming` 显式默认 `false`。 |
 | `A2AAgentCardDiscovery` / `A2ARemoteAgentCardRegistry` | registry entry 只保存 card 和 timeout | discovery 注册 `remote-agents[].streaming`；entry 按 Agent 保存该值，旧三参数注册路径默认非流。 |
 | `JiuwenCoreAgentHandler` | 非流式保留 `lastInterrupt`；流式逐条直接下发 | 作为通用 Core adapter，只按 `type == "__interaction__"` 识别原始 Core 输出：非流式遍历完整 `state`，流式在本轮 Core 流结束前收齐全部中断，两者统一构造一个 `interaction batch`；不识别 `a2a_delegate`，不执行远端/本地分类。每个 item 完整保留规范化中断 Map，`InteractionOutput -> ToolCallInterruptRequest` 继续位于原 `payload` 层，不重复提升内部字段；恢复时识别结果 map 并创建 `InteractiveInput`。不新增独立 collector 文件。 |
-| `A2AEnabledServeOrchestrator` | `AtomicReference<QueryChunk>` 只保存一个中断；串行远端调用；一个 shadow member | 接收 handler 已聚合的单个 batch interrupt，负责 query/stream 生命周期、A2A kind 分类和混合类型拒绝；全远端批次委托 coordinator，全本地批次按普通 interrupt 转发。 |
-| `RemoteInvocationBatchCoordinator`（新增） | orchestrator 内没有多成员状态、屏障和受控并发边界 | 解析并校验远端 batch envelope；用内部有界 dispatcher 调用现有 client；串行投递父 observer；投影成员状态；复用 TaskStore 保存 shadow metadata；维护 parentTaskId 活动索引；按父 `taskId + toolCallId` 精确续轮，并为每个 RemoteCall 构造过滤后的成员级 metadata 和稳定隔离的下游 `contextId`。 |
+| `A2AEnabledServeOrchestrator` | `AtomicReference<QueryChunk>` 只保存一个中断；串行远端调用；一个 shadow member | 接收 handler 已聚合的单个 batch interrupt，负责 query/stream 生命周期、A2A kind 分类和混合类型拒绝；全远端批次委托 coordinator，全本地批次按普通 interrupt 转发；非流式 `query()` 使用 NOOP observer，A2A 父 Task 通过 `queryWithProgress()` 在保持 `AgentHandler.query()` 语义的同时旁路投影成员进度。 |
+| `RemoteInvocationBatchCoordinator`（新增） | orchestrator 内没有多成员状态、屏障和受控并发边界 | 解析并校验远端 batch envelope；用内部有界 dispatcher 调用现有 client；串行投递父 observer并在批次完成前等待已入队投影排空；投影成员状态；复用 TaskStore 保存 shadow metadata；维护 parentTaskId 活动索引；按父 `taskId + toolCallId` 精确续轮，并为每个 RemoteCall 构造过滤后的成员级 metadata 和稳定隔离的下游 `contextId`。 |
 | `A2ARemoteAgentClient` | 固定建立流式 Client，方法名也把调用方式写死；远端 Task ID、终态类别和结果需要作为一个调用结果交给 coordinator | 只保留带状态 observer 的 `callOutcome()` 和结构化 outcome；按 `RemoteAgentEntry.streaming` 创建/复用 SDK Client，默认非流；用有界 I/O executor 承载阻塞 SDK 调用并在提交前注册 timeout；Client 缓存按本地 agentName、endpoint、streaming 隔离；Task/Message 终态主导 Future 完成，Artifact 只投影进度；沿用 `MessageSendParams.metadata` 传递 coordinator 已过滤的成员级 metadata。 |
 
 ### 7.2 agent-solution
