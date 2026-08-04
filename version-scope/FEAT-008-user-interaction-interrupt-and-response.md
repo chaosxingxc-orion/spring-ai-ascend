@@ -4,171 +4,115 @@ module: agent-runtime
 feature_type: functional
 feature_id: FEAT-008
 status: active
-updated: 2026-07-21
+updated: 2026-07-31
 ---
 
-# 运行时用户交互式任务中断与请求响应
+# 意图驱动工具调用的中断与响应
 
 ## 1. 特性定位
 
-FEAT-008 定义 `agent-runtime` 在运行时观察到“交互式中断”后的 Task 状态、客户端可见行为和续接语义。交互式中断可以由本地智能体产生，也可以由下游远端智能体产生并经本地 runtime 投影；无论来源如何，其含义都是：当前 Task 的执行需要交由客户端侧提供后续输入、决策或材料，runtime 必须把该等待点暴露给客户端，并在客户端使用同一 Task 的标准 A2A 消息续接后恢复执行链路。
+本特性负责把 runtime 已接入的 Agent Card 及其远端目标关联提供给 FEAT-020；当 Agent 在完成意图匹配后调用的远端 Agent 工具或本地工具需要用户补充输入时，本特性负责通过智能体服务调用响应返回中断，并将用户输入续接回当前工具调用。
 
-本特性解决的问题是：本地或远端智能体执行过程中可能进入需要客户端参与的等待点。客户端不应理解具体 Agent 框架、远端 runtime 或 checkpoint 细节；它只应通过 FEAT-001 定义的标准智能体服务入口观察 Task 进入 `INPUT_REQUIRED`，并通过同一 Task 的标准 A2A `SendMessage` 续接。runtime 负责保持 Task 生命周期、等待状态和恢复通道一致，但不判断客户端后续消息在业务语义上是否“回答正确”。
-
-交互式中断不是“上游调用智能体内部继续处理”的信号。如果某个等待应由上游智能体自行处理，而不是交给客户端侧处理，则不应建模为 FEAT-008 的交互式中断；应按任务失败、异常终止或下一轮新任务调用处理。
-
-本特性不定义新的服务化入口、A2A method、A2A Part 类型、客户端响应格式、表单 schema、审批协议或框架 SPI。相关职责归属如下：
-
-- FEAT-001 定义 A2A 服务入口、Task/Message/SSE/error 表面以及任何客户端可见消息结构扩展。
-- FEAT-002 定义本地异构智能体框架如何把原生中断归一为 runtime 可观察的执行结果，以及如何恢复执行。
-- 任务状态缓存特性负责长生命周期 Task 状态缓存、冷热转换、持久化、跨实例和重启后的恢复能力。
-- FEAT-005 定义远端 Agent 调用、远端 Task 绑定、远端中断投影、续接、重试和取消传播。
-- DFX-001 定义轨迹、审计和敏感信息处理。
-
-FEAT-008 自身只定义这些能力组合起来后的交互式中断处理语义。
+FEAT-020 负责意图初始化、匹配、结果生成、提示词和重新匹配；FEAT-004 负责远端 Agent 接入、代理调用和正常结果回填。本特性不重复定义上述能力，不判断用户意图，也不负责用户自定义意图项、fallback 或本地工具的实际执行。
 
 ## 2. 当前版本能力要求
 
-| 能力 | 要求级别 | 事实要求 |
+### 2.1 Agent Card 与远端目标关联提供
+
+| 能力 | 要求级别 | 需求描述 |
 |---|---|---|
-| 本地交互式中断处理 | MUST | 当本地智能体执行结果通过 FEAT-002 归一为需要客户端参与的交互式中断时，runtime 必须将当前 Task 推进到 `INPUT_REQUIRED`，并通过 FEAT-001 标准响应表面暴露等待输入状态和提示信息。 |
-| 远端交互式中断投影 | MUST | 当 FEAT-005 远端调用链路观察到远端 Task 进入需要客户端参与的 `INPUT_REQUIRED` 时，本地 runtime 必须把该等待点投影到本地 Task，使客户端仍通过本地 Task 观察和续接。 |
-| 标准服务入口复用 | MUST | 客户端续接交互式中断必须使用 FEAT-001 定义的标准 A2A `SendMessage` 与 Task/context 关联语义。FEAT-008 不新增、不收紧客户端请求格式。 |
-| 同 Task 续接 | MUST | Task 处于 `INPUT_REQUIRED` 时，客户端使用同一 Task 发送的合法 A2A 消息必须被视为续接该等待点的输入，并交回当前执行链路。runtime 不得因消息业务内容看起来“不符合 prompt”而拒绝续接。 |
-| 非同 Task 隔离 | MUST | 客户端使用不同 Task 或新建请求发送的消息不得抢占或隐式续接旧的 `INPUT_REQUIRED` Task；应按 FEAT-001 创建或推进对应 Task。 |
-| 业务语义归属智能体 | MUST | 客户端续接消息是否满足此前等待点的业务期待，由产生中断的本地或远端智能体判断。智能体可以继续执行、再次产生交互式中断、失败或完成。runtime 只处理协议、访问、Task 状态和恢复通道层面的事实。 |
-| 单等待点推进 | MUST | 在 FEAT-001 入口、任务状态缓存和 FEAT-005 远端编排的既有幂等机制排除重复提交后，同一 Task 的一次 `INPUT_REQUIRED` 等待点只应被一条合法续接消息推进一次。后续消息按其到达时的 Task 状态交给对应特性的并发或追加语义处理。 |
-| 多轮交互 | MUST | 同一 Task 必须支持顺序发生多轮 `WORKING -> INPUT_REQUIRED -> WORKING`。每一轮是否再次等待由智能体执行结果决定。 |
-| 长时挂起 | MUST | `INPUT_REQUIRED` 是非终态，Task 可以长时间等待客户端续接、查询、订阅或取消。FEAT-008 不设置 TTL，不定义自动过期。 |
-| 等待期间查询与订阅 | MUST | `GetTask` 必须能按 FEAT-001 语义观察处于 `INPUT_REQUIRED` 的 Task 及其后续状态变化。 |
-| 当前实例内恢复 | MUST | 在当前 runtime 实例拥有 Task、等待点绑定和恢复上下文的期间，合法续接消息必须能够恢复到正确执行链路。跨实例、重启和长生命周期恢复由任务状态缓存特性承接。 |
-| 明确运行时失败 | MUST | Task 不存在或不可访问、Task 状态不允许续接、恢复上下文不可用、本地恢复失败、远端续接失败等运行时事实必须映射为可区分的标准 Task/error 表面。 |
-| 可观测与审计 | SHOULD | runtime 应记录中断建立、Task 状态变化、客户端续接、恢复、再次中断、取消和失败等观察事实，并关联 tenant、caller、user、Task/context、request、trace 和耗时；具体脱敏规则遵守 DFX-001。 |
+| Agent Card 提供 | MUST | runtime 必须将当前可调用远端 Agent 的 Agent Card 及其远端目标关联信息提供给 FEAT-020 意图套件初始化。 |
+| Skill 完整提供 | MUST | runtime 提供 Agent Card 时必须保留其中的全部 Skill、所属 Agent Card 和远端目标关联信息，使 FEAT-020 能够将每条 Skill 初始化为独立意图项。 |
+| 远端目标关联 | MUST | runtime 必须为每个 Agent Card 提供稳定的远端目标标识，使 FEAT-020 返回 Agent Card Skill 结果后能够确定对应的远端调用目标。 |
+| 远端工具识别 | MUST | runtime 提供的关联信息必须使 Agent Card Skill 结果能够准确识别 runtime 注入的对应远端 Agent 工具。 |
+| 多 Skill 关联 | MUST | 同一 Agent Card 包含多条 Skill 时，每条 Skill 分别参与匹配；任一 Skill 命中后均关联到该 Agent Card 对应的同一个远端 Agent。 |
+| 初始化周期固定 | MUST | runtime 提供给意图套件的 Agent Card Skill 及其远端目标关联在一次初始化周期内保持不变。Agent Card 或 Skill 发生变化时，必须重新初始化意图套件后才参与匹配。 |
 
-## 3. 引用接口与入口要求
+### 2.2 Agent 场景工具中断响应
 
-FEAT-008 不拥有独立外部 API 或 SPI 定义权。下游设计与实现必须引用以下既有特性接口。
+| 能力 | 要求级别 | 需求描述 |
+|---|---|---|
+| 用户交互中断返回 | MUST | 远端 Agent 工具或本地工具需要用户补充输入时，runtime 必须中断当前执行，并通过当前智能体服务调用响应向客户端返回 A2A `input-required` 状态和等待用户输入的信息，不得将本次调用标记为正常完成。 |
+| 用户输入续接 | MUST | 客户端针对当前中断提交用户输入后，runtime 必须将输入交回对应的等待中工具调用进行续接处理。 |
+| 续接结果返回 | MUST | 工具调用在续接后正常完成、再次请求用户输入、返回失败或返回意图跳变语义时，runtime 必须将对应结果交回当前 Agent。 |
+| 意图跳变透传 | MUST | 完成意图匹配后调用的下游工具在中断续接后返回意图跳变语义，且 Agent 上下文中已携带最新用户意图时，runtime 必须将工具结果和上下文交回 LLM，使 LLM 按 FEAT-020 再次调用意图工具，而不是结束本轮会话。runtime 不得自行判断用户是否改变意图。 |
 
-### 3.1 FEAT-001 标准智能体服务入口
+### 2.3 Workflow 场景远端调用中断响应
 
-| API | FEAT-008 使用语义 |
-|---|---|
-| `SendMessage` | 客户端创建 Task 或续接已有 Task 的统一入口。Task 处于 `INPUT_REQUIRED` 且请求关联同一 Task/context 时，该消息作为交互式中断的续接输入。消息体格式完全遵守 FEAT-001。 |
-| `SendStreamingMessage` | 执行进入 `INPUT_REQUIRED` 时，按 FEAT-001 的 interrupted stream 语义推送 Task 状态并结束本次发送流。 |
-| `GetTask` | 返回 Task 当前状态；当状态为 `INPUT_REQUIRED` 时，调用方可观察到等待客户端输入的状态和提示信息。 |
+| 能力 | 要求级别 | 需求描述 |
+|---|---|---|
+| Workflow 中断响应 | MUST | 远端 Agent 调用需要用户补充输入时，runtime 必须通过当前 Workflow 服务调用响应向客户端返回 A2A `input-required` 状态和等待用户输入的信息，并在客户端提交输入后续接对应的远端调用。 |
+| Workflow 重匹配边界 | MUST | Agent 场景中基于提示词处理意图跳变并重新调用意图工具的机制不适用于 Workflow。runtime 不得在 Workflow 远端调用完成或中断续接后自动执行 FEAT-020 意图匹配。 |
 
-如果未来需要统一结构化表单、候选项、审批控件或专用响应 Part，这些客户端可见 wire 契约必须先由 FEAT-001 或新的服务入口特性声明，FEAT-008 只能引用。
+## 3. 交互边界
 
-### 3.2 FEAT-002 异构智能体框架兼容
+本特性复用现有智能体服务入口和 A2A 远端调用能力，不新增客户端服务入口。
 
-本地智能体如何表达“需要客户端交互”、adapter 如何归一原生中断、runtime 如何恢复 handler 执行，属于 FEAT-002 的框架兼容和 SPI 范围。FEAT-008 只消费 FEAT-002 已归一出的交互式中断事实，不定义 `QueryChunk`、handler input type、resume context 或 adapter API。
+| 交互边界 | 输入 | 输出 |
+|---|---|---|
+| runtime 向 FEAT-020 提供远端能力 | 当前可调用远端 Agent 的 Agent Card | Agent Card、其中的全部 Skill，以及对应的稳定远端目标标识。 |
+| FEAT-020 与 FEAT-004 衔接 | Agent Card、命中的 Skill 及远端目标标识 | 由 FEAT-004 处理的对应远端 Agent 调用。 |
+| Agent 工具中断响应 | 远端 Agent 工具或本地工具的等待用户输入结果 | 通过当前智能体服务调用响应返回给客户端的 A2A `input-required` 状态和等待信息。 |
+| 用户输入续接 | 客户端针对当前中断提交的用户输入 | 交回对应的等待中工具调用进行续接处理。 |
 
-### 3.3 任务状态缓存特性
-
-FEAT-008 承认 `INPUT_REQUIRED` 可以长时挂起，但不定义 Task 状态缓存、冷热转换、持久化存储、跨实例恢复或重启恢复接口。这些能力由任务状态缓存特性负责；FEAT-008 只要求在可恢复状态来源存在时，续接语义仍保持同一 Task 生命周期。
-
-### 3.4 FEAT-005 远程 Agent 编排
-
-远端 Agent 的发现、调用、远端 Task 绑定、远端中断投影、续接、重试、取消传播和结果回灌由 FEAT-005 定义。FEAT-008 只要求当远端等待点需要客户端参与时，本地 runtime 对客户端呈现与本地交互式中断一致的 `INPUT_REQUIRED` 语义。
+具体关联信息、调用参数和中断续接形式由 L2 设计定义。
 
 ## 4. 场景与用户旅程
 
-| 场景 | 前置条件 | 用户/系统动作 | 期望行为 |
-|---|---|---|---|
-| 本地智能体请求客户端交互 | 本地智能体在已有 Task 执行中需要客户端提供后续输入、决策或材料 | 智能体通过 FEAT-002 定义的归一路径产生交互式中断 | runtime 将当前 Task 推进到 `INPUT_REQUIRED`，通过 FEAT-001 标准响应、SSE 或 Task 查询暴露等待状态和提示；客户端使用同一 Task 的标准 `SendMessage` 续接后，runtime 恢复执行链路。 |
-| 远端智能体请求客户端交互 | 本地 Task 正在通过 FEAT-005 调用远端 Agent，远端 Task 进入需要客户端参与的等待状态 | 本地 runtime 观察到远端 `INPUT_REQUIRED` | 本地 Task 进入 `INPUT_REQUIRED`，客户端仍面向本地 Task 响应；本地 runtime 按 FEAT-005 绑定把续接消息传递给远端等待 Task。 |
-| 同 Task 发送业务语义不匹配的续接消息 | Task 处于 `INPUT_REQUIRED`，客户端使用同一 Task 发送格式合法的 A2A 消息，但内容没有满足此前提示的业务期待 | 客户端提交该消息 | runtime 不做业务语义拒绝，仍恢复智能体；智能体判断该输入无效时，可以再次中断、失败或按自身逻辑继续。 |
-| 非当前 Task 发起新任务 | 旧 Task 处于 `INPUT_REQUIRED`，客户端选择放弃或暂不处理它 | 客户端发起不关联旧 Task 的新 `SendMessage` | 新请求按 FEAT-001 创建或推进新 Task；旧 Task 保持自身 `INPUT_REQUIRED` 状态，直到被续接、取消或由状态缓存/生命周期治理处理。 |
-| 长时挂起后续接 | Task 处于 `INPUT_REQUIRED`，客户端或业务应用需要等待人工审批、外部流程或较长时间后再响应 | 客户端稍后查询、订阅或使用同一 Task 续接 | Task 等待期间不因 FEAT-008 自身 TTL 自动过期；在任务状态缓存和恢复上下文可用时，续接仍恢复同一 Task 执行链路。 |
-| 等待期间取消 | Task 处于 `INPUT_REQUIRED`，用户或业务应用决定停止当前执行 | 客户端通过 Gateway 请求取消 | runtime 将 Task 推进到 `CANCELED`，当前等待点失效；后续对该 Task 的续接按终态 Task 处理。 |
-| 多轮客户端交互 | 智能体在一次续接后仍需要更多客户端信息 | 智能体再次产生交互式中断 | runtime 再次将同一 Task 推进到 `INPUT_REQUIRED`；客户端继续使用同一 Task 续接，直到智能体完成、失败或取消。 |
+### 4.1 初始化远端 Agent 意图项
+
+1. runtime 将 FEAT-004 已接入的一个或多个远端 Agent 的 Agent Card、全部 Skill 和稳定远端目标标识提供给 FEAT-020 初始化 SPI。
+2. FEAT-020 将每条 Agent Card Skill 初始化为独立意图项，并保留 Agent Card、Skill 和稳定远端目标标识。
+3. 同一 Agent Card 中的多条 Skill 分别参与匹配，但均关联到该 Agent Card 对应的远端 Agent。
+4. Agent Card 或 Skill 发生变化时，当前意图项不动态变化；重新初始化后才使用新的内容和关联。
+
+### 4.2 Agent 在工具调用中补充原任务信息
+
+1. Agent 已完成本次意图匹配，并根据意图结果进入后续 loop，调用远端 Agent 工具或其他本地工具。
+2. 该下游工具需要用户补充信息，runtime 中断当前执行，并通过当前智能体服务调用响应将 A2A `input-required` 状态和等待信息返回客户端。
+3. 用户针对原任务提交所需信息，客户端使用当前中断的续接入口提交该输入。
+4. runtime 将用户输入交回等待中的工具调用，工具调用使用补充信息继续原任务。
+5. 工具调用正常完成后，runtime 将工具调用结果交回 LLM。
+6. LLM 完成本轮答复，本轮会话结束，不再次执行意图匹配。
+
+### 4.3 Agent 在工具调用中发生意图跳变
+
+1. Agent 已完成本次意图匹配，并根据意图结果进入后续 loop，调用远端 Agent 工具或其他本地工具。
+2. 该下游工具需要用户补充信息，runtime 通过当前智能体服务调用响应向客户端返回 A2A `input-required` 状态和等待信息。
+3. 用户提交新的输入，并表达了不同于原任务的最新意图。
+4. runtime 将输入交回等待中的工具调用；该工具调用结束并返回意图跳变语义，Agent 上下文中同时携带可供后续匹配使用的最新用户意图。
+5. runtime 将工具结果和最新上下文交回 LLM，不自行判断或重新匹配意图。
+6. LLM 按 FEAT-020 的生效提示词再次调用意图工具，传入最新意图并进入新的意图处理循环，而不是结束本轮会话。
+
+### 4.4 Workflow 远端调用需要用户输入
+
+1. Workflow 调用的远端 Agent 需要用户补充信息，runtime 通过当前 Workflow 服务调用响应向客户端返回 A2A `input-required` 状态和等待信息。
+2. 客户端针对当前中断提交用户输入，runtime 将输入交回对应远端 Agent 调用。
+3. 远端调用后续结果按 Workflow 流程处理；runtime 不注入 Agent 提示词，也不自动重新调用 FEAT-020 意图组件。
 
 ## 5. 行为语义与边界
 
-### 5.1 `INPUT_REQUIRED` 语义
+- FEAT-020 负责选择 Agent Card Skill；FEAT-004 负责按选择结果调用对应远端 Agent。本特性只提供二者衔接所需的 Agent Card 与远端目标关联信息。
+- runtime 不负责意图初始化、匹配、结果生成、fallback、提示词或意图重新匹配。
+- runtime 不分析客户端续接输入是否表达了新意图；意图跳变发生在意图匹配已经完成后的下游工具调用中，必须由被续接的远端 Agent 工具或本地工具返回，并在 Agent 上下文中携带最新用户意图。
+- 下游工具正常完成后不得自动重新执行意图匹配。只有下游工具在中断续接后返回意图跳变语义时，Agent 才按 FEAT-020 提示词重新调用意图工具，而不是结束本轮会话。
+- 本地工具的选择和实际执行不属于本特性；本地工具产生的用户交互中断、用户输入续接和结果回传属于本特性的 runtime 响应链路。FEAT-020 在意图工具内部调用的同步结果工具函数不属于此处的可中断本地工具。
+- Agent 的提示词和意图跳变重匹配机制不适用于 Workflow；Workflow 只在流程经过意图组件时执行匹配。
+- 当前版本不支持动态更新意图描述。Agent Card Skill 变化后，必须重新初始化意图套件。
 
-- `INPUT_REQUIRED` 表示当前 Task 等待客户端侧参与，不是完成态，也不是失败态。
-- 等待对象是客户端侧，可能是人类用户，也可能是集成了客户端的业务应用。
-- 本地智能体和远端智能体产生的客户端交互等待，在本地 Task 表面对客户端都表现为 `INPUT_REQUIRED`。
-- runtime 不解释客户端续接消息的业务含义，只负责把同一 Task 的合法 A2A 消息交回当前执行链路。
-- 如果某个等待应由上游智能体自行处理，而不是交给客户端侧处理，则不属于 FEAT-008 的交互式中断。
+## 6. 需求归属与验收要求
 
-### 5.2 续接语义
-
-- 续接入口是 FEAT-001 的标准 A2A `SendMessage`。
-- 续接关联由 FEAT-001 的 Task/context 语义和可信调用上下文确定；FEAT-008 不定义新的 response id、interaction id 或专用 response payload。
-- 同一 Task 处于 `INPUT_REQUIRED` 时，合法 A2A 消息推进该等待点并恢复执行。
-- 非同 Task 消息不得隐式续接旧 Task。
-- 在统一入口、任务状态缓存和远端编排各自的幂等机制排除重复提交后，同一等待点只推进一次。第一条合法续接消息使 Task 离开 `INPUT_REQUIRED`；第二条消息按到达时的 Task 状态交由 FEAT-001 或相关特性处理。
-
-### 5.3 业务语义归属
-
-- prompt、说明文本、可展示消息或未来 FEAT-001 定义的结构化交互材料，只帮助客户端理解需要提供什么。
-- 客户端提供的后续消息是否满足业务要求，由智能体或其业务组件判断。
-- runtime 不应校验“文本是否回答了问题”“审批是否通过业务规则”“授权是否有效”等业务语义。
-- 如果智能体判断续接输入不满足要求，可以再次产生交互式中断、返回失败或继续执行。
-- 授权确认、审批结果回填、表单填写等可以作为智能体产生交互式中断的业务场景，但其业务语义不归 runtime 拥有。
-
-### 5.4 长时等待与恢复边界
-
-- FEAT-008 不设置交互等待 TTL，也不定义自动过期失败。
-- 长时等待可以持续十天、半个月或更久；其可恢复性取决于任务状态缓存、持久化、冷热转换、框架 checkpoint 和部署治理能力。
-- 当前 runtime 实例内拥有 Task、等待点绑定和恢复上下文时，应能恢复执行。
-- 跨实例、重启和长生命周期恢复能力由任务状态缓存特性定义，FEAT-008 不重复定义存储接口。
-
-### 5.5 远端交互边界
-
-- 远端 Runtime 拥有远端 Task 生命周期；本地 Runtime 拥有本地 Task 生命周期。
-- 本地 Runtime 只把需要客户端参与的远端等待点投影为本地 `INPUT_REQUIRED`。
-- 客户端只需要面向本地 Task 续接；本地到远端的续接、重试、幂等、取消传播和结果回灌由 FEAT-005 负责。
-- 如果远端续接经过受控重试仍失败，本地 Task 应按上游调用失败语义进入失败表面；远端 Task 生命周期继续由远端 Runtime 管理。
-
-### 5.6 失败语义
-
-runtime 可以基于以下运行时事实拒绝续接或推进失败：
-
-| 失败场景 | 语义 |
-|---|---|
-| Task/context 不存在或不可访问 | 按 FEAT-001 访问和错误表面返回，不恢复智能体。 |
-| Task 不处于可续接状态 | 返回 Task 状态冲突或按 FEAT-001 对该状态的消息处理语义执行。 |
-| 请求不符合 A2A 标准入口格式 | 按 FEAT-001 协议层错误处理。 |
-| 恢复上下文不可用 | Task 进入标准失败表面，错误含义为恢复上下文不可用。 |
-| 本地执行恢复失败 | Task 进入标准失败表面，错误含义为恢复执行失败。 |
-| 远端续接失败 | 按 FEAT-005 的远端调用失败语义回灌本地 Task。 |
-
-runtime 不应基于业务内容不匹配返回上述运行时失败；该类判断由智能体负责。
-
-### 5.7 可观测语义
-
-- 应记录交互式中断建立、Task 进入 `INPUT_REQUIRED`、客户端查询/订阅、客户端续接、恢复开始、恢复结果、再次中断、取消和失败。
-- 观察事实应关联 tenant、caller、user、Task/context、远端 Task 绑定信息、request、trace、结果和耗时。
-- prompt、客户端输入、业务审批材料、授权信息等敏感内容应按 DFX-001 策略脱敏、摘要或不记录。
-
-## 6. 对下游设计与实现的约束
-
-- 下游设计必须把 FEAT-008 作为交互式中断处理行为的事实来源，而不是服务入口、客户端协议、框架 SPI 或状态存储接口的事实来源。
-- 不得在 FEAT-008 的名义下新增 A2A endpoint、method、专用响应 DataPart、统一表单 schema、审批协议或客户端专用 wire 格式；这类能力必须先进入 FEAT-001 或新的服务入口特性。
-- 不得在 FEAT-008 的名义下新增或修改 `AgentHandler`、`QueryChunk`、adapter resume input 等 SPI；这类能力必须由 FEAT-002 承接。
-- 不得在 FEAT-008 的名义下承诺 Task 状态缓存、冷热转换、持久化存储、跨实例或重启恢复；这类能力由任务状态缓存特性承接。
-- 不得在 FEAT-008 的名义下重定义远端 Task 绑定、远端续接、重试、幂等或取消传播；这类能力由 FEAT-005 承接。
-- 实现必须保证同 Task 的合法续接消息能够恢复当前等待点，并保证非同 Task 消息不会隐式抢占旧等待点。
-- 实现必须避免把业务语义判断放入 runtime。业务输入无效、审批未通过、授权材料不足等应由智能体返回再次中断、失败或继续执行。
-- 测试应覆盖本地中断、远端中断投影、同 Task 合法续接、同 Task 业务语义不匹配仍恢复智能体、非同 Task 新任务隔离、长时等待查询/订阅、取消、多轮交互、恢复上下文缺失、本地恢复失败和远端续接失败。
-- 文档和开发者指南必须统一使用 `INPUT_REQUIRED`、交互式中断、同 Task 续接、标准 A2A 入口、本地/远端 Task 生命周期所有权等术语。
+- 本特性的 Agent Card 与稳定远端目标标识提供、用户交互中断响应和续接属于 runtime 能力；远端 Agent 接入、代理调用和正常结果回填属于 FEAT-004。
+- 必须验证 runtime 能够向 FEAT-020 提供多个 Agent Card，并正确处理一个 Agent Card 中的多条 Skill。
+- 必须验证 runtime 为每个 Agent Card 提供稳定远端目标标识，并使每条 Skill 的意图结果能够识别正确的远端 Agent 工具。
+- 必须分别验证远端 Agent 工具和本地工具需要用户输入时，中断信息通过当前智能体服务调用响应返回客户端，客户端输入能够续接对应工具调用。
+- 必须分别验证用户补充原任务信息后正常完成，以及完成意图匹配后的下游工具在中断续接后返回意图跳变语义时，Agent 上下文携带最新用户意图并由 LLM 按 FEAT-020 重新调用意图工具。
+- 必须验证 runtime 不判断用户意图，也不在未收到明确意图跳变语义时触发重新匹配。
+- 必须验证 Workflow 的用户交互中断能够返回客户端并续接远端调用，且不会触发 Agent 提示词或自动意图重匹配。
+- 必须验证 Agent Card 或 Skill 变化不会动态修改已初始化意图项，重新初始化后新内容才生效。
 
 ## 7. 关联文档
 
-- `architecture/L0-Top-Level-Design/boundaries.md`
-- `architecture/L0-Top-Level-Design/constraints.md`
-- `architecture/L0-Top-Level-Design/glossary.md`
-- `architecture/L1-High-Level-Design/agent-runtime/README.md`
-- `architecture/L1-High-Level-Design/agent-runtime/overview.md`
-- `architecture/L1-High-Level-Design/agent-runtime/logical.md`
-- `architecture/L1-High-Level-Design/agent-runtime/process.md`
-- `architecture/L1-High-Level-Design/agent-runtime/scenarios.md`
-- `architecture/L1-High-Level-Design/agent-runtime/api-appendix.md`
-- `architecture/L1-High-Level-Design/agent-runtime/spi-appendix.md`
 - `version-scope/FEAT-001-standardized-agent-service-entrypoint.md`
-- `version-scope/FEAT-002-heterogeneous-agent-framework-compatibility.md`
 - `version-scope/FEAT-004-task-driven-remote-agent-communication.md`
-- `version-scope/DFX-001-trajectory-observability.md`
+- `version-scope/FEAT-020-agent-intent-matching-and-action-routing.md`
