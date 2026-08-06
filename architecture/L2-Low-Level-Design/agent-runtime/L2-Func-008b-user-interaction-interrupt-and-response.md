@@ -226,8 +226,8 @@ agent_runtime/
   domain/
     context.py                 ServeRequest：续接投影 for_resume 与 is_resume 等只读派生
   application/
-    interrupt.py               InterruptCoordinator：续接编排（投影 + 交回执行链路）
-    serve.py                   ServeOrchestrator：执行编排，识别中断结果并驱动状态推进
+    serve.py                   ServeOrchestrator：执行编排与续接编排——识别中断结果、驱动状态推进、
+                               经 resume_query 把续接输入投影进 ServeRequest 后交回执行链路
   adapters/inbound/a2a/
     executor.py                A2A 执行器：中断结果推进 Task 至 INPUT_REQUIRED；续接路由
     protocol_adapter.py        去协议化：A2A 消息转 ServeRequest
@@ -253,7 +253,7 @@ classDiagram
         <<domain>>
         +interrupt 类型
     }
-    class InterruptCoordinator {
+    class ServeOrchestratorResume {
         <<application>>
         +resume(handler, ctx) AsyncIterator
     }
@@ -273,14 +273,14 @@ classDiagram
     }
 
     A2AExecutor ..> ServeOrchestrator : 驱动
-    ServeOrchestrator ..> InterruptCoordinator : 续接时委派
-    InterruptCoordinator ..> ServeRequest : 投影
-    InterruptCoordinator ..> AgentHandler : 交回执行链路
+    ServeOrchestrator ..> ServeRequest : 续接时投影
+    ServeOrchestrator ..> ResumeInput : 承载续接输入
+    ServeOrchestrator ..> AgentHandler : 交回执行链路
     AgentCoreHandler ..|> AgentHandler : 实现
     AgentHandler ..> QueryChunk : 产出
 ```
 
-模式标注：`AgentHandler` 是**端口**（SPI），`AgentCoreHandler` 是其**适配器实现**；`InterruptCoordinator` 与 `ServeOrchestrator` 是 application 层编排，不含框架类型；`ServeRequest` 与 `QueryChunk` 是 domain 层不可变数据类。
+模式标注：`AgentHandler` 是**端口**（SPI），`AgentCoreHandler` 是其**适配器实现**；`ServeOrchestrator` 是 application 层编排，不含框架类型；`ServeRequest` 与 `QueryChunk` 是 domain 层不可变数据类。
 
 ### 3.3 依赖方向与禁止依赖
 
