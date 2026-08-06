@@ -820,7 +820,7 @@ class AdapterSelectionConfig:
 | 前置条件 | 适配器将产出三个块；调用方在收到第一块后请求取消 |
 | 操作 | 取到第一块 → 请求取消 → 继续迭代 |
 | 预期结果 | 第一块正常收到；**其后为空**——不再中继任何块 |
-| 事实来源 | `openJiuwen/agent-runtime-mvp/agent_runtime/tests/test_serve_orchestrator.py:70`（`test_cancel_active_stops_consumption_and_notifies_handler`） |
+| 事实来源 | `openJiuwen/agent-runtime-mvp/agent_runtime/tests/test_serve_orchestrator.py`（`test_cancel_active_stops_consumption` 与 `test_cancel_notifies_handler_implementing_interrupt_contract` 两条） |
 
 ### 7.3 多轮交互的时间线
 
