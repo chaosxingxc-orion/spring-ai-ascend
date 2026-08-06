@@ -58,11 +58,11 @@ dependency:
 | 子特性 | 职责 | 关键抽象 | 状态 |
 |---|---|---|---|
 | 契约层 | 可替换实现的类型面，零框架依赖 | 各扩展点的结构化子类型协议 | 已实现（随各特性的端口定义落地） |
-| 扩展点发现 | 读包元数据、按名解析、按优先级选取——**不执行任何实现代码** | `ExtensionDiscoverer` | 计划中 |
-| 扩展点加载 | 导入并实例化——**基座唯一执行第三方代码处** | `ExtensionLoader` | 计划中 |
-| 生命周期编排 | 初始化阶段、关停阶段、活跃流排水 | `LifecycleOrchestrator` | 部分实现（排水与后进先出停止已有雏形，见 §13） |
+| 扩展点发现 | 读包元数据、按名解析、按优先级选取——**不执行任何实现代码** | `ExtensionDiscoverer` | **已实现**（`agent_runtime/bootstrap/discovery.py`） |
+| 扩展点加载 | 导入并实例化——**基座唯一执行第三方代码处** | `ExtensionLoader` | **已实现**（`agent_runtime/bootstrap/loading.py`） |
+| 生命周期编排 | 初始化阶段、关停阶段、活跃流排水 | `runtime_lifespan`（`agent_runtime/bootstrap/lifespan.py`）——以异步上下文管理器落地，非独立类 | **已实现**（初始化钩子、失败开关、排水、后进先出停止四项俱全） |
 | 就绪状态 | 表达本副本能否接活 | `ReadinessView` / `ReadinessState` | 计划中 |
-| 在途流登记 | 登记在途流以支撑排水与定向中断 | `ActiveStreamRegistry` | 计划中 |
+| 在途流登记 | 登记在途流以支撑排水与定向中断 | `ActiveStreamRegistry` | **已实现**（`agent_runtime/application/active_streams.py`） |
 | 配置基座 | 声明式绑定、环境变量覆盖、机密值承载 | `ConfigLoader` | **已实现** |
 
 > **凭据解密不在上表**——它是**基座承载的一个扩展点**，不是基座自己的一件功能。基座为它提供契约面与内建透传实现（§4.4），正如为存储、执行契约提供契约面一样；解密的**语义**归安全域，不归基座。把它与装配、生命周期、配置并列，会让人以为基座要为密钥体系负责。
