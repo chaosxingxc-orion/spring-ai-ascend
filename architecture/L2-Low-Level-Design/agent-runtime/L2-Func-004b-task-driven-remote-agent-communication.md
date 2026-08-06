@@ -1008,7 +1008,7 @@ sequenceDiagram
 | `skipped_entities` | 跳过项，每项带实体标识、实体名与跳过原因 |
 | **`concurrency_limit`** | **回显当时生效的并发上限值** |
 
-**三键的取证强度不一**：`sub_agent_results` 冻结于 `openJiuwen/agent-runtime/applications/a2a_service/tests/framework_parallel/test_dispatch.py`（`test_dispatch_respects_max_call_depth_without_emitting_nodes`、`test_sub_task_dispatch_resumes_with_cancelled_cascade`），工作流路径的对应键 `workflow_results` 冻结于 `openJiuwen/agent-runtime/applications/a2a_service/tests/framework_parallel/test_workflows.py`（`test_multi_delegate_over_limit_rejects_all_without_running`、`test_multi_delegate_within_limit_aggregates`）；**第三键 `concurrency_limit` 无任何冻结断言**，出处仅为产生点。
+**三键的取证强度不一**：`sub_agent_results` 冻结于 `openJiuwen/agent-runtime/applications/a2a_service/tests/framework_parallel/test_dispatch.py`（`test_dispatch_respects_max_call_depth_without_emitting_nodes`、`test_sub_agent_dispatch_resumes_with_cancelled_cascade`），工作流路径的对应键 `workflow_results` 冻结于 `openJiuwen/agent-runtime/applications/a2a_service/tests/framework_parallel/test_workflows.py`（`test_multi_delegate_over_limit_rejects_all_without_running`、`test_multi_delegate_within_limit_aggregates`）；**第三键 `concurrency_limit` 无任何冻结断言**，出处仅为产生点。
 
 第三键易漏——按 §12.3「字段集相等」的比对要求，少一个键即红。**但存量回归网发现不了它的缺失**，须在兼容验收时人工确认。本版保留该机制与三键形态。
 
