@@ -38,10 +38,10 @@ runtime 作为**标准 Agent 服务端**被调用的进站入口：以 A2A JSON-
 
 | 子特性 | 职责 | 关键抽象 | 状态 |
 |---|---|---|---|
-| A2A JSON-RPC 入口 | 按方法分发同步与流式调用 | SDK 路由工厂 + 执行器桥接 | 待建 |
-| Agent Card 发现 | 三条路径返回同一张卡片 | 卡片构造与配置绑定 | 待建 |
-| 执行桥接 | 协议上下文归一为框架无关执行请求；结果块投射回 Task 表面 | 执行器、协议适配、块映射 | 待建 |
-| 完成回调投递 | 终态时向受信任调用方推送 | 配置存储 + 受信发送器 | 待建 |
+| A2A JSON-RPC 入口 | 按方法分发同步与流式调用 | SDK 路由工厂 + 执行器桥接 | **已实现**（含无尾斜杠路径直接承载，§2.3.1.2） |
+| Agent Card 发现 | 三条路径返回同一张卡片 | 卡片构造与配置绑定 | **已实现**（三条路径注册规格见 §2.3.1.1） |
+| 执行桥接 | 协议上下文归一为框架无关执行请求；结果块投射回 Task 表面 | 执行器、协议适配、块映射 | **已实现**（含未处理异常兜底为固定文案，§10.5） |
+| 完成回调投递 | 终态时向受信任调用方推送 | 配置存储 + 受信发送器 | **已实现** |
 | 完成回调接收 | 固定入口接收远端通知并回灌 | 接收路由 + 鉴权 + 幂等去重 | 已实现 |
 
 ### 1.4 术语与命名对齐
@@ -105,6 +105,94 @@ runtime 作为**标准 Agent 服务端**被调用的进站入口：以 A2A JSON-
 > **存量的行为是 307 重定向**：按存量装配方式实测，`POST /a2a/` 得 200 直接承载，`POST /a2a` 得 307、`Location: /a2a/`，跟随后结果一致（307 保留请求方法与请求体）。故本版直接承载**不破坏任何存量客户端**——会跟随重定向的照常成功、少一次往返，不跟随的从失败变为成功。**属只增不减的新增面**，登记见 §11.1。
 
 **为何三条卡片路径可以共存**：SDK 的卡片路由工厂只注册一条路由，路径由参数决定，默认值为根路径标准位置（`a2a-sdk 1.0.0 · server/routes/agent_card_routes.py:34`、`:49-55`，常量见 `a2a-sdk 1.0.0 · utils/constants.py:6`）。存量之所以只有前缀路径，是子应用挂载叠加的结果，**不是 SDK 限制**。故本版在根应用另注册两条、保留挂载那条，三条返回同一张卡片——既满足 `FEAT-001:33` 的强制项，又不动存量路径，且与上游 Java 的三条完全对齐（`architecture/L1-High-Level-Design/agent-runtime/api-appendix.md:40-45`）。
+
+##### 2.3.1.1 三条卡片路径的注册规格
+
+**卡片对象只构造一次，三条路径共享它。** 三条各自构造会产生三张可能不一致的卡片——
+配置变更时改了一处漏两处，而对外表现是「同一个 Agent 在不同发现路径上声明了不同能力」，
+调用方据此做的能力判断随它请求了哪条路径而变。`FEAT-001:64` 要求兼容端点
+「返回与标准 card endpoint **等价**的 Agent Card 表面」，共享同一对象是满足该要求最直接的方式。
+
+| 路径 | 注册方式 | 路由工厂的路径参数 |
+|---|---|---|
+| `/a2a/.well-known/agent-card.json` | 随 JSON-RPC 路由一并进入子应用，由挂载前缀叠加所得 | 取默认值 |
+| `/.well-known/agent-card.json` | 在**根应用**上单独注册 | 显式传标准路径 |
+| `/.well-known/agent.json` | 在**根应用**上单独注册 | 显式传兼容路径 |
+
+**注册位置是根应用，不是子应用。** 子应用的路由会被挂载前缀叠加：在挂到 `/a2a` 的子应用里
+注册 `/.well-known/agent-card.json`，实际暴露出来的是 `/a2a/.well-known/agent-card.json`，
+与既有那条重复，而根路径仍然是 404。
+
+**这一条会静默失效**：叠加后的路径本身合法、返回 200、判据若只断言「卡片可取」也会通过——
+失败的表现是根路径 404，而没有任何东西指向注册位置写错了。
+
+###### 装配形态与宿主义务
+
+runtime 是嵌入宿主的 SDK，**它无法单方面保证根路径端点落在站点根上**——那取决于宿主
+怎么装配本模块产出的应用。两种形态分别处置：
+
+| 形态 | 本模块产出的应用位于 | 根路径两条端点 |
+|---|---|---|
+| 应用即站点根 | 站点根 | **由本模块注册**，落在站点根，满足 `FEAT-001:33` |
+| 应用作为子应用挂载到前缀下 | 前缀下 | 本模块注册的两条被前缀叠加，**不在站点根**。须由宿主在其站点根应用上注册 |
+
+**宿主义务**：采用第二种形态的宿主，必须自行在站点根注册这两条路径，并使其返回与本模块
+同一张卡片。本模块导出卡片对象供其取用，不代宿主决定站点根的路由布局——那是宿主的地盘。
+
+该义务须并入宿主义务清单。**不写明这一条的后果是**：宿主按第二种形态装配后，
+根路径仍是 404，而本模块的判据全绿——两边都认为自己做对了。
+
+##### 2.3.1.2 无尾斜杠路径的承载规格
+
+**在根应用上另注册一条 JSON-RPC 路由，路径取挂载前缀本身，复用同一个请求处理器。**
+复用而非另建：另建会产生两套任务存储与两套等待窗口，同一调用打两条路径会落到互不可见的
+两份状态上。
+
+**不能靠关闭尾斜杠重定向实现。** 实测关闭后无尾斜杠路径直接得 404——挂载点只匹配带斜杠的
+形态，无尾斜杠那条本就没有路由，重定向只是在替它兜底。关掉兜底不等于补上路由，结果比
+重定向更糟：307 至少能被跟随重定向的客户端消费，404 谁也消费不了。
+
+**新路由与挂载点不冲突，注册顺序无关。** 挂载点的路径正则要求前缀之后必须有斜杠
+（`^/a2a/(?P<path>.*)$`），无尾斜杠的路径本就不匹配它——两者匹配的是互斥的路径集合。
+307 正是由此产生：路由表里没有任何一条匹配 `/a2a`，路由器发现加上斜杠能匹配，遂重定向。
+
+**挂载前缀为空时不注册。** 那时本应用被宿主当作子应用挂到别处，无尾斜杠路径是什么由宿主的
+挂载点决定，本模块无从知晓——与 §2.3.1.1 的站点根卡片端点是同一分工（见宿主义务 H-SERVE-8）。
+
+判据两条：
+
+| 判据 | 断言 |
+|---|---|
+| 无尾斜杠直接承载 | `POST /a2a` **不跟随重定向**时即得 200 与业务响应，而非 307 |
+| 两条路径落到同一状态 | 对 `POST /a2a` 与 `POST /a2a/` 各发一次，两次响应的任务表面结构一致 |
+
+**第一条必须显式禁止跟随重定向**——客户端默认跟随时 307 与 200 的最终结果相同，
+判据会在缺陷存在时照样通过。
+
+##### 2.3.1.3 卡片路径的判据规格
+
+三条路径**逐条各一条判据，且必须在断言中写出完整路径**。
+
+**不得只测其中一条然后声称覆盖了发现能力**：三条是三个独立端点，前缀不同即不同端点，
+测了一条不能推出另外两条可达。
+
+**判据的自述与断言必须指向同一条路径。** 二者不一致时判据仍绿，却制造出一条假的覆盖记录：
+按描述核对的审计会判它已覆盖，而被声称的那条路径可能从未注册。本项目实证过一次——
+卡片判据自述根路径、实际请求挂载前缀路径，该缺陷穿过设计核对、三态审计、全量判据、
+对外兼容差分、部署级往返五道检查，最终由人工逐条请求对外端点时才发现。该形态现由
+`openJiuwen/agent-runtime-mvp/tools/assertion_drift_guard.py` 在构建期拦截。
+
+四条判据：
+
+| 判据 | 断言 |
+|---|---|
+| 标准路径可取 | 请求 `/.well-known/agent-card.json` 得 200，响应体是一张卡片 |
+| 兼容路径可取 | 请求 `/.well-known/agent.json` 得 200，响应体是一张卡片 |
+| 挂载前缀路径可取 | 请求 `/a2a/.well-known/agent-card.json` 得 200，响应体是一张卡片 |
+| 三条等价 | 三条响应体**逐字节相等** |
+
+**第四条不可省**：前三条各自通过，只能证明三个端点都返回了卡片，不能证明它们返回的是
+**同一张**。而 `FEAT-001:64` 要求的正是等价。
 
 #### 2.3.2 方法面
 
@@ -680,8 +768,8 @@ sequenceDiagram
 
 | 数据 | 键 | 写入时机 | 读取方 | 过期时间 |
 |---|---|---|---|---|
-| 回调配置 | `a2a:push-config:{任务标识}` | 创建调用内联携带时 | 投递侧 | 统一过期时间 |
-| 回调去重记录 | `a2a:push-notify:{通知标识}` | 回调接收侧判重时 | 同左 | 统一过期时间 |
+| 回调配置 | **由协议库的配置存储持有，本模块不定义键面** | 创建调用内联携带时 | 投递侧 | 随所注入存储的实现 |
+| 回调去重记录 | `a2a:push-notify:{通知标识}` | 回调接收侧判重时 | 同左 | 统一过期时间（判据锁前缀与存活期） |
 
 **与存量的键面关系：本特性两类键为纯新增。** 断言的是**存量零回调相关键**，非"存量键模板共几类"——存量的启动锁、启动状态、心跳序号、请求缓存、会话到任务映射（`openJiuwen/agent-runtime/applications/a2a_service/app.py:223`、同文 `:227`、`openJiuwen/agent-runtime/applications/a2a_service/orchestrator/heartbeat_runtime.py:226`、`openJiuwen/agent-runtime/applications/a2a_service/common/constants.py:12`、`openJiuwen/agent-runtime/applications/a2a_service/orchestrator/state/task_state_manager.py:13`）、Task 快照（`openJiuwen/agent-runtime/applications/a2a_service/common/redis_task_store.py:22`）、限流与缓存旁路键，**无一以 `a2a:push-config:` 或 `a2a:push-notify:` 为前缀**。故本特性两类键不存在需逐字对齐的存量键面。
 
@@ -1092,7 +1180,7 @@ SDK 把租户作为一等概念承载在调用上下文与请求上下文中（`
 
 **相对存量的新增面（三项，均不破坏既有调用）**：创建调用时内联携带回调配置（存量调用方不携带该参数，走原阻塞聚合语义）；回调接收入口（新端点，存量无调用方指向它）；**按标识查询影子任务时拒绝**（见 §4.8「影子任务的对外隔离」）——存量的远程编排不产生影子任务，该标识在存量下不存在，故对存量调用方不可见、不构成行为变化；对本版调用方而言，它是一条新的拒绝规则而非原有能力的收紧。
 
-> 卡片发现端点**不在新增面之列**：根路径的卡片端点与旧版别名在存量均不存在，本版亦不提供，与存量一致地只在挂载前缀下提供一条（总体设计 §5 对外兼容锁第 1 条）。
+> 卡片发现端点的两条根路径**属新增面，但不构成行为变化**：它们在存量均不存在，存量无调用方指向它们，切换前后对存量调用方均为 404 之外的路径——即新增可达端点，不改变任何既有路径的行为。规格见 §2.3.1.1。
 
 **对存量既有行为的修正（两项）**——这一类与上面三类都不同：它改变的是存量**已有**调用方能观察到的行为，因此每一项都须在此单独列明，不得只散落在正文。
 
@@ -1214,23 +1302,23 @@ SDK 把租户作为一等概念承载在调用上下文与请求上下文中（`
 | 契约条目 | 验证物 |
 |---|---|
 | 六条端点可达性与路径 | **部分覆盖**：`openJiuwen/agent-runtime-mvp/agent_runtime/tests/test_a2a_northbound_wire_contract.py::test_agent_card_endpoint_serves_card`、`openJiuwen/agent-runtime-mvp/agent_runtime/tests/test_a2a_app.py::test_agent_card_served` 只验前缀下的卡片端点。缺根路径两条与回调入口的可达断言 |
-| 无尾斜杠路径直接承载 | **待建**——须断言不跟随重定向时即得 200，而非 307 |
-| 协议版本请求头门槛 | **待建**——须分别断言已路由方法得 -32009、未知方法得 -32601 |
+| 无尾斜杠路径直接承载 | **已具名**：`openJiuwen/agent-runtime-mvp/agent_runtime/tests/test_a2a_northbound_wire_contract.py::test_no_trailing_slash_path_serves_directly`（禁跟随重定向后断言 200）、`::test_both_rpc_paths_reach_same_handler`（两条路径落到同一处理器） |
+| 协议版本请求头门槛 | **已具名**：`openJiuwen/agent-runtime-mvp/agent_runtime/tests/test_a2a_wire_facts.py::test_missing_version_header_yields_32009_on_routed_method`、`::test_missing_version_header_still_yields_32601_on_unknown_method`、`::test_version_header_present_passes_the_gate` |
 | 六类错误码 | **部分覆盖**：`openJiuwen/agent-runtime-mvp/agent_runtime/tests/test_a2a_northbound_wire_contract.py::test_malformed_json_yields_parse_error_32700`、同文件的 `test_unknown_method_yields_method_not_found_32601` 覆盖两码。缺其余四码 |
 | 解析类错误的消息文本 | **部分覆盖**：`openJiuwen/agent-runtime-mvp/agent_runtime/tests/test_a2a_northbound_wire_contract.py::test_malformed_json_yields_parse_error_32700` 验了信封结构；缺「只比结构不比文本」的显式约束断言 |
 | 流式帧无事件名行 | **已具名**：`openJiuwen/agent-runtime-mvp/agent_runtime/tests/test_a2a_northbound_wire_contract.py::test_streaming_frames_use_event_jsonrpc_and_carry_jsonrpc_body`——**该用例名与其断言相反**，其内容锁的正是「正常帧无 `event:` 行」，名称为订正前遗留 |
-| 流式错误帧的两种形态 | **待建**——两支须分别设期望值（零事件走普通 JSON 错误、已产出事件走流内错误帧） |
-| 未处理异常的对外文案 | **待建**——须断言对外不含原始异常文本 |
-| A2A 协议错误仍原文透传 | **待建** |
+| 流式错误帧的两种形态 | **已具名**：`openJiuwen/agent-runtime-mvp/agent_runtime/tests/test_a2a_wire_facts.py::test_stream_error_shape_differs_by_throw_timing`——两支分别设期望值，构造时让出事件循环使首帧真正发出 |
+| 未处理异常的对外文案 | **已具名**：`openJiuwen/agent-runtime-mvp/agent_runtime/tests/test_a2a_wire_facts.py::test_unhandled_exception_text_never_reaches_the_wire`（哨兵串不外泄、文案为固定值）、`::test_handler_raised_protocol_error_is_not_wrapped`（协议错误不被兜底包住） |
+| A2A 协议错误仍原文透传 | **已具名**：`openJiuwen/agent-runtime-mvp/agent_runtime/tests/test_a2a_wire_facts.py::test_protocol_error_message_passes_through_verbatim`——断言协议库的定位信息未被改写 |
 | 帧序 | **部分覆盖**：`openJiuwen/agent-runtime-mvp/agent_runtime/tests/test_a2a_executor.py::test_output_emits_artifact_then_completed_status` 验了产物到完成的次序；缺完整四段帧序断言 |
-| 同步与流式的编码差异 | **待建**——两支须分别设期望值 |
+| 同步与流式的编码差异 | **已具名**：`openJiuwen/agent-runtime-mvp/agent_runtime/tests/test_a2a_wire_facts.py::test_sync_response_keeps_chinese_literal`（同步出原文）、`::test_streaming_response_escapes_chinese`（流式出转义） |
 | 回调配置五方法的分别码值 | **部分覆盖**：`openJiuwen/agent-runtime-mvp/agent_runtime/tests/test_push_config_wire_dispatch.py::test_set_push_config_is_dispatched_not_method_not_found` 只覆盖设置一项。缺其余四项的码值断言 |
 | 卡片能力位默认值 | **已具名**：`openJiuwen/agent-runtime-mvp/agent_runtime/tests/test_a2a_card.py::test_streaming_and_name_version`、`::test_push_notifications_false_when_not_configured`、`::test_push_notifications_requires_webhook_enabled` |
-| 卡片未设值字段不输出 | **待建** |
-| 内联回调配置转立即返回 | **待建** |
+| 卡片未设值字段不输出 | **已具名**：`openJiuwen/agent-runtime-mvp/agent_runtime/tests/test_a2a_wire_facts.py::test_card_omits_unset_fields`——断言键集恰为四项，四个未设值字段均不出现 |
+| 内联回调配置转立即返回 | **已具名**：`openJiuwen/agent-runtime-mvp/agent_runtime/tests/test_async_accept_mode.py::test_inline_callback_config_returns_without_waiting`（断言时长而非仅状态）、`::test_without_callback_config_stays_blocking`（反面：无配置仍阻塞）、`::test_explicit_immediate_flag_honored_without_callback_config` |
 | 存量继承的四个方法可达 | **部分覆盖**：`openJiuwen/agent-runtime-mvp/agent_runtime/tests/test_a2a_northbound_wire_contract.py::test_three_methods_are_dispatched_not_method_not_found` 覆盖三个方法。缺第四个 |
 | 四个继承方法的完整响应 | **须部署级**（§12.4 已列） |
-| 回调文本结果一次性返回 | **待建** |
+| 回调文本结果一次性返回 | **已具名**：`openJiuwen/agent-runtime-mvp/agent_runtime/tests/test_async_accept_mode.py::test_callback_payload_carries_full_text_result`——断言回调载荷含完整终答正文 |
 | 回调大载荷走标准引用 | **已具名**：`openJiuwen/agent-runtime-mvp/agent_runtime/tests/test_a2a_webhook.py::test_large_payload_uses_payload_ref` |
 | 通知标识随投递携带 | **部分覆盖**：`openJiuwen/agent-runtime-mvp/agent_runtime/tests/test_a2a_webhook.py::test_terminal_state_posts_with_stable_id` 验了标识稳定；缺请求头与请求体两处同时存在且一致的断言 |
 | 回调仅结果性状态触发 | **已具名**：`openJiuwen/agent-runtime-mvp/agent_runtime/tests/test_a2a_webhook.py::test_non_terminal_state_does_not_post`、同文件的 `test_no_config_no_post` |
@@ -1240,12 +1328,13 @@ SDK 把租户作为一等概念承载在调用上下文与请求上下文中（`
 | 回调幂等去重为单条原子命令 | 已具名 `test_push_callback_receiver.py::test_dedupe_uses_atomic_conditional_write`、`::test_duplicate_notification_is_absorbed_without_side_effect` |
 | 重复通知返回成功而非错误 | 已具名 `test_push_callback_receiver.py::test_duplicate_returns_success_not_error`——返回错误会让投递方重试永不收敛 |
 | 回调路由确实挂载 | 已具名 `test_push_callback_receiver.py::test_composition_root_mounts_callback_route_when_cache_injected`——防「有实现、无挂载」 |
-| 回调幂等与冲突三态 | **待建** |
-| 两类键为纯新增前缀 | **待建**——对存量仓源码的前缀检索，属静态断言 |
-| 键一律带过期 | **待建**：`openJiuwen/agent-runtime-mvp/agent_runtime/tests/test_a2a_task_store.py` 现有的三条过期用例锁的是**按状态分治的过期方案**（活跃／终态／等待输入各不同），与统一过期时间相悖，须随任务状态缓存特性的整改一并重立 |
-| 条件写入原子 | **待建** |
+| 回调幂等与冲突三态 | **已具名**：`openJiuwen/agent-runtime-mvp/agent_runtime/tests/test_push_key_surface.py::test_same_id_same_body_is_idempotent_duplicate`（同标识同报文幂等吸收）、`::test_same_id_different_body_is_conflict`（同标识异报文回 409）、`::test_digest_is_key_order_insensitive`（摘要与键序无关，防假冲突） |
+| 两类键为纯新增前缀 | **已具名**：`openJiuwen/agent-runtime-mvp/agent_runtime/tests/test_push_key_surface.py::test_dedupe_prefix_is_owned_by_runtime_namespace`（前缀属 runtime 命名空间）、`::test_dedupe_prefix_absent_from_legacy_source`（存量源码零命中） |
+| 键一律带过期 | **已具名**：`openJiuwen/agent-runtime-mvp/agent_runtime/tests/test_a2a_task_store.py::test_every_state_is_written_with_the_same_expiry`（七种任务状态逐一参数化，经真实存储读回过期时间，断言无例外键且取值相同）、`::test_default_expiry_is_seven_days`；回调判重键另见 `openJiuwen/agent-runtime-mvp/agent_runtime/tests/test_push_key_surface.py::test_every_write_carries_expiry` |
 
-**覆盖现状**：27 条判据中，已具名 4 条、部分覆盖 7 条、待建 15 条、须部署级 1 条。
+| 条件写入原子 | **已具名**：`openJiuwen/agent-runtime-mvp/agent_runtime/tests/test_push_key_surface.py::test_dedupe_uses_conditional_write_not_plain_set`（走条件写入）、`::test_concurrent_same_notification_accepted_once`（并发五次只回灌一次） |
+
+**覆盖现状**：31 条判据中，已具名 22 条、部分覆盖 8 条、须部署级 1 条，**无待建项**。**数字须逐行点算得出，不得沿用旧值**——本节曾长期停留在补齐前的读数。
 
 > **这份映射的用途是止损，不是记分**。它让实现者知道哪条判据可以直接跑、哪条要自己补——**在补齐之前，「已通过测试」不等于「契约已被验证」**。
 
