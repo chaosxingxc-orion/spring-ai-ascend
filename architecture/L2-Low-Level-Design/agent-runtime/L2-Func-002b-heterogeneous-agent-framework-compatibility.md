@@ -1070,15 +1070,15 @@ sequenceDiagram
 | 阻塞路径排空同一流 | 适配器将产出两块 | 阻塞执行 | 得到完整序列 | **已具名**：同文件 `:60` |
 | 取消后停止消费 | 适配器将产出三块 | 取一块后取消 | 其后为空 | **已具名**：同文件 `:70` |
 | 消费方关闭即停流 | 适配器持有底层流 | 消费方关闭生成器 | 底层流被停止 | **已具名**：`openJiuwen/agent-runtime-mvp/agent_runtime/tests/test_agentcore_handler.py:107` |
-| 入口层零框架依赖 | — | 扫描入口层与契约层的导入 | 无框架包 | **待建**：需一条导入白名单断言；判据已可判定（白名单＝契约与领域两个包） |
-| 取消标记不残留 | 同一会话连续两次执行 | 第一次取消后发起第二次 | 第二次正常完整产出 | **待建**：需一条跨执行用例；判据已可判定 |
-| 未知原生类型不静默 | 适配器收到未知类型 | 执行 | 失败或过滤，且有告警 | **待建**：需各适配器分别覆盖，本篇只定规则 |
-| 多实现按优先级选取并告警 | 装两个适配器 | 启动 | 选中高优先级者且有告警 | **待建**：需装配级用例；判据已可判定 |
-| 指定名未命中即启动失败 | 配置一个不存在的名 | 启动 | 启动失败，消息含全部已发现标识 | **待建**：同上 |
-| 适配器不持有存储端口 | — | 审计各适配器的构造参数 | 参数中无存储契约 | **待建**：需一条构造参数断言 |
-| 原生错误码保留 | 框架抛带码异常 | 执行 | 错误块的码位等于原生码 | **待建**：需各适配器分别覆盖 |
+| 入口层零框架依赖 | — | 扫描入口层与契约层的导入 | 无框架包 | **已具名**：`openJiuwen/agent-runtime-mvp/agent_runtime/tests/test_handler_protocol_conformance.py::test_inner_layers_import_no_framework_or_protocol` |
+| 取消标记不残留 | 同一会话连续两次执行 | 第一次取消后发起第二次 | 第二次正常完整产出 | **已具名**：`openJiuwen/agent-runtime-mvp/agent_runtime/tests/test_active_stream_registry.py::test_cancel_marker_does_not_leak_into_the_next_execution` |
+| 未知原生类型不静默 | 适配器收到未知类型 | 执行 | 失败或过滤，且有告警 | **已具名**：`openJiuwen/agent-runtime-mvp/agent_runtime/tests/test_local_adapter_contract.py::test_unknown_frame_is_filtered_with_a_structural_warning` |
+| 多实现按优先级选取并告警 | 装两个适配器 | 启动 | 选中高优先级者且有告警 | **已具名**：`openJiuwen/agent-runtime-mvp/agent_runtime/tests/test_extension_registry.py::test_select_without_name_takes_highest_priority`、`::test_same_priority_order_is_reproducible` |
+| 指定名未命中即启动失败 | 配置一个不存在的名 | 启动 | 启动失败，消息含全部已发现标识 | **已具名**：`openJiuwen/agent-runtime-mvp/agent_runtime/tests/test_extension_registry.py::test_select_by_name_does_not_fall_back_on_miss`、`openJiuwen/agent-runtime-mvp/agent_runtime/tests/test_lifecycle_config_consumers.py::test_named_but_missing_raises_not_falls_back` |
+| 适配器不持有存储端口 | — | 审计各适配器的构造参数 | 参数中无存储契约 | **已具名**：`openJiuwen/agent-runtime-mvp/agent_runtime/tests/test_local_adapter_contract.py::test_adapter_does_not_hold_a_storage_port` |
+| 原生错误码保留 | 框架抛带码异常 | 执行 | 错误块的码位等于原生码 | **已具名**：`openJiuwen/agent-runtime-mvp/agent_runtime/tests/test_framework_exception_translation.py` 全组 |
 
-**统计**：已具名 18 条，待建 7 条。**待建项均已给出通过条件**，不是「以后再说」。
+**统计**：共 25 条，**全部已具名，无待建项**。数字须逐行点算得出，不得沿用旧值。
 
 ### 12.3 不适用的验证形态
 

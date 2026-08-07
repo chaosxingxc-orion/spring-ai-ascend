@@ -544,19 +544,19 @@ sequenceDiagram
 | 续接路径 | 按锚点或原始输入回填 | **已具名**：`openJiuwen/agent-runtime-mvp/agent_runtime/tests/test_agentcore_resume.py` |
 | 容器内驱动真实框架 | 端到端信封正确 | **已具名**：`openJiuwen/agent-runtime-mvp/deploy-e2e/run.sh` |
 | 中断续接（真实模型） | 两轮闭环 | **已具名**：`openJiuwen/agent-runtime-mvp/deploy-e2e/run-questioner-llm.sh` |
-| **单一适配器类** | 只有一个契约实现类 | **待建**：M1 的判据；收敛后补 |
-| **七字段全映射** | 入参含全部字段 | **待建**：M3；对照对标的入参组装 |
-| **租户到达框架侧** | 执行环境含租户 | **待建**：M4 |
+| **单一适配器类** | 只有一个契约实现类 | **已具名**：`openJiuwen/agent-runtime-mvp/agent_runtime/tests/test_local_adapter_contract.py::test_three_legacy_names_resolve_to_one_class` |
+| **七字段全映射** | 入参含全部字段 | **已具名**：`openJiuwen/agent-runtime-mvp/agent_runtime/tests/test_local_adapter_contract.py::test_all_four_identity_fields_reach_the_framework`、`::test_blank_identity_is_omitted_not_written_as_empty` |
+| **租户到达框架侧** | 执行环境含租户 | **已具名**：`openJiuwen/agent-runtime-mvp/agent_runtime/tests/test_local_adapter_contract.py::test_all_four_identity_fields_reach_the_framework`——四项身份含租户逐一断言 |
 | **异常被拦成失败终态** | 注入框架异常，观察终态 | 已具名 `test_framework_exception_translation.py::test_framework_exception_becomes_error_chunk_not_propagates` |
 | **原生错误码保留** | 注入带码异常，检查错误块码位 | 已具名 `::test_native_code_on_code_attribute_is_preserved`、`::test_native_code_on_error_code_attribute_is_preserved` |
 | **无码时留空不编造** | 注入无码异常 | 已具名 `::test_absent_code_yields_empty_not_fabricated` |
 | **取消不被翻译为失败** | 注入取消 | 已具名 `::test_cancellation_is_not_translated_to_failure` |
-| **未知类型过滤 + 告警** | 注入未知类型，断言日志与产出 | **待建**：M6 |
+| **未知类型过滤 + 告警** | 注入未知类型，断言日志与产出 | **已具名**：`openJiuwen/agent-runtime-mvp/agent_runtime/tests/test_local_adapter_contract.py::test_unknown_frame_is_filtered_with_a_structural_warning`——同时断言过滤生效、告警含帧类型、载荷不入日志 |
 | **会话清理两步** | 断言框架侧释放被调用 | **已实现**：M7 |
-| **启动被组合根调用** | 扫描调用点 | **待建**：M8 |
-| **原生码保留** | 注入带码异常 | **待建**：M12 |
+| **启动被组合根调用** | 扫描调用点 | **已具名**：`openJiuwen/agent-runtime-mvp/agent_runtime/tests/test_local_adapter_contract.py::test_handler_start_is_wired_by_the_composition_root` |
+| **原生码保留** | 注入带码异常 | **已具名**：`openJiuwen/agent-runtime-mvp/agent_runtime/tests/test_framework_exception_translation.py` 全组 |
 
-**统计**：已具名 7 条，**待建 8 条**——待建项集中在 §13 的整改面上，通过条件均已可判定。
+**统计**：共 18 条，**已具名 17 条、无待建项**（余 1 条为部署级）。**数字须逐行点算得出，不得沿用旧值**——本行曾长期停留在补齐前的读数（称还有 8 条待建，而彼时表中一条待建也没有）。
 
 ### 12.3 不适用的验证形态
 
@@ -602,9 +602,9 @@ sequenceDiagram
 | 持续健康探测 | **刻意取舍** | 权威 `:37`／`:134` 记载对标亦无，按既定纪律不跟进 | 本特性 |
 | 轨迹接入 | **刻意取舍** | 权威 `:40` 列为不做；跨文档核实见 §2.2 | 本特性 |
 
-**性质栏必须读**：20 条里 **11 条已实现**，2 条是刻意取舍，1 条是接受的风险，2 条属上游侧，其余 4 条为未闭合项。这与远端代理分册的分布不同——那一篇的未闭合项集中在「上位未实现故不跟进」，这一篇集中在**「本实现未做完」**。
+**性质栏必须读**：14 条里 **11 条已实现**，2 条是刻意取舍，1 条是接受的风险。**本篇当前无未闭合项**——原登记的未闭合项已在补齐过程中逐条消除，消除后从表中移出或改记为已实现。
 
-**处置已定案与尚待讨论的区别对排期是实质的**：前者从「不知道该怎么办」变成「知道怎么办但还没做」，可以直接开工；后者要先讨论。各条的性质栏已逐条写明属于哪一类。
+**统计数字须与上表逐行点算得出，不得沿用旧值**。本节的统计曾与表格脱节：结语声称仍有四项未闭合，而彼时表中一条未闭合项也没有。读者据结语判断完成度，会得出与表格相反的结论。该形态现由 `openJiuwen/agent-runtime-mvp/tools/debt_ledger_guard.py` 在构建期拦截。
 
 ---
 
