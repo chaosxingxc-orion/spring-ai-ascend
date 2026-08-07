@@ -1347,26 +1347,26 @@ finally:
 
 | 用例 | 前置条件 | 操作 | 预期结果 | 验证物 |
 |---|---|---|---|---|
-| 鸭子类型接入 | 定义一个不继承任何基类、实现全部方法的类 | 注册到测试分组并装配 | 装配成功，调用返回预期值 | **待建**——基座四件机制均未实现（§13） |
-| 缺方法即拒 | 同上但缺一个方法 | 装配 | 运行时检查拒绝，抛出明确错误 | **待建** |
-| 选取确定性 | 装三个测试适配件，优先级 10／20／30 | 连续十次构造门面并选取 | 十次均选中优先级 10 者 | **待建** |
-| 按名未命中不回退 | 同上，配置指定一个不存在的名称 | 启动 | 启动失败，错误列出三个已发现名称 | **待建** |
-| 发现容错 | 三个适配件，其中一个缺依赖 | 装配另外两个之一 | 装配成功；日志含被跳过者的警告 | **待建** |
-| 激活快速失败 | 同上，配置指定缺依赖的那个 | 启动 | 启动失败，错误含条目名与原始异常 | **待建** |
-| 多实例隔离 | 同进程构造两个门面实例 | 各自发现后读缓存 | 两份缓存互不可见 | **待建** |
-| 初始化顺序与中断 | 三个钩子，第二个抛出 | 跑初始化阶段 | 第三个未执行；装载态为假；快速失败为真时抛出 | **待建** |
-| 降级启动 | 同上，快速失败配为假 | 跑初始化阶段 | 不抛出；装载态为假；就绪读方法返回假 | **待建** |
-| 关停顺序 | 注册两个在途流、三个关停钩子 | 跑关停阶段 | 先标记关停中，再排水，再逐个钩子，最后标记下线 | **待建** |
-| 关停钩子失败隔离 | 三个关停钩子，第二个抛出 | 跑关停阶段 | 第三个仍被执行；关停正常完成 | **待建** |
-| 排水超时 | 注册一条不结束的流，超时设为极短 | 跑关停阶段 | 记录未排完流数为 1；关停继续完成 | **待建** |
-| 排水让出循环 | 注册一条会在短延迟后结束的流 | 跑排水，同时启动另一协程 | 另一协程被调度并完成；排水在流结束后返回真 | **待建** |
-| 就绪三态 | 已装载状态 | 调用标记关停中 | 两个读方法同时返回假 | **待建** |
-| 注销幂等 | 注册一条流并注销 | 再次注销同一句柄 | 空操作，不抛出 | **待建** |
-| 关停幂等 | 已跑过一次关停 | 再次调用关停 | 空操作，不重复执行钩子 | **待建** |
-| 配置字段路径 | 配置中某嵌套字段类型错误 | 启动 | 启动失败，错误消息含该字段的完整路径 | **待建** |
-| 机密遮蔽 | 配置一个机密字段 | 对其字符串化 | 返回固定遮蔽串，不含原值 | **待建** |
-| 解密替换 | 装配一个会给值加前缀的解密替身 | 加载配置 | 消费方拿到带前缀的值 | **待建** |
-| 防腐边界 | — | 静态扫描全仓导入 | 配置库仅出现在配置模块目录；`ports/` 仅导入标准库 | **待建** |
+| 鸭子类型接入 | 定义一个不继承任何基类、实现全部方法的类 | 注册到测试分组并装配 | 装配成功，调用返回预期值 | **已具名**：`openJiuwen/agent-runtime-mvp/agent_runtime/tests/test_handler_protocol_conformance.py::test_duck_typed_implementation_satisfies_the_contract`、`::test_contract_surface_is_read_from_the_protocol_not_hardcoded`（成员面从协议对象读出，不手写，避免契约演进后判据仍验旧契约） |
+| 缺方法即拒 | 同上但缺一个方法 | 装配 | 运行时检查拒绝，抛出明确错误 | **已具名**：`openJiuwen/agent-runtime-mvp/agent_runtime/tests/test_handler_protocol_conformance.py::test_missing_method_does_not_satisfy_the_contract` |
+| 选取确定性 | 装三个测试适配件，优先级 10／20／30 | 连续十次构造门面并选取 | 十次均选中优先级 10 者 | **已具名**：`openJiuwen/agent-runtime-mvp/agent_runtime/tests/test_extension_registry.py::test_same_priority_order_is_reproducible`、`::test_select_without_name_takes_highest_priority` |
+| 按名未命中不回退 | 同上，配置指定一个不存在的名称 | 启动 | 启动失败，错误列出三个已发现名称 | **已具名**：`openJiuwen/agent-runtime-mvp/agent_runtime/tests/test_extension_registry.py::test_select_by_name_does_not_fall_back_on_miss`、`openJiuwen/agent-runtime-mvp/agent_runtime/tests/test_lifecycle_config_consumers.py::test_named_but_missing_raises_not_falls_back` |
+| 发现容错 | 三个适配件，其中一个缺依赖 | 装配另外两个之一 | 装配成功；日志含被跳过者的警告 | **已具名**：`openJiuwen/agent-runtime-mvp/agent_runtime/tests/test_extension_registry.py::test_unparsable_priority_falls_back_instead_of_dropping_entry`、`::test_entry_without_name_is_skipped_others_survive` |
+| 激活快速失败 | 同上，配置指定缺依赖的那个 | 启动 | 启动失败，错误含条目名与原始异常 | **已具名**：`openJiuwen/agent-runtime-mvp/agent_runtime/tests/test_extension_registry.py::test_load_failure_raises_instead_of_returning_none`、`openJiuwen/agent-runtime-mvp/agent_runtime/tests/test_lifecycle_config_consumers.py::test_error_message_lists_what_was_discovered` |
+| 多实例隔离 | 同进程构造两个门面实例 | 各自发现后读缓存 | 两份缓存互不可见 | **已具名**：`openJiuwen/agent-runtime-mvp/agent_runtime/tests/test_extension_registry.py::test_discovery_result_is_cached`——缓存由实例持有 |
+| 初始化顺序与中断 | 三个钩子，第二个抛出 | 跑初始化阶段 | 第三个未执行；装载态为假；快速失败为真时抛出 | **已具名**：`openJiuwen/agent-runtime-mvp/agent_runtime/tests/test_lifecycle_config_consumers.py::test_hooks_run_serially_in_order`、`::test_fail_fast_true_aborts_startup` |
+| 降级启动 | 同上，快速失败配为假 | 跑初始化阶段 | 不抛出；装载态为假；就绪读方法返回假 | **已具名**：`openJiuwen/agent-runtime-mvp/agent_runtime/tests/test_lifecycle_config_consumers.py::test_fail_fast_false_degrades_and_continues`、`::test_degraded_startup_leaves_a_log_record`、`::test_fail_fast_default_is_abort` |
+| 关停顺序 | 注册两个在途流、三个关停钩子 | 跑关停阶段 | 先标记关停中，再排水，再逐个钩子，最后标记下线 | **已具名**：`openJiuwen/agent-runtime-mvp/agent_runtime/tests/test_lifecycle_shutdown.py::test_shutdown_runs_five_steps_in_order`——五步逐一留痕比对，含排空的位置 |
+| 关停钩子失败隔离 | 三个关停钩子，第二个抛出 | 跑关停阶段 | 第三个仍被执行；关停正常完成 | **已具名**：`openJiuwen/agent-runtime-mvp/agent_runtime/tests/test_lifecycle_shutdown.py::test_shutdown_hook_failure_does_not_block_the_rest` |
+| 排水超时 | 注册一条不结束的流，超时设为极短 | 跑关停阶段 | 记录未排完流数为 1；关停继续完成 | **已具名**：`openJiuwen/agent-runtime-mvp/agent_runtime/tests/test_lifecycle_shutdown.py::test_drain_timeout_cancels_and_reports`——断言取消并如实上报未收束数 |
+| 排水让出循环 | 注册一条会在短延迟后结束的流 | 跑排水，同时启动另一协程 | 另一协程被调度并完成；排水在流结束后返回真 | **已具名**：`openJiuwen/agent-runtime-mvp/agent_runtime/tests/test_lifecycle_shutdown.py::test_drain_waits_for_inflight_then_yields_loop` |
+| 就绪三态 | 已装载状态 | 调用标记关停中 | 两个读方法同时返回假 | **已具名**：`openJiuwen/agent-runtime-mvp/agent_runtime/tests/test_lifecycle_shutdown.py::test_shutting_down_flips_both_readings_at_once`、`::test_initial_state_is_process_up_but_not_loaded`、`::test_shutdown_is_not_reversible` |
+| 注销幂等 | 注册一条流并注销 | 再次注销同一句柄 | 空操作，不抛出 | **已具名**：`openJiuwen/agent-runtime-mvp/agent_runtime/tests/test_active_stream_registry.py::test_unregister_twice_is_a_no_op`、`::test_unregister_unknown_handle_is_a_no_op`、`::test_unregister_only_removes_its_own_handle` |
+| 关停幂等 | 已跑过一次关停 | 再次调用关停 | 空操作，不重复执行钩子 | **已具名**：`openJiuwen/agent-runtime-mvp/agent_runtime/tests/test_lifecycle_shutdown.py::test_repeated_shutdown_does_not_rerun_hooks`、`::test_mark_methods_are_idempotent` |
+| 配置字段路径 | 配置中某嵌套字段类型错误 | 启动 | 启动失败，错误消息含该字段的完整路径 | **已具名**：`openJiuwen/agent-runtime-mvp/agent_runtime/tests/test_config_loader.py::test_invalid_nested_value_reports_full_field_path`、`::test_wrong_shape_reports_path_too`、`::test_missing_required_field_reports_path` |
+| 机密遮蔽 | 配置一个机密字段 | 对其字符串化 | 返回固定遮蔽串，不含原值 | **已具名**：`openJiuwen/agent-runtime-mvp/agent_runtime/tests/test_config_loader.py::test_secret_field_is_wrapped_and_masked` |
+| 解密替换 | 装配一个会给值加前缀的解密替身 | 加载配置 | 消费方拿到带前缀的值 | **已具名**：`openJiuwen/agent-runtime-mvp/agent_runtime/tests/test_config_loader.py::test_secret_dir_keeps_credentials_out_of_config_file`、`::test_env_overrides_secret_dir` |
+| 防腐边界 | — | 静态扫描全仓导入 | 配置库仅出现在配置模块目录；`ports/` 仅导入标准库 | **已具名**：`openJiuwen/agent-runtime-mvp/agent_runtime/tests/test_handler_protocol_conformance.py::test_inner_layers_import_no_framework_or_protocol`——领域层与端口层逐文件扫导入，与构建期依赖方向门禁互为复核 |
 
 ### 12.3 覆盖边界
 
