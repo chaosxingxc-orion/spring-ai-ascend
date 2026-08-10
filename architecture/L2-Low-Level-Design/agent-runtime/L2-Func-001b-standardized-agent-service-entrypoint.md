@@ -69,6 +69,13 @@ runtime 作为**标准 Agent 服务端**被调用的进站入口：以 A2A JSON-
 | 回调安全边界 | 接收方必须是受信任固定端点；**先校验授权再处理**，非法调用在进入状态存储或业务处理前拦截 | `FEAT-001:49`（MUST） |
 | 能力声明真实 | 卡片能力声明必须反映当前承诺，关闭回调时不得声明为可用 | `FEAT-001:52`（MUST） |
 | 错误表面 | 非法请求、未知方法、处理器异常映射为标准错误，尽量保留请求标识 | `FEAT-001:53`（MUST） |
+| 回调文本结果 | 文本类完成结果在回调正文里一次性返回 | `FEAT-001:46`（MUST） |
+| 回调大载荷引用 | 文件类、多模态类或超出回调承载策略的结果改为携引用，由接收方按标准方法回取 | `FEAT-001:47`（MUST） |
+| 卡片由配置生成 | 卡片由运行时配置与服务身份生成；配置未声明的字段有可预期的默认值 | `FEAT-001:50`（MUST） |
+| 回调与流式模式分离 | 回调只送异步完成结果，不承载逐词输出、过程流或事件流帧 | `FEAT-001:48`（MUST） |
+| 卡片技能声明 | 卡片能声明技能项；不配技能时不声明，以免被远程工具安装链误认为可调用工具集合 | `FEAT-001:51`（MUST） |
+| 入站传输形态 | 入站以 HTTP JSON-RPC 与事件流为事实要求 | `FEAT-001:54`（MUST） |
+| 回调传输形态 | runtime 之间的异步完成通知以 HTTP POST 到固定接收端点为事实要求 | `FEAT-001:55`（MUST） |
 
 ### 2.2 显式排除
 
@@ -633,7 +640,21 @@ sequenceDiagram
 本链路**全部为本版自建**（SDK 无接收侧支持，见 §3.1）。步骤顺序**不可调换**：
 
 1. **鉴权** — 未通过即拒绝，**不得进入任务存储或业务处理**（`FEAT-001:123`、`:157`）
-2. **受信来源校验** — 复用与投递侧同一份受信清单
+2. **来源信任不做请求头判定**——由第 1 步的鉴权扩展点承担，
+   **不注入即拒绝全部回调**。
+
+   请求头由调用方自由填写：真实的服务间回调不带来源头（会被整批拒掉），
+   而任意调用方自报一个主机头就能通过——按它判定只是把「谁在调用」
+   换成了「谁声称在调用」。
+
+   对齐上游：其回调接收入口把信任交给宿主的授权体系，不做任何请求头判定；
+   权威 `FEAT-001:174` 也只要求「具备授权校验位置」，未指定校验方式。
+
+   投递侧的受信清单管的是「我方往哪里发」，是出站方向，与此无关。
+   把同一份清单用在两个方向上，是把两件事当成了一件。
+
+   **本条保留不删**：一步校验以「共用清单」的形态成立、又因判定依据不可信而撤销，
+   其过程是约束的一部分。删掉它，后来者会以为接收侧从来只有鉴权一道。
 3. **幂等去重** — 按通知标识判重，重复通知直接返回成功且不产生副作用
 4. **关联本地绑定** — 由通知定位到本地父任务
 5. **回灌** — 经编排入口进入，不直连领域层（§3.4 第二条禁令）
@@ -1327,7 +1348,7 @@ SDK 把租户作为一等概念承载在调用上下文与请求上下文中（`
 | 回调接收默认拒绝 | 已具名 `test_push_callback_receiver.py::test_missing_authorizer_denies_all`——未配鉴权扩展点时拒绝全部回调，不默认放行 |
 | 回调幂等去重为单条原子命令 | 已具名 `test_push_callback_receiver.py::test_dedupe_uses_atomic_conditional_write`、`::test_duplicate_notification_is_absorbed_without_side_effect` |
 | 重复通知返回成功而非错误 | 已具名 `test_push_callback_receiver.py::test_duplicate_returns_success_not_error`——返回错误会让投递方重试永不收敛 |
-| 回调路由确实挂载 | 已具名 `test_push_callback_receiver.py::test_composition_root_mounts_callback_route_when_cache_injected`——防「有实现、无挂载」 |
+| 回调能力经组合根接通 | 已具名 `test_push_callback_receiver.py::test_composition_root_mounts_callback_route_when_cache_injected`——能力五项齐备时经真 ASGI 栈发一次回调，断言 200 受理、回灌到达南向批次执行件、卡片能力位为真；配套 `::test_each_capability_part_is_load_bearing` 逐项验缺一即回 501。**断言路径存在是恒真的**：路由总是注册，能力不成立时回 501，该形态在能力开与关两种状态下都通过 |
 | 回调幂等与冲突三态 | **已具名**：`openJiuwen/agent-runtime-mvp/agent_runtime/tests/test_push_key_surface.py::test_same_id_same_body_is_idempotent_duplicate`（同标识同报文幂等吸收）、`::test_same_id_different_body_is_conflict`（同标识异报文回 409）、`::test_digest_is_key_order_insensitive`（摘要与键序无关，防假冲突） |
 | 两类键为纯新增前缀 | **已具名**：`openJiuwen/agent-runtime-mvp/agent_runtime/tests/test_push_key_surface.py::test_dedupe_prefix_is_owned_by_runtime_namespace`（前缀属 runtime 命名空间）、`::test_dedupe_prefix_absent_from_legacy_source`（存量源码零命中） |
 | 键一律带过期 | **已具名**：`openJiuwen/agent-runtime-mvp/agent_runtime/tests/test_a2a_task_store.py::test_every_state_is_written_with_the_same_expiry`（七种任务状态逐一参数化，经真实存储读回过期时间，断言无例外键且取值相同）、`::test_default_expiry_is_seven_days`；回调判重键另见 `openJiuwen/agent-runtime-mvp/agent_runtime/tests/test_push_key_surface.py::test_every_write_carries_expiry` |
