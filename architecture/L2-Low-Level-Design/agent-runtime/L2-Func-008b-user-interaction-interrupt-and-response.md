@@ -85,21 +85,21 @@ runtime 不理解框架的 checkpoint 结构与续跑点语义，故锚点在 ru
 
 逐条对准上位规格 §2 能力表。「事实要求」是外部可观察行为。
 
-| 能力 | 级别 | 事实要求 | 状态 |
-|---|---|---|---|
-| 本地交互式中断处理 | MUST | handler 产出中断结果后，同一 Task 的 `GetTask` 返回 `INPUT_REQUIRED`，且状态消息中含 Agent 给出的提示文本 | 已实现 |
-| 远端交互式中断投影 | MUST | 远端 Task 进入 `INPUT_REQUIRED` 时，**本地** Task 的 `GetTask` 同样返回 `INPUT_REQUIRED`；客户端不接触远端 Task 标识 | 部分实现（见 §13） |
-| 标准服务入口复用 | MUST | 续接使用 `SendMessage`，请求格式与首轮完全一致——不新增字段、不新增 method、不收紧校验 | 已实现 |
-| 同 Task 续接 | MUST | Task 处于 `INPUT_REQUIRED` 时，同一 Task 的合法消息使 Task 离开 `INPUT_REQUIRED` 并恢复执行；runtime 不因内容「不像回答」而拒绝 | 已实现 |
-| 非同 Task 隔离 | MUST | 不关联该 Task 的消息不影响其状态；旧 Task 仍停在 `INPUT_REQUIRED` | 已实现 |
-| 业务语义归属智能体 | MUST | 续接内容是否满足期待由 Agent 判断；Agent 可继续、可再次中断、可失败 | 已实现 |
-| 单等待点推进 | MUST | 同一次 `INPUT_REQUIRED` 只被一条合法续接推进一次；后续消息按到达时的 Task 状态处理 | 已实现 |
-| 多轮交互 | MUST | 同一 Task 顺序支持多轮 `WORKING → INPUT_REQUIRED → WORKING` | 已实现 |
-| 长时挂起 | MUST | `INPUT_REQUIRED` 是非终态；本特性不设交互等待超时、不定义自动过期失败 | 已实现 |
-| 等待期间查询与订阅 | MUST | 挂起期间 `GetTask` 可观察当前状态与后续变化 | 已实现 |
-| 当前实例内恢复 | MUST | 当前实例拥有 Task 与恢复上下文期间，合法续接恢复到正确执行链路 | 已实现 |
-| 明确运行时失败 | MUST | 五类运行时事实映射为可程序化区分的错误（§8） | 部分实现（见 §13） |
-| 可观测与审计 | SHOULD | 记录中断建立、状态变化、续接、恢复、再次中断、取消与失败（§9.1） | 部分实现（见 §13） |
+| 能力 | 级别 | 事实要求 | 状态  权威出处 |
+|---|---|---|------|
+| 本地交互式中断处理 | MUST | handler 产出中断结果后，同一 Task 的 `GetTask` 返回 `INPUT_REQUIRED`，且状态消息中含 Agent 给出的提示文本 | 已实现  `FEAT-008:34`（MUST） |
+| 远端交互式中断投影 | MUST | 远端 Task 进入 `INPUT_REQUIRED` 时，**本地** Task 的 `GetTask` 同样返回 `INPUT_REQUIRED`；客户端不接触远端 Task 标识 | 部分实现（见 §13）  `FEAT-008:35`（MUST） |
+| 标准服务入口复用 | MUST | 续接使用 `SendMessage`，请求格式与首轮完全一致——不新增字段、不新增 method、不收紧校验 | 已实现  `FEAT-008:36`（MUST） |
+| 同 Task 续接 | MUST | Task 处于 `INPUT_REQUIRED` 时，同一 Task 的合法消息使 Task 离开 `INPUT_REQUIRED` 并恢复执行；runtime 不因内容「不像回答」而拒绝 | 已实现  `FEAT-008:37`（MUST） |
+| 非同 Task 隔离 | MUST | 不关联该 Task 的消息不影响其状态；旧 Task 仍停在 `INPUT_REQUIRED` | 已实现  `FEAT-008:38`（MUST） |
+| 业务语义归属智能体 | MUST | 续接内容是否满足期待由 Agent 判断；Agent 可继续、可再次中断、可失败 | 已实现  `FEAT-008:39`（MUST） |
+| 单等待点推进 | MUST | 同一次 `INPUT_REQUIRED` 只被一条合法续接推进一次；后续消息按到达时的 Task 状态处理 | 已实现  `FEAT-008:40`（MUST） |
+| 多轮交互 | MUST | 同一 Task 顺序支持多轮 `WORKING → INPUT_REQUIRED → WORKING` | 已实现  `FEAT-008:41`（MUST） |
+| 长时挂起 | MUST | `INPUT_REQUIRED` 是非终态；本特性不设交互等待超时、不定义自动过期失败 | 已实现  `FEAT-008:42`（MUST） |
+| 等待期间查询与订阅 | MUST | 挂起期间 `GetTask` 可观察当前状态与后续变化 | 已实现  `FEAT-008:43`（MUST） |
+| 当前实例内恢复 | MUST | 当前实例拥有 Task 与恢复上下文期间，合法续接恢复到正确执行链路 | 已实现  `FEAT-008:44`（MUST） |
+| 明确运行时失败 | MUST | 五类运行时事实映射为可程序化区分的错误（§8） | 部分实现（见 §13）  `FEAT-008:45`（MUST） |
+| 可观测与审计 | SHOULD | 记录中断建立、状态变化、续接、恢复、再次中断、取消与失败（§9.1） | 部分实现（见 §13）  `FEAT-008:46`（SHOULD） |
 
 ### 2.2 显式排除
 
